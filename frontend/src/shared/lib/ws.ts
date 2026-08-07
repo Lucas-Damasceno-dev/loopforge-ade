@@ -50,20 +50,46 @@ function num(v: unknown): number | undefined {
   return typeof v === 'number' ? v : undefined
 }
 
+// Mapa de nomes reais do grafo LangGraph → NodeType do kanban (UX3).
+// Nós reais (validados em agentes/LoopForge/src/lf/pipeline/graph.py): cpo,
+// pm, tech_lead, test_writer, developer, qa, appsec, devops, parallel_audit.
+// developer → dev; appsec/devops → parallel_audit (colapsados no card Parallel
+// Audit). Membros da union (entry/dev/retry/...) mapeiam 1:1. Nome fora do
+// mapa → null (envelope desconhecido — nunca propaga string fora da union).
+const NODE_MAP: Record<string, NodeType> = {
+  entry: 'entry',
+  cpo: 'cpo',
+  pm: 'pm',
+  tech_lead: 'tech_lead',
+  test_writer: 'test_writer',
+  developer: 'dev',
+  dev: 'dev',
+  qa: 'qa',
+  retry: 'retry',
+  appsec: 'parallel_audit',
+  devops: 'parallel_audit',
+  parallel_audit: 'parallel_audit',
+}
+
 // Valida `event` conhecido e reconstrói o envelope normalizado. Retorna null
-// para eventos desconhecidos ou payloads inválidos.
+// para eventos desconhecidos, nós de nome desconhecido ou payloads inválidos.
 export function normalizeWsEvent(raw: unknown): WsEvent | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
   if (typeof r.event !== 'string' || !KNOWN.has(r.event)) return null
 
   if (r.event === 'node_execution') {
+    // Só aceita nomes de nó conhecidos (mapa acima); nome desconhecido →
+    // envelope desconhecido (null). Sem cast inseguro para NodeType.
+    if (typeof r.node !== 'string') return null
+    const node = NODE_MAP[r.node]
+    if (!node) return null
     return {
       event: 'node_execution',
       task_id: str(r.task_id),
       timestamp: num(r.timestamp),
       payload: {
-        node: r.node as NodeType,
+        node,
         status: 'completed',
         next_agent: str(r.next_agent),
         attempt_count: num(r.attempt_count),

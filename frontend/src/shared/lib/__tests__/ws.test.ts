@@ -27,6 +27,24 @@ describe('normalizeWsEvent', () => {
   it('returns null for unknown events', () => {
     expect(normalizeWsEvent({ event: 'mystery' })).toBeNull()
   })
+  it('maps real graph node developer to dev', () => {
+    const raw = { event: 'node_execution', task_id: 't', node: 'developer', status: 'completed' }
+    expect(normalizeWsEvent(raw)).toMatchObject({ event: 'node_execution', payload: { node: 'dev' } })
+  })
+  it('collapses appsec and devops into parallel_audit', () => {
+    expect(normalizeWsEvent({ event: 'node_execution', node: 'appsec', status: 'completed' })).toMatchObject({ payload: { node: 'parallel_audit' } })
+    expect(normalizeWsEvent({ event: 'node_execution', node: 'devops', status: 'completed' })).toMatchObject({ payload: { node: 'parallel_audit' } })
+  })
+  it('maps 1:1 remaining graph nodes (cpo/pm/tech_lead/test_writer/qa)', () => {
+    for (const name of ['cpo', 'pm', 'tech_lead', 'test_writer', 'qa']) {
+      expect(normalizeWsEvent({ event: 'node_execution', node: name, status: 'completed' })).toMatchObject({ payload: { node: name } })
+    }
+  })
+  it('returns null for unknown node names', () => {
+    expect(normalizeWsEvent({ event: 'node_execution', node: 'mystery_node', status: 'completed' })).toBeNull()
+    expect(normalizeWsEvent({ event: 'node_execution', node: 42, status: 'completed' })).toBeNull()
+    expect(normalizeWsEvent({ event: 'node_execution', status: 'completed' })).toBeNull()
+  })
 })
 
 describe('createWsClient', () => {
