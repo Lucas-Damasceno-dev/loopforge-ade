@@ -27,6 +27,31 @@ describe('runsStore', () => {
     expect(useRunsStore.getState().queue).toEqual(['r2'])
     expect(useRunsStore.getState().activeRunId).toBe('r1')
   })
+  it('pipeline_finished updates run status to completed', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'pending' })
+    dispatchWsEvent({ event: 'pipeline_finished', run_id: 'r1', status: 'completed', duration_seconds: 12 } as never)
+    expect(useRunsStore.getState().runs.find(r => r.id === 'r1')?.status).toBe('completed')
+  })
+  it('pipeline_finished with status failed maps run to failed', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
+    dispatchWsEvent({ event: 'pipeline_finished', run_id: 'r1', status: 'failed' } as never)
+    expect(useRunsStore.getState().runs.find(r => r.id === 'r1')?.status).toBe('failed')
+  })
+  it('pipeline_failed updates run status to failed', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
+    dispatchWsEvent({ event: 'pipeline_failed', run_id: 'r1' } as never)
+    expect(useRunsStore.getState().runs.find(r => r.id === 'r1')?.status).toBe('failed')
+  })
+  it('pipeline_error updates run status to failed', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
+    dispatchWsEvent({ event: 'pipeline_error', run_id: 'r1', error: 'boom' } as never)
+    expect(useRunsStore.getState().runs.find(r => r.id === 'r1')?.status).toBe('failed')
+  })
+  it('pipeline terminal events without run_id (dispatcher variant) skip store update', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
+    dispatchWsEvent({ event: 'pipeline_finished', task_id: 't1', status: 'completed' } as never)
+    expect(useRunsStore.getState().runs.find(r => r.id === 'r1')?.status).toBe('running')
+  })
 })
 
 describe('canvasStore', () => {

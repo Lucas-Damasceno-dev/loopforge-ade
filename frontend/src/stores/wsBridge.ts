@@ -92,15 +92,31 @@ export function handleWsEvent(e: WsEvent): void {
       log('info', `decision: ${action} on ${gate_node}`)
       break
     }
-    case 'pipeline_finished':
-      log('info', 'pipeline finished')
+    case 'pipeline_finished': {
+      // App real (app.py _execute_pipeline_in_background) envia
+      // {run_id, status: 'completed'|'failed', duration_seconds} — única fonte
+      // WS da run chegar a completed/failed. Variante do dispatcher (task_id,
+      // sem run_id) → só log, sem update na store.
+      const id = str(e.run_id)
+      if (id) {
+        const status = toRunStatus(str(e.status)) === 'failed' ? 'failed' : 'completed'
+        useRunsStore.getState().updateStatus(id, status)
+      }
+      log('info', 'pipeline finished', undefined, id)
       break
-    case 'pipeline_failed':
-      log('error', 'pipeline failed')
+    }
+    case 'pipeline_failed': {
+      const id = str(e.run_id)
+      if (id) useRunsStore.getState().updateStatus(id, 'failed')
+      log('error', 'pipeline failed', undefined, id)
       break
-    case 'pipeline_error':
-      log('error', 'pipeline error')
+    }
+    case 'pipeline_error': {
+      const id = str(e.run_id)
+      if (id) useRunsStore.getState().updateStatus(id, 'failed')
+      log('error', 'pipeline error', undefined, id)
       break
+    }
     case 'pipeline_resumed':
       log('info', 'pipeline resumed')
       break
