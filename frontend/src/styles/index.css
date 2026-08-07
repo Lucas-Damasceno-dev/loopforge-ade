@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Tema dark-first único (E15/UX18). Tokens base (paleta zinc/neutral +
+   acento por tipo de nó) serão definidos na Task 2. */
+:root {
+  color-scheme: dark;
+}

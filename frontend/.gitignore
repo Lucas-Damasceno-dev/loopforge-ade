@@ -1,0 +1,11 @@
+# Dependências e build
+node_modules/
+dist/
+
+# Testes
+test-results/
+playwright-report/
+
+# Logs e misc
+*.log
+.DS_Store
