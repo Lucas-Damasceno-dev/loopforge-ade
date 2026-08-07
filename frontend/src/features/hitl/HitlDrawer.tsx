@@ -11,7 +11,9 @@ import { decideRun, getDecisions } from '../../shared/lib/api'
 import type { DecisionRecord } from '../../shared/lib/types'
 import { NODE_LABELS, PIPELINE_ORDER } from '../dag/dagModel'
 
-type Action = 'approve' | 'retry' | 'abort' | 'adjust_state'
+// Ações reais do backend (HumanDecisionCreate.action): approve, retry,
+// adjust_prompt, abort — task_dispatcher mapeia p/ "c"/"r"/"a"/"x".
+type Action = 'approve' | 'retry' | 'abort' | 'adjust_prompt'
 
 // Drawer HITL (UX8/UX9/UX10): abre automaticamente quando a run ativa tem um
 // nó paused no canvas (não-modal — o nó segue visível). Ações chamam a API
@@ -75,7 +77,7 @@ export function HitlDrawer() {
       await decideRun(run.id, { action, gate_node: gateNode, ...body })
       // Sucesso: o gate sai do paused — o drawer fecha automaticamente.
       const next: NodeStatus =
-        action === 'approve' || action === 'adjust_state' ? 'approved' : action === 'abort' ? 'rejected' : 'pending'
+        action === 'approve' || action === 'adjust_prompt' ? 'approved' : action === 'abort' ? 'rejected' : 'pending'
       setNodeStatus(gateNode, next)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Decision failed')
@@ -85,14 +87,16 @@ export function HitlDrawer() {
   }
 
   const submitAdjust = async () => {
-    let state: Record<string, unknown>
+    // Valida o JSON antes de enviar. GAP V1 documentado: HumanDecisionCreate
+    // não tem campo `state` (Pydantic v2 ignora extras) — o JSON vai no
+    // feedback_message e o backend NÃO aplica o estado editado no pipeline.
     try {
-      state = JSON.parse(jsonState) as Record<string, unknown>
+      JSON.parse(jsonState)
     } catch {
       setError('Invalid JSON')
       return
     }
-    await runAction('adjust_state', { state })
+    await runAction('adjust_prompt', { feedback_category: 'state_adjust', feedback_message: jsonState })
   }
 
   return (
@@ -149,6 +153,10 @@ export function HitlDrawer() {
               onChange={(e) => setJsonState(e.target.value)}
               className="h-28 w-full rounded-md border border-[var(--border)] bg-[var(--bg-elev)] p-2 font-mono text-xs text-[var(--text)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
             />
+            {/* GAP V1: o wire real (HumanDecisionCreate) não aplica estado — só feedback. */}
+            <p className="mt-2 text-xs text-[var(--warn)]">
+              V1 gap: state edits are not applied by the backend yet — the JSON is sent as feedback_message.
+            </p>
             <div className="mt-2 flex justify-end">
               <Button size="sm" variant="primary" disabled={pendingAction !== null} onClick={submitAdjust}>
                 Apply
