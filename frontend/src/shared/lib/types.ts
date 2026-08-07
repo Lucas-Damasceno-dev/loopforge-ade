@@ -42,6 +42,8 @@ export interface Run {
   stack: string
   status: RunStatus
   current_node?: string | null
+  /** Thread de trajectory do backend (quando a run roda em infra real) — checkpoints da T10. */
+  thread_id?: string
   logs?: string | null
   duration_seconds?: number
   created_at?: string
