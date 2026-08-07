@@ -1,0 +1,178 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useCanvasStore } from '../../stores/canvasStore'
+import type { NodeStatus } from '../../stores/canvasStore'
+import { useRunsStore } from '../../stores/runsStore'
+import { useConsoleStore } from '../../stores/consoleStore'
+import { Drawer } from '../../shared/ui/Drawer'
+import { Button } from '../../shared/ui/Button'
+import { Badge } from '../../shared/ui/Badge'
+import { Banner } from '../../shared/ui/Banner'
+import { decideRun, getDecisions } from '../../shared/lib/api'
+import type { DecisionRecord } from '../../shared/lib/types'
+import { NODE_LABELS, PIPELINE_ORDER } from '../dag/dagModel'
+
+type Action = 'approve' | 'retry' | 'abort' | 'adjust_state'
+
+// Drawer HITL (UX8/UX9/UX10): abre automaticamente quando a run ativa tem um
+// nó paused no canvas (não-modal — o nó segue visível). Ações chamam a API
+// real decideRun; erro inline (role=alert); timeout (UX10) detectado pelo warn
+// 'HITL decision expired' que o wsBridge (T5) já loga; histórico auditável via
+// getDecisions. Sem run ativa ou sem nó paused → não renderiza nada.
+export function HitlDrawer() {
+  const nodeStatus = useCanvasStore((s) => s.nodeStatus)
+  const setNodeStatus = useCanvasStore((s) => s.setNodeStatus)
+  const activeRunId = useRunsStore((s) => s.activeRunId)
+  const runs = useRunsStore((s) => s.runs)
+  const entries = useConsoleStore((s) => s.entries)
+
+  const [pendingAction, setPendingAction] = useState<Action | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showAdjust, setShowAdjust] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [jsonState, setJsonState] = useState('{}')
+  const [decisions, setDecisions] = useState<DecisionRecord[]>([])
+  const [dismissed, setDismissed] = useState(false)
+
+  // Gate = primeiro nó paused na ordem do pipeline.
+  const gateNode = useMemo(() => PIPELINE_ORDER.find((n) => nodeStatus[n]?.status === 'paused') ?? null, [nodeStatus])
+  const run = runs.find((r) => r.id === activeRunId) ?? null
+
+  // Reabre o drawer quando o gate muda (nova pausa).
+  useEffect(() => {
+    setDismissed(false)
+  }, [gateNode])
+
+  // Timeout (UX10): human_decision_expired → o wsBridge loga warn com os
+  // segundos na mensagem ('HITL decision expired (300s)') — segundos parseados.
+  const expiredEntry = useMemo(() => entries.find((e) => e.level === 'warn' && /expired/i.test(e.message)), [entries])
+  const timeoutSeconds = expiredEntry ? /(\d+)s/.exec(expiredEntry.message)?.[1] : undefined
+
+  // Histórico de decisões (trilha auditável — dados reais do backend).
+  useEffect(() => {
+    if (!run) return
+    let cancelled = false
+    getDecisions(run.id)
+      .then((ds) => {
+        if (!cancelled) setDecisions(ds)
+      })
+      .catch(() => {
+        if (!cancelled) setDecisions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [run?.id])
+
+  // Regra: sem run ativa ou sem nó paused → não renderiza.
+  if (run === null || gateNode === null || dismissed) return null
+
+  const label = NODE_LABELS[gateNode]
+
+  const runAction = async (action: Action, body?: Record<string, unknown>) => {
+    setPendingAction(action)
+    setError(null)
+    try {
+      await decideRun(run.id, { action, gate_node: gateNode, ...body })
+      // Sucesso: o gate sai do paused — o drawer fecha automaticamente.
+      const next: NodeStatus =
+        action === 'approve' || action === 'adjust_state' ? 'approved' : action === 'abort' ? 'rejected' : 'pending'
+      setNodeStatus(gateNode, next)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Decision failed')
+    } finally {
+      setPendingAction(null)
+    }
+  }
+
+  const submitAdjust = async () => {
+    let state: Record<string, unknown>
+    try {
+      state = JSON.parse(jsonState) as Record<string, unknown>
+    } catch {
+      setError('Invalid JSON')
+      return
+    }
+    await runAction('adjust_state', { state })
+  }
+
+  return (
+    <>
+      {expiredEntry && (
+        <Banner tone="warn">Decision expired ({timeoutSeconds ?? '?'}s) — run paused</Banner>
+      )}
+      <Drawer open={true} title="Human in the loop" onClose={() => setDismissed(true)}>
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>{label}</span>
+          <Badge tone="warn">Waiting for decision</Badge>
+        </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="mb-4 rounded-md border border-[var(--err)]/30 bg-[var(--err)]/15 px-3 py-2 text-sm text-[var(--err)]"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <Button variant="primary" size="sm" disabled={pendingAction !== null} onClick={() => runAction('approve')}>
+            Approve
+          </Button>
+          <Button variant="ghost" size="sm" disabled={pendingAction !== null} onClick={() => runAction('retry')}>
+            Retry
+          </Button>
+          <Button variant="ghost" size="sm" disabled={pendingAction !== null} onClick={() => runAction('abort')}>
+            Abort
+          </Button>
+          <Button variant="subtle" size="sm" disabled={pendingAction !== null} onClick={() => setShowAdjust((v) => !v)}>
+            Adjust State
+          </Button>
+        </div>
+
+        {showAdjust && (
+          <div className="mb-4 rounded-md border border-[var(--border)] bg-[var(--bg)] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Adjust state</span>
+              <Button size="sm" variant="subtle" aria-pressed={showAdvanced} onClick={() => setShowAdvanced((v) => !v)}>
+                Advanced JSON
+              </Button>
+            </div>
+            {showAdvanced && (
+              <p className="mb-2 text-xs text-[var(--text-dim)]">
+                Expected: JSON object of state fields, e.g. {'{ "memory": { "flag": true } }'}.
+              </p>
+            )}
+            <textarea
+              aria-label="State JSON"
+              value={jsonState}
+              onChange={(e) => setJsonState(e.target.value)}
+              className="h-28 w-full rounded-md border border-[var(--border)] bg-[var(--bg-elev)] p-2 font-mono text-xs text-[var(--text)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+            />
+            <div className="mt-2 flex justify-end">
+              <Button size="sm" variant="primary" disabled={pendingAction !== null} onClick={submitAdjust}>
+                Apply
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <section>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Decision history</h3>
+          {decisions.length === 0 ? (
+            <p className="text-sm text-[var(--text-dim)]">No decisions yet</p>
+          ) : (
+            <ul className="space-y-1 text-xs">
+              {decisions.map((d) => (
+                <li key={d.id} className="text-[var(--text-dim)]">
+                  <span className="font-medium text-[var(--text)]">{d.user}</span> · {d.timestamp ?? ''} · {d.action} on{' '}
+                  {d.gate_node}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </Drawer>
+    </>
+  )
+}

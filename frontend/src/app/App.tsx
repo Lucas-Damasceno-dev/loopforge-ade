@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../features/runs/RunsWorkspace'
 import { ConsolePanel } from '../features/console/ConsolePanel'
 import { InspectDrawer } from '../features/dag/InspectDrawer'
+import { HitlDrawer } from '../features/hitl/HitlDrawer'
 import { TimelineBar } from '../features/timeline/TimelineBar'
 import { useWsStore } from '../stores/wsStore'
 
@@ -32,6 +33,8 @@ export function App() {
         <ConsolePanel className="h-60 shrink-0" />
         {/* Drawer de inspeção (portal p/ body) — abre com nó selecionado no canvas. */}
         <InspectDrawer />
+        {/* Drawer HITL (portal p/ body) — complementar: abre com nó paused. */}
+        <HitlDrawer />
       </main>
     </QueryClientProvider>
   )
