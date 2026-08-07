@@ -71,6 +71,14 @@ const NODE_MAP: Record<string, NodeType> = {
   parallel_audit: 'parallel_audit',
 }
 
+// Normaliza um nome de nó arbitrário (ex.: vindo de eventos genéricos
+// pass-through como human_decision_expired) para NodeType. Nome desconhecido
+// ou não-string → null (nunca propaga string fora da union).
+export function normalizeNodeName(name: unknown): NodeType | null {
+  if (typeof name !== 'string') return null
+  return NODE_MAP[name] ?? null
+}
+
 // Valida `event` conhecido e reconstrói o envelope normalizado. Retorna null
 // para eventos desconhecidos, nós de nome desconhecido ou payloads inválidos.
 export function normalizeWsEvent(raw: unknown): WsEvent | null {
@@ -81,8 +89,7 @@ export function normalizeWsEvent(raw: unknown): WsEvent | null {
   if (r.event === 'node_execution') {
     // Só aceita nomes de nó conhecidos (mapa acima); nome desconhecido →
     // envelope desconhecido (null). Sem cast inseguro para NodeType.
-    if (typeof r.node !== 'string') return null
-    const node = NODE_MAP[r.node]
+    const node = normalizeNodeName(r.node)
     if (!node) return null
     return {
       event: 'node_execution',
