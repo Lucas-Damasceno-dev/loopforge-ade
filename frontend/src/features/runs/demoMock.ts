@@ -25,6 +25,12 @@ export function runDemo(): void {
     current_node: 'entry',
   })
 
+  // E3 imediato: se já há run ativa, a demo vai para a fila AGORA — o rótulo
+  // "queued" vale durante toda a execução (~2.7s). Sem ativa: nada muda, a
+  // demo roda e o selectRun acontece no fim (caso sancionado).
+  const afterAdd = useRunsStore.getState()
+  if (afterAdd.activeRunId !== null && afterAdd.activeRunId !== id) afterAdd.enqueue(id)
+
   // Por nó: pipeline_started → node_execution (delay 300ms acumulado).
   PIPELINE_ORDER.forEach((node, i) => {
     const delay = NODE_DELAY_MS * (i + 1)

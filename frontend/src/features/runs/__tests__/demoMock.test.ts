@@ -14,3 +14,23 @@ it('creates demo run and completes pipeline', () => {
   const run = useRunsStore.getState().runs.find(r => r.id === id)
   expect(run?.status).toBe('completed')
 })
+
+it('enqueues demo run immediately when another run is active (E3)', () => {
+  useRunsStore.getState().addRun({ id: 'real-1', idea: 'x', status: 'running' })
+  useRunsStore.getState().selectRun('real-1')
+  runDemo()
+  const demoId = useRunsStore.getState().runs.find(r => r.id.startsWith('demo-'))!.id
+  // Imediatamente após addRun (sem avançar timers): demo na fila, ativa intacta
+  // (rótulo "queued" vale durante toda a execução).
+  expect(useRunsStore.getState().queue).toContain(demoId)
+  expect(useRunsStore.getState().activeRunId).toBe('real-1')
+  // Durante a execução (pipeline não completou): continua na fila.
+  vi.advanceTimersByTime(1_000)
+  expect(useRunsStore.getState().queue).toContain(demoId)
+  expect(useRunsStore.getState().activeRunId).toBe('real-1')
+  // Fim: demo completa e não rouba a run ativa.
+  vi.advanceTimersByTime(30_000)
+  expect(useRunsStore.getState().runs.find(r => r.id === demoId)?.status).toBe('completed')
+  expect(useRunsStore.getState().queue).toContain(demoId)
+  expect(useRunsStore.getState().activeRunId).toBe('real-1')
+})
