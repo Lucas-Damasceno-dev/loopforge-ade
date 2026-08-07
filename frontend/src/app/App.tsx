@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../features/runs/RunsWorkspace'
+import { ConsolePanel } from '../features/console/ConsolePanel'
 import { useWsStore } from '../stores/wsStore'
 
 const queryClient = new QueryClient()
@@ -24,6 +25,7 @@ export function App() {
         <div className="min-h-0 flex-1">
           <RunsWorkspace />
         </div>
+        <ConsolePanel className="h-60 shrink-0" />
       </main>
     </QueryClientProvider>
   )
