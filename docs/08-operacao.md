@@ -11,15 +11,23 @@ cd $ENGINE && uv sync                 # ou: python3.12 -m venv .venv && pip inst
 cd $ADE/frontend && npm install
 
 # Terminal 1 — backend (API + WS + SPA)
-cd $ENGINE && .venv/bin/lf serve --port 8787   # imprime a X-API-Key gerada
+# RECOMENDADO em dev: key fixa via env (senão o serve.py GERA uma key nova a
+# cada boot — serve.py:19-29 — e a SPA volta a tomar 401 após restart).
+export LF_API_API_KEY=dev-local-key
+cd $ENGINE && .venv/bin/lf serve --port 8787
 # O default de `lf serve` é 8000, MAS o proxy do Vite aponta para 8787 por padrão
 # (vite.config.ts: VITE_API_TARGET ?? http://127.0.0.1:8787) — suba na 8787
 # para o dev funcionar sem env, ou alinhe com `VITE_API_TARGET=http://127.0.0.1:8000`.
 
 # Terminal 2 — SPA em dev (hot reload, proxy p/ backend)
-cd $ADE/frontend && npm run dev   # http://127.0.0.1:5173
-# Auth: a key pode ir via env (VITE_API_KEY=<key-impressa>) OU ser digitada na
-# tela 401 da SPA (ApiKeyGate) — fica em localStorage 'lf_api_key'.
+# Key do backend (mesma de LF_API_API_KEY) injetada no bundle — o WS reusa a
+# mesma key como token (fix [M-03], wsStore.ts), então sem ela o WS dá 403 e a
+# UI fica em "Reconnecting…" para sempre.
+cd $ADE/frontend && echo "VITE_API_KEY=dev-local-key" > .env && npm run dev   # http://127.0.0.1:5173
+# Alternativa sem criar .env: VITE_API_KEY=dev-local-key npm run dev
+# Auth: a key pode ir via env (VITE_API_KEY) OU ser digitada na tela 401 da SPA
+# (ApiKeyGate) — fica em localStorage 'lf_api_key'. Sem VITE_API_KEY e com o
+# gate dispensado, as chamadas a /api/v1/* voltam a tomar 401.
 ```
 
 Modo produção local (SPA empacotada): build + sync do dist para o pacote embutido
@@ -115,8 +123,8 @@ mudança quebradora de envelope ⇒ `schema_version` novo.
 
 | Sintoma | Causa provável | Ação |
 |---|---|---|
-| WS fecha com 1008 | token ausente/errado | `VITE_API_KEY` = key impressa no boot |
-| 401 em `/api/v1/*` | M-03 passou a exigir key | enviar `X-API-Key` |
+| WS fecha com 1008 | token ausente/errado | `VITE_API_KEY` = key impressa no boot; o WS reusa a API key como token (wsStore) — sem ela, 403/1008 e "Reconnecting…" eterno |
+| 401 em `/api/v1/*` | M-03 passou a exigir key | enviar `X-API-Key`; em dev use `LF_API_API_KEY` fixa + `VITE_API_KEY` (serve.py gera key nova a cada boot sem env) |
 | `sqlite3.OperationalError: database is locked` | writers demais / WAL não ativo | verificar WAL; 1 run ativa (E3); aumentar `busy_timeout` |
 | SPA branca em `/app` | dist não sincronizado | `npm run build` + `python scripts/sync_dist.py $ADE/frontend/dist`; checar `LF_SPA_DIST` |
 | Run "sumiu" da UI após restart | run CLI antiga (pré-M-07) | esperado: só runs novas têm linha canônica |
