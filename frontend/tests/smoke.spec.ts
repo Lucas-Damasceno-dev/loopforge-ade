@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { dismissApiKeyGate } from './helpers'
 
 // Smoke E2E — QA da SPA da ADE em modo demo (sem backend):
 //  (a) a página carrega e a topbar renderiza (título do app);
@@ -43,11 +44,7 @@ test('app loads, runs demo and renders the DAG with a clean console', async ({ p
   // ApiKeyGate (B2/M-20): sem key salva o overlay "API key required" abre ao
   // entrar. O caminho do demo é dispensar — sem key o app segue funcional.
   // Condicional p/ não quebrar se o ambiente já tiver key (VITE_API_KEY).
-  const continueWithoutBackend = page.getByRole('button', { name: 'Continue without backend' })
-  if (await continueWithoutBackend.isVisible().catch(() => false)) {
-    await continueWithoutBackend.click()
-    await expect(continueWithoutBackend).toBeHidden()
-  }
+  await dismissApiKeyGate(page)
 
   // Sem run ativa o workspace mostra o empty state (demo não auto-start).
   await expect(page.getByText('No active run')).toBeVisible()

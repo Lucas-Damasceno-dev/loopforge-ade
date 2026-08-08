@@ -34,4 +34,33 @@ describe('dagModel', () => {
     expect(ghosted).toHaveLength(5) // índices 3..7 (8 nós, sem retry)
     expect(nodes[2].data.ghosted).toBe(false)
   })
+  it('ghostToStep 0 ghosts every node (inspection at step 0)', () => {
+    const nodes = buildNodes({}, 'kanban', 0)
+    expect(nodes.every(n => n.data.ghosted)).toBe(true)
+  })
+  it('ghostToStep beyond order length ghosts nothing', () => {
+    const nodes = buildNodes({}, 'kanban', 99)
+    expect(nodes.some(n => n.data.ghosted)).toBe(false)
+  })
+  it('retry status with attemptCount 0 does not introduce the retry node', () => {
+    const nodes = buildNodes({ retry: { status: 'approved', attemptCount: 0 } }, 'kanban', null)
+    expect(nodes.map(n => n.id)).not.toContain('retry')
+    expect(nodes).toHaveLength(8)
+  })
+  it('buildEdges returns [] for empty node set', () => {
+    expect(buildEdges([])).toEqual([])
+  })
+  it('kanban retry node produces no retry->developer loop edge', () => {
+    // No kanban retry fica na coluna linear (posição não-{1050,320}) → sem loop.
+    const nodes = buildNodes({ developer: { status: 'approved', attemptCount: 2 } }, 'kanban', null)
+    const edges = buildEdges(nodes)
+    expect(edges.some(e => e.source === 'retry' && e.target === 'developer')).toBe(false)
+  })
+  it('kanban alternates y between rows (i % 2)', () => {
+    const nodes = buildNodes({}, 'kanban', null)
+    const ys = nodes.map(n => n.position.y)
+    expect(ys[0]).toBe(ys[2]) // mesma linha para índices pares
+    expect(ys[1]).toBe(ys[3]) // linha seguinte para índices ímpares
+    expect(ys[0]).not.toBe(ys[1])
+  })
 })

@@ -102,6 +102,46 @@ describe('normalizeWsEvent', () => {
       payload: { parent_run_id: 'r1', fork_run_id: 'f1' },
     })
   })
+  it('returns null for non-object input (null/string/number/array)', () => {
+    expect(normalizeWsEvent(null)).toBeNull()
+    expect(normalizeWsEvent(undefined)).toBeNull()
+    expect(normalizeWsEvent('node_execution')).toBeNull()
+    expect(normalizeWsEvent(42)).toBeNull()
+    expect(normalizeWsEvent(['node_execution'])).toBeNull()
+  })
+  it('returns null when event is missing or not a string', () => {
+    expect(normalizeWsEvent({})).toBeNull()
+    expect(normalizeWsEvent({ event: 42 })).toBeNull()
+    expect(normalizeWsEvent({ event: null })).toBeNull()
+  })
+  it('node_execution with payload as non-object falls back to flat snapshot', () => {
+    // payload inválido (string) → snapshot dos campos top-level (compat legado).
+    const raw = { event: 'node_execution', node: 'developer', status: 'completed', payload: 'oops' }
+    expect(normalizeWsEvent(raw)).toMatchObject({ event: 'node_execution', payload: { node: 'developer' } })
+    // Sem node no snapshot → envelope desconhecido.
+    expect(normalizeWsEvent({ event: 'node_execution', payload: 'oops' })).toBeNull()
+  })
+  it('drops non-numeric seq/timestamp/attempt_count instead of coercing', () => {
+    const raw = { seq: '3', event: 'node_execution', run_id: 'r1', timestamp: '1234', payload: { node: 'qa', attempt_count: '2' } }
+    const ev = normalizeWsEvent(raw)
+    expect(ev?.seq).toBeUndefined()
+    expect(ev?.timestamp).toBeUndefined()
+    expect(ev && 'attempt_count' in ev.payload ? ev.payload.attempt_count : undefined).toBeUndefined()
+    expect(ev).toMatchObject({ event: 'node_execution', payload: { node: 'qa' } })
+  })
+  it('normalizes legacy flat hitl_gate_reached (no payload object)', () => {
+    const raw = { event: 'hitl_gate_reached', run_id: 'r1', gate_node: 'qa', timeout_seconds: 60, on_timeout: 'pause' }
+    expect(normalizeWsEvent(raw)).toMatchObject({
+      event: 'hitl_gate_reached',
+      payload: { gate_node: 'qa', timeout_seconds: 60, on_timeout: 'pause' },
+    })
+  })
+  it('hitl_gate_reached tolerates missing optional fields', () => {
+    expect(normalizeWsEvent({ event: 'hitl_gate_reached', payload: {} })).toMatchObject({
+      event: 'hitl_gate_reached',
+      payload: { gate_node: '' },
+    })
+  })
 })
 
 describe('createWsClient', () => {
@@ -153,5 +193,76 @@ describe('createWsClient', () => {
     const client = createWsClient({ url: 'ws://x', token: 'secret', onEvent: () => {} })
     client.connect()
     expect(FakeWebSocket.instances[0].url).toBe('ws://x?token=secret')
+  })
+
+  it('appends token with & when the url already has a query string', () => {
+    const client = createWsClient({ url: 'ws://x?run_id=1', token: 't', onEvent: () => {} })
+    client.connect()
+    expect(FakeWebSocket.instances[0].url).toBe('ws://x?run_id=1&token=t')
+  })
+
+  it('reports status transitions connecting→open and connecting→closed', () => {
+    const statuses: string[] = []
+    const client = createWsClient({ url: 'ws://x', onEvent: () => {}, onStatus: (s) => statuses.push(s) })
+    client.connect()
+    expect(statuses).toEqual(['connecting'])
+    FakeWebSocket.instances[0].open()
+    expect(statuses).toEqual(['connecting', 'open'])
+    FakeWebSocket.instances[0].close()
+    // Fechou sem disconnect intencional → agendou reconnect (nova 'connecting').
+    expect(statuses[statuses.length - 1]).toBe('closed')
+  })
+
+  it('reports error status via onerror', () => {
+    const statuses: string[] = []
+    const client = createWsClient({ url: 'ws://x', onEvent: () => {}, onStatus: (s) => statuses.push(s) })
+    client.connect()
+    FakeWebSocket.instances[0].onerror?.()
+    expect(statuses).toContain('error')
+    client.disconnect()
+  })
+
+  it('caps reconnect backoff at 10s', () => {
+    vi.useFakeTimers()
+    const client = createWsClient({ url: 'ws://x', onEvent: () => {}, backoffMs: 8000 })
+    client.connect()
+    // Sockets NUNCA abrem → attempt cresce a cada close (backoff exponencial).
+    // 1º close: delay = min(8000 * 2^0, 10000) = 8000.
+    FakeWebSocket.instances[0].close()
+    vi.advanceTimersByTime(7999)
+    expect(FakeWebSocket.instances.length).toBe(1)
+    vi.advanceTimersByTime(1)
+    expect(FakeWebSocket.instances.length).toBe(2)
+    // 2º close: delay = min(8000 * 2^1, 10000) = 10000 (capado).
+    FakeWebSocket.instances[1].close()
+    vi.advanceTimersByTime(9999)
+    expect(FakeWebSocket.instances.length).toBe(2)
+    vi.advanceTimersByTime(1)
+    expect(FakeWebSocket.instances.length).toBe(3)
+    client.disconnect()
+    vi.useRealTimers()
+  })
+
+  it('ignores non-JSON frames without throwing', () => {
+    const onEvent = vi.fn()
+    const client = createWsClient({ url: 'ws://x', onEvent })
+    client.connect()
+    const ws = FakeWebSocket.instances[0]
+    ws.open()
+    ws.emit('not json at all')
+    ws.emit(null)
+    expect(onEvent).not.toHaveBeenCalled()
+    client.disconnect()
+  })
+
+  it('disconnect before any open schedules no reconnect', () => {
+    vi.useFakeTimers()
+    const client = createWsClient({ url: 'ws://x', onEvent: () => {}, backoffMs: 1 })
+    client.connect()
+    client.disconnect()
+    FakeWebSocket.instances[0].close()
+    vi.advanceTimersByTime(30_000)
+    expect(FakeWebSocket.instances.length).toBe(1)
+    vi.useRealTimers()
   })
 })
