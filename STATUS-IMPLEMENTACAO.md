@@ -6,13 +6,13 @@
 ## Como retomar (sessão nova, dias depois)
 
 1. **Repos e branches:**
-   - Engine: `agentes/LoopForge` → branch **`feature/ade-fase-a`** (Fase A COMPLETA; commits via auto-checkpoint 'checkpoint: loopforge/...').
+   - Engine: `agentes/LoopForge` → branch **`feature/ade-fase-a`** (Fase A COMPLETA — gate de cobertura PASS 83.11%; commits via auto-checkpoint 'checkpoint: loopforge/...').
    - Docs/status: `web/loopforge-ade` → branch **`main`** (docs 00–09, 01b, adr/, este arquivo).
-   - SPA: worktree `~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2` → branch **`feature/ade-fase2`** (SPA T1–T11 + design system + envelope v1 B1 — commitado).
+   - SPA: worktree `~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2` → branch **`feature/ade-fase2`** (SPA T1–T11 + design system + envelope v1 B1 + API client 401 + CostBar real B2/B3 — commitado até 403e5ae).
 2. Confira `git status` nos três; leia a seção **Próximo passo**.
 3. Verificação:
-   - Engine: `cd agentes/LoopForge && .venv/bin/python -m pytest -q` (baseline: **270 passed, 1 skipped** pós-n6).
-   - SPA: `cd ~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2 && npm run build && npm run test` (**18 arquivos / 66 testes** pós-B1).
+   - Engine: `cd agentes/LoopForge && .venv/bin/python -m pytest -q` (baseline: **270 passed, 1 skipped**; cobertura **83.11%** ≥75%).
+   - SPA: `cd ~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2 && npm run build && npm run test` (**20 arquivos / 85 testes** pós-B2/B3).
 4. Convenções: commits citam M-id (ex.: `fix(api): resume usa thread_id persistido [M-01]`); docs/comentários em PT, identificadores em EN; sem monorepo (AGENTS.md da raiz).
 5. **Flakiness conhecida dos lanes**: algumas sessões fixer retornam resultado vazio sem aplicar nada (padrão recorrente). Sempre VERIFICAR o estado real no disco (`git log -3`, `git status`, greps) antes de dar uma tarefa como feita ou re-despachar. Sessão fix-3 (ses_020b81ca...) falhou 2x em silêncio — não reutilizar.
 
@@ -21,7 +21,7 @@
 | Fase | Escopo | Estimativa | Estado |
 |---|---|---|---|
 | A | Backend hardening (A1–A9) | 8–11 d | **COMPLETA** (todas as lanes FEITO; suíte 270 passed) |
-| B | SPA reconcile + packaging (B1–B6) | 5–7 d | PARCIAL (design system + B1 envelope v1 FEITO; B2–B6 pendentes) |
+| B | SPA reconcile + packaging (B1–B6) | 5–7 d | PARCIAL (design system + B1 + B2/B3 FEITO; B4–B6 pendentes) |
 | C | Time-travel + HITL real (C1–C5) | 8–10 d | pendente |
 | D | Custos UI + MCP hub (D1–D4) | 4–5 d | pendente |
 
@@ -52,8 +52,8 @@ Onda 3 (2026-08-08):
 |---|---|---|
 | Design system | tokens.css + componentes (des-1: Input/Textarea/Toggle/Modal/ConfirmDialog/Topbar, 18 alterados, motion, scrollbar, z-index) | **FEITO** (commitado na SPA) |
 | B1 (M-19) | SPA envelope v1: `normalizeWsEvent` retrofit (aceita v1 e legado → normaliza p/ v1), ids canônicos (dev→developer, appsec/devops removidos de node_execution, entry virtual, retry condicional attemptCount>0, lessons nunca nó), estados queued/paused (RunTabs badge info/warn, Badge tone info), wsBridge lê tudo de payload; demoMock emite v1; testes +10 (18 arquivos/66 testes); build/lint ok | **FEITO** |
-| B2 (M-20) | NewRunForm stack+routing_mode; telas de 401 | pendente |
-| B3 (M-08, M-10) | CostBar consome GET /runs/{id}/cost; modal de override | pendente |
+| B2 (M-20) | NewRunForm stack+routing_mode; telas de 401 | **FEITO** (commit `403e5ae`; api.ts /api/v1 + X-API-Key + fila de retry 401; ApiKeyGate; types com nomes exatos do schemas.py) |
+| B3 (M-08, M-10) | CostBar consome GET /runs/{id}/cost; modal de override | **FEITO** (useQuery run-cost; cores §3.4; botão Override ≥80%; POST /cost/override; parseMaxUsd) |
 | B4 (M-16) | spa.py resolve_spa_dist + mount /app; token WS no dashboard; banner deprecated | pendente |
 | B5 (M-15) | pacote único sync-dist; lf.ade.static; remover pyproject da ADE; CI drift + smoke instalação | pendente |
 | B6 (E13) | QA build/lint/test + Playwright | pendente |
@@ -61,7 +61,7 @@ Onda 3 (2026-08-08):
 
 ## Aceites da Fase A (checklist)
 
-- [ ] pytest verde com cobertura ≥75% (suíte 270 passed; rodar com `--cov=src/lf --cov-fail-under=75` antes de fechar a fase)
+- [x] pytest verde com cobertura ≥75% — **gate PASS: 83.11%** (270 passed, 1 skipped; 2026-08-08)
 - [x] `test_event_envelope.py`: todo evento WS casa com envelope v1 + persiste no journal (n2a)
 - [x] resume E2E via API funciona (mock_llm) (n1 — test_resume_api_e2e)
 - [x] run `lf run --mock` aparece na lista da API com eventos journados (n6 — test_cli_run_writes_pipeline_runs, teste (c) via ASGITransport)
@@ -74,8 +74,8 @@ Onda 3 (2026-08-08):
 
 ## Próximo passo (atualizar a cada marco)
 
-1. **Fechar a Fase A**: rodar suíte com cobertura (`.venv/bin/python -m pytest --cov=src/lf --cov-fail-under=75 tests/ -q`) e, se verde, considerar commits descritivos por M-id no `feature/ade-fase-a` (opcional — auto-checkpoint já commitou tudo).
-2. **Fase B**: merge SPA `feature/ade-fase2` → `main` da ADE (o worktree da SPA está commitado); depois B2 (NewRunForm stack+routing_mode, telas 401), B3 (CostBar + modal override), B4 (spa.py mount /app + token WS dashboard), B5 (pacote único + CI drift), B6 (QA + Playwright). Ordem sugerida: merge → B4/B5 (backend mount) → B2/B3 (SPA) → B6.
+1. ~~Fechar a Fase A~~ **FEITO** — gate de cobertura PASS (83.11%, 270 passed).
+2. **Fase B em andamento**: B2/B3 FEITO (SPA 20 arquivos/85 testes, commit 403e5ae). Próximo: **B4** (spa.py resolve_spa_dist + mount /app; token WS no dashboard; banner deprecated) e **B5** (pacote único sync-dist; lf.ade.static; remover pyproject da ADE; CI drift + smoke instalação) — no engine, em paralelo; depois **B6** (QA build/lint/test + Playwright) e merge `feature/ade-fase2` → `main` da ADE.
 3. Atualizar este arquivo + commit no `main` da ADE a cada marco.
 4. Fase C (C1–C5) e D (D1–D4) após B fechada.
 
@@ -84,4 +84,4 @@ Onda 3 (2026-08-08):
 - ADE main `7807bcc` — docs completas commitadas (19 arquivos, 2048 linhas)
 - Engine `feature/ade-fase-a` — criado a partir de `main` (5349246), baseline 241 passed
 - Engine (auto-checkpoint, mensagens "checkpoint: loopforge/..."): `f927eb9` (n5/A7), `14e2974` (n1/A1+A9), n2a (events.py + ws_manager), `cac8fb1` (n3/A5+A8), `264fa70` (n4/A6), `a27a618` (ruído), `d833082` (n6/A2: helper + fix NOT NULL + testes), `7d93a59` (n6 refinamento). HEAD: `7d93a59`.
-- SPA worktree `feature/ade-fase2` — design system + B1 commitados (ver `git log` da worktree).
+- SPA worktree `feature/ade-fase2` — `0e8605a` (design system + envelope v1 [M-19]), `403e5ae` (form stack/routing_mode, ApiKeyGate 401, CostBar real + override [M-20][M-08][M-10]).
