@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createWsClient } from '../shared/lib/ws'
 import type { WsEvent } from '../shared/lib/ws'
+import { getApiKey } from '../shared/lib/api'
 import { dispatchWsEvent } from './wsBridge'
 
 // Status da conexão WS (01b §3.11 — topbar persistente). `connected` deriva
@@ -24,7 +25,10 @@ export const useWsStore = create<WsState>((set) => ({
   lastEventAt: null,
   connect: (url, token) => {
     const base = url ?? import.meta.env.VITE_WS_URL ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/streaming`
-    const tk = token ?? (import.meta.env.VITE_WS_TOKEN as string | undefined)
+    // M-03 fix: com auth ativa o backend rejeita WS sem token (403/1008). A key
+    // da API (getApiKey) é o mesmo segredo — reusa como token se VITE_WS_TOKEN
+    // não estiver definido.
+    const tk = token ?? import.meta.env.VITE_WS_TOKEN ?? getApiKey()
     client?.disconnect()
     client = createWsClient({
       url: base,
