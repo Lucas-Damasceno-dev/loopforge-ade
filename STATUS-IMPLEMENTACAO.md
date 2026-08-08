@@ -6,13 +6,13 @@
 ## Como retomar (sessão nova, dias depois)
 
 1. **Repos e branches:**
-   - Engine: `agentes/LoopForge` → branch **`feature/ade-fase-a`** (Fases A+B backend FEITAS — A: gate cobertura 83.11%; B4/B5: spa.py mount /app + pacote único sync-dist + CI drift).
-- Docs/status: `web/loopforge-ade` → branch **`main`** (docs 00–09, 01b, adr/, este arquivo; SPA mergeada em `21c2dda` e `834dea1`).
-- SPA: worktree `~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2` → branch **`feature/ade-fase2`** (igual ao main via merges 21c2dda + 834dea1; commitado até `3d51f8a`).
+   - Engine: `agentes/LoopForge` → branch **`feature/ade-fase-a`** (Fases A–D backend FEITAS — A: gate cobertura 83.11%; B4/B5: spa.py mount /app + pacote único sync-dist + CI drift; D: POST mcp tools + cost nodes + PATCH config validado).
+- Docs/status: `web/loopforge-ade` → branch **`main`** (docs 00–09, 01b, adr/, este arquivo; SPA mergeada em `21c2dda`, `834dea1`, `a0ee0c2`, `2cbc612`).
+- SPA: worktree `~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2` → branch **`feature/ade-fase2`** (igual ao main via merges acima; commitado até `721624d`).
 2. Confira `git status` nos três; leia a seção **Próximo passo**.
 3. Verificação:
-   - Engine: `cd agentes/LoopForge && OPENCODE_MOCK=1 .venv/bin/python -m pytest -q` (Fase C: **296 passed, 1 skipped, 1 xfailed**; cobertura **83.11%** ≥75%). **SEMPRE com `OPENCODE_MOCK=1`** (sem isso, `test_opencode_runner_mock_or_execution` spawna subprocesso real de `opencode` e estoura timeout de 5min).
-   - SPA: `cd ~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2 && npm run build && npm run test` (**23 arquivos / 110 testes**; smoke E2E: `npx playwright test tests/smoke.spec.ts`, chromium já instalado).
+   - Engine: `cd agentes/LoopForge && OPENCODE_MOCK=1 .venv/bin/python -m pytest -q` (Fase D: **302 passed, 1 skipped, 1 xfailed**; cobertura **83.11%** ≥75%). **SEMPRE com `OPENCODE_MOCK=1`** (sem isso, `test_opencode_runner_mock_or_execution` spawna subprocesso real de `opencode` e estoura timeout de 5min).
+   - SPA: `cd ~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2 && npm run build && npm run test` (**28 arquivos / 197 testes**; E2E: `npx playwright test` — 4/4, chromium já instalado).
 4. Convenções: commits citam M-id (ex.: `fix(api): resume usa thread_id persistido [M-01]`); docs/comentários em PT, identificadores em EN; sem monorepo (AGENTS.md da raiz).
 5. **Flakiness conhecida dos lanes**: algumas sessões fixer retornam resultado vazio sem aplicar nada (padrão recorrente). Sempre VERIFICAR o estado real no disco (`git log -3`, `git status`, greps) antes de dar uma tarefa como feita ou re-despachar. Sessão fix-3 (ses_020b81ca...) falhou 2x em silêncio — não reutilizar.
 
@@ -23,7 +23,7 @@
 | A | Backend hardening (A1–A9) | 8–11 d | **COMPLETA** (gate cobertura 83.11%) |
 | B | SPA reconcile + packaging (B1–B6) | 5–7 d | **COMPLETA** (design system, B1–B6, merge `21c2dda`) |
 | C | Time-travel + HITL real (C1–C5) | 8–10 d | **COMPLETA** (engine `340c9a1`, SPA `3d51f8a`, merge `834dea1`) |
-| D | Custos UI + MCP hub (D1–D4) | 4–5 d | **EM EXECUÇÃO** |
+| D | Custos UI + MCP hub (D1–D4) | 4–5 d | **COMPLETA** (engine `7cbfd61`, SPA `721624d`, docs `7709e3e`, merges `a0ee0c2`+`2cbc612`) |
 
 ## Fase A — lanes (todas FEITO — ver histórico)
 
@@ -56,6 +56,17 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 
 - [x] fork REAL de thread por run_id (INSERT…SELECT byte-a-byte) · [x] export enriquecido + import materializa (roundtrip) · [x] adjust_state aplica patch no checkpoint (validator 422 PT) · [x] on_timeout continue/abort/pause + evento `hitl_gate_reached` · [x] timeline por run_id (rotas v1 + legado) · [x] UI SPA: fork/export/import, adjust_state com diff + JSON, banner HITL, timeline — suíte SPA 23/110 · [x] engine 296 passed, 1 skipped, 1 xfailed
 
+## Fase D — lanes (todas FEITO)
+
+| Lane | Tasks | Escopo (plano 06) | Status |
+|---|---|---|---|
+| d1+d3 | D1+D3 (M-08, E9) | Chips de custo por nó no DAG + indicador `~` estimado; Settings UI via PATCH /config | **FEITO** (des-1, commit `0394520`) — `CostResponse.nodes` (aditivo), costForNode real, chips `~$0.12` em AgentNode (query deduplicada queryKey `['run-cost', id]`); SettingsPanel (budget/hitl/providers/toggle servers MCP, PATCH sub-objetos completos p/ não zerar defaults) |
+| d2 | D2 | POST `/mcp/servers/{name}/tools/{tool}` via allowlist; playground funcional | **FEITO** (fix-1 engine `7cbfd61` + des-1 SPA) — rota POST com 404/403/503 PT; `MCPToolCallRequest{arguments}`; playground Run tool habilitado, JSON inválido → erro EN, resultado pretty-printed |
+| d3-extra | PATCH /config valida mcp_servers | TypeAdapter list[AdeMcpServer] → 422 (antes lista crua descartava itens inválidos silenciosamente) | **FEITO** (fix-1, `config.py:43-47`) |
+| d4 | D4 | Endurecimento E2E UC-01..12; docs de operação revisadas | **FEITO** (tes-1 `721624d` + doc-1 `7709e3e`) — 28 arquivos/197 vitest (+71), playwright 4/4 (3 specs stale corrigidos: ApiKeyGate overlay via tests/helpers.ts dismissApiKeyGate); docs 03/05/08/README revisados (comandos reais: `lf serve --port 8787`, `sync_dist.py`, OPENCODE_MOCK; CostResponse real; checklist 05: 8 itens [x], pendentes: CORS restrito teste + rate limiting fora do V1) |
+
+**Aceites da Fase D**: engine **302 passed, 1 skipped, 1 xfailed** · SPA **28/197 vitest + 4/4 playwright + build/lint ✓** · docs de operação espelham o código real.
+
 ## Aceites da Fase A (checklist — 10/10)
 
 - [x] pytest verde com cobertura ≥75% — **gate PASS: 83.11%** (270 passed, 1 skipped; 2026-08-08)
@@ -65,12 +76,12 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 
 1. ~~Fases A e B~~ **FECHADAS** (A: gate 83.11%; B: merge `21c2dda`).
 2. ~~Fase C~~ **FECHADA**: backend (C1 fork, C2 export/import, C3 adjust_state, C4 on_timeout, C5 timeline — engine `340c9a1`, 296/1/1) + SPA (`3d51f8a`, 23/110 testes, smoke ✓) + merge `834dea1`.
-3. **Fase D em execução** — D1 (M-08): chips de custo por agente/etapa na UI; D2: POST `/mcp/servers/{name}/tools/{tool}` allowlist de tools; D3: Settings UI PATCH `/config` (E9); D4: endurecimento E2E. Lanes em paralelo: D1+D3 na worktree SPA (des-1), D2 na engine (fix-1).
-4. Atualizar este arquivo + commit no `main` da ADE a cada marco.
-5. Fase E (se houver no plano 06) após D fechada.
+3. ~~Fase D~~ **FECHADA**: engine `7cbfd61` (302/1/1 — POST mcp tools, cost nodes, PATCH config validado) + SPA `0394520`/`721624d` (28/197 vitest, 4/4 playwright) + docs `7709e3e` + merges `a0ee0c2`/`2cbc612`. **MVP completo: UCs 01–12 cobertos, docs de operação espelham o código real.**
+4. **Pendências conhecidas (não bloqueiam)**: (a) demoMock.ts:23 — cliques repetidos em "Run demo" deixam a 1ª run presa em `running` (clearDemoTimers cancela eventos; sugestão: desabilitar botão com demo ativa); (b) shortId('demo-1') → 'demo-mo-1' (cosmético, slice(-4) incondicional); (c) errorMsg shape check frágil sem chave `detail`; (d) warning lint HitlDrawer.tsx:129 (stale closure, pré-existente); (e) CORS restrito + rate limiting fora do V1 (checklist 05).
+5. Fase E (se houver no plano 06) após D fechada — plano 06 termina na Fase D; próximo grande item é V1.1 (execução paralela E3, token streaming ADR-0007) se priorizado.
 
 ## Histórico de commits
 
-- ADE main: `7807bcc` (docs 19 arquivos), `b21e068` (status Fase A+B2/B3), **`21c2dda`** (merge feature/ade-fase2 — SPA completa B1–B6), `17750c4` (status Fase C backend), **`834dea1`** (merge feature/ade-fase2 — SPA Fase C completa).
-- SPA worktree `feature/ade-fase2`: `0e8605a` (design system + envelope v1 [M-19]), `403e5ae` (B2/B3 [M-20][M-08][M-10]), `047a283` (smoke E2E [E13]), `3d51f8a` (Fase C: fork/export/import, adjust_state, banner HITL, timeline [M-13][M-14][M-12][M-11][M-02]).
-- Engine `feature/ade-fase-a` (auto-checkpoint "checkpoint: loopforge/..."): `f927eb9` (n5/A7), `14e2974` (n1), n2a (events.py), `cac8fb1` (n3), `264fa70` (n4), `a27a618` (ruído), `d833082`/`7d93a59` (n6), B4 (spa.py+test_spa_mount), `ca97075` (B5), `0aaba9a` (.gitignore fix), c1 (C1+C2 fork/export/import — auto-checkpoints), `dc825d7` (C3+C4 + flaky fix test_events_backfill), `8e1ed04` (C5 timeline [M-02]), HEAD `340c9a1`.
+- ADE main: `7807bcc` (docs 19 arquivos), `b21e068` (status Fase A+B2/B3), **`21c2dda`** (merge feature/ade-fase2 — SPA completa B1–B6), `17750c4` (status Fase C backend), **`834dea1`** (merge feature/ade-fase2 — SPA Fase C completa), `b79075a` (status Fase C completa), **`a0ee0c2`** (merge feature/ade-fase2 — Fase D D1–D3), `7709e3e` (docs Fase D [D4]), **`2cbc612`** (merge feature/ade-fase2 — Fase D D4 testes).
+- SPA worktree `feature/ade-fase2`: `0e8605a` (design system + envelope v1 [M-19]), `403e5ae` (B2/B3 [M-20][M-08][M-10]), `047a283` (smoke E2E [E13]), `3d51f8a` (Fase C: fork/export/import, adjust_state, banner HITL, timeline [M-13][M-14][M-12][M-11][M-02]), `0394520` (Fase D: chips custo por nó, playground MCP, Settings [D1][D2][D3]), `721624d` (Fase D D4: E2E UC-01..12 + endurecimento, 197 vitest).
+- Engine `feature/ade-fase-a` (auto-checkpoint "checkpoint: loopforge/..."): `f927eb9` (n5/A7), `14e2974` (n1), n2a (events.py), `cac8fb1` (n3), `264fa70` (n4), `a27a618` (ruído), `d833082`/`7d93a59` (n6), B4 (spa.py+test_spa_mount), `ca97075` (B5), `0aaba9a` (.gitignore fix), c1 (C1+C2 fork/export/import — auto-checkpoints), `dc825d7` (C3+C4 + flaky fix test_events_backfill), `8e1ed04` (C5 timeline [M-02]), `340c9a1` (Fase C backend), `7cbfd61` (Fase D: POST mcp tools + cost nodes + PATCH config [D2][D1][D3]).
