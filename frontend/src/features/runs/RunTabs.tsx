@@ -1,13 +1,24 @@
 import type { KeyboardEvent } from 'react'
-import { Badge } from '../../shared/ui/Badge'
+import { Badge, type BadgeProps } from '../../shared/ui/Badge'
 import type { Run, RunStatus } from '../../shared/lib/types'
 
-// status da run → tone do badge na aba (zinc/azul/verde/vermelho).
-const STATUS_TONE: Record<RunStatus, 'neutral' | 'accent' | 'ok' | 'err'> = {
+// status da run → tone do badge na aba (zinc/azul/verde/vermelho/âmbar).
+// queued/paused (novos, contrato v1): info (--info) e warn (--warn).
+const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
   pending: 'neutral',
+  queued: 'info',
   running: 'accent',
+  paused: 'warn',
   completed: 'ok',
   failed: 'err',
+}
+
+// Rótulo curto da aba: os dois estados novos em PT; demais mantêm o texto
+// cru do status (sem redesenho — compatível com o mapeamento existente).
+function statusLabel(s: RunStatus): string {
+  if (s === 'queued') return 'Na fila'
+  if (s === 'paused') return 'Pausada'
+  return s
 }
 
 function shortId(id: string): string {
@@ -60,13 +71,14 @@ export function RunTabs({ runs, activeRunId, queue, onSelect, onClose }: RunTabs
               onClick={() => onSelect(run.id)}
               className={[
                 'flex items-center gap-2 rounded-t-md border border-b-0 px-3 py-1.5 text-xs font-medium',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
                 active
                   ? 'border-[var(--border)] bg-[var(--bg-elev)] text-[var(--text)]'
                   : 'border-transparent text-[var(--text-dim)] hover:text-[var(--text)]',
               ].join(' ')}
             >
               <span>{shortId(run.id)}</span>
-              <Badge tone={STATUS_TONE[run.status]}>{run.status}</Badge>
+              <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
               {queued ? (
                 <span className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">queued</span>
               ) : null}
@@ -78,7 +90,7 @@ export function RunTabs({ runs, activeRunId, queue, onSelect, onClose }: RunTabs
                 e.stopPropagation()
                 onClose(run.id)
               }}
-              className="rounded px-1 text-[var(--text-dim)] hover:text-[var(--err)]"
+              className="rounded px-1 text-[var(--text-dim)] transition-colors duration-100 hover:text-[var(--err)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               ×
             </button>

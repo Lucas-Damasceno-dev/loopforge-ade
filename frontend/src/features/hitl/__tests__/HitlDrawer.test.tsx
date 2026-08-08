@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HitlDrawer } from '../HitlDrawer'
 import { useCanvasStore } from '../../../stores/canvasStore'
@@ -42,7 +42,7 @@ it('adjust state sends adjust_prompt with feedback and documents V1 gap', async 
   render(<HitlDrawer />)
   await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
   // GAP V1 documentado: o backend NÃO aplica o estado — vai como feedback_message.
-  expect(screen.getByText(/not applied by the backend/i)).toBeInTheDocument()
+  expect(screen.getByText(/not applied yet/i)).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText(/state json/i), { target: { value: '{"memory":{"flag":true}}' } })
   await userEvent.click(screen.getByRole('button', { name: /apply/i }))
   // Wire real: action 'adjust_prompt' (não 'adjust_state') + feedback_message.
@@ -55,10 +55,14 @@ it('adjust state sends adjust_prompt with feedback and documents V1 gap', async 
     }),
   )
 })
-it('abort sends real abort action', async () => {
+it('abort requires destructive confirmation before sending', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
   render(<HitlDrawer />)
   await userEvent.click(screen.getByRole('button', { name: /abort/i }))
+  // Confirmação destrutiva (01b §3.13): a ação só dispara no modal danger.
+  const dialog = screen.getByRole('dialog', { name: 'Abort run?' })
+  expect(dialog).toBeInTheDocument()
+  await userEvent.click(within(dialog).getByRole('button', { name: /^abort$/i }))
   expect(decideRun).toHaveBeenCalledWith('r1', expect.objectContaining({ action: 'abort', gate_node: 'qa' }))
 })

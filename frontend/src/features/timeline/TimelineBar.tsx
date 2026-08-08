@@ -69,7 +69,7 @@ export function TimelineBar({ runId }: { runId?: string }) {
       {/* UX6: banner fixo no topo quando em modo inspeção (acima das abas). */}
       {inspecting && (
         <Banner tone="info">
-          <span className="font-medium">Inspection mode — step {current}/{stepCount}</span>
+          <span className="font-medium">Inspection — step {current}/{stepCount}</span>
           <Button size="sm" variant="ghost" className="ml-2" onClick={() => setGhostToStep(null)}>
             Back to live
           </Button>
@@ -85,7 +85,7 @@ export function TimelineBar({ runId }: { runId?: string }) {
           max={stepCount}
           value={current}
           aria-label="Inspection step"
-          className="min-w-0 flex-1 accent-[var(--accent)]"
+          className="ade-slider min-w-0 flex-1"
           onChange={handleChange}
         />
         <Button size="sm" variant="subtle" disabled title="Available in V2">

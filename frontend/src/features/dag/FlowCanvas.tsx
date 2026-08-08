@@ -43,7 +43,7 @@ export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
       buildEdges(dagNodes).map((e) => ({
         ...e,
         markerEnd: { type: MarkerType.ArrowClosed },
-        animated: e.id === 'retry->dev',
+        animated: e.id === 'retry->developer',
       })),
     )
   }, [mode, nodeStatus, ghostToStep, selectedNodeId, setNodes, setEdges])
@@ -60,14 +60,17 @@ export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
         nodesDraggable={false}
         nodesConnectable={false}
         proOptions={{ hideAttribution: false }}
+        // Arestas: --border 1.5px + seta discreta (01b §6.3); a aresta
+        // retry→dev segue animada (loop vivo).
+        defaultEdgeOptions={{ style: { stroke: 'var(--border)', strokeWidth: 1.5 } }}
         onNodeClick={(_, node) => {
           selectNode(node.id)
           onNodeClick?.(node.id)
         }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
         <Controls />
-        <MiniMap pannable zoomable />
+        <MiniMap pannable zoomable nodeColor="var(--bg-elev-2)" maskColor="rgb(0 0 0 / 0.6)" bgColor="var(--bg)" />
       </ReactFlow>
     </div>
   )

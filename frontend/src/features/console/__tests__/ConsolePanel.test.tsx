@@ -5,7 +5,7 @@ import { useConsoleStore } from '../../../stores/consoleStore'
 it('renders entries and filters by query', () => {
   useConsoleStore.setState({
     entries: [
-      { id: '1', ts: 0, node: 'dev', level: 'info', message: 'hello world' },
+      { id: '1', ts: 0, node: 'developer', level: 'info', message: 'hello world' },
       { id: '2', ts: 0, node: 'qa', level: 'error', message: 'boom' },
     ],
     filters: { node: 'all', level: 'all', query: '' },
@@ -20,8 +20,8 @@ it('renders entries and filters by query', () => {
 
 it('filters by level select', () => {
   useConsoleStore.setState({ entries: [
-    { id: '1', ts: 0, node: 'dev', level: 'info', message: 'info msg' },
-    { id: '2', ts: 0, node: 'dev', level: 'error', message: 'err msg' },
+    { id: '1', ts: 0, node: 'developer', level: 'info', message: 'info msg' },
+    { id: '2', ts: 0, node: 'developer', level: 'error', message: 'err msg' },
   ], filters: { node: 'all', level: 'error', query: '' }, autoScroll: true })
   render(<ConsolePanel />)
   expect(screen.getByText(/err msg/)).toBeInTheDocument()

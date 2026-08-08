@@ -1,30 +1,51 @@
 import type { NodeType } from './types'
 
 // ─── Tipos de evento WS ─────────────────────────────────────────────────────
-// Envelope real: {event, task_id, timestamp, **payload} (dispatcher) ou
-// {event, run_id, ...} (app). Os eventos com payload (pipeline_started,
-// node_execution) chegam com os campos ACHATADOS no topo — o normalize
-// reconstitui o objeto `payload` esperado pelos consumidores.
+// Envelope v1 (EventBus do backend): {seq, event, run_id, timestamp, payload}.
+// `event` é o tipo; `payload` carrega os dados do evento (incl. task_id quando
+// aplicável). Fallback legado (dispatcher): {event, task_id, timestamp,
+// **payload} com os campos do evento ACHATADOS no topo — o normalize
+// reconstitui SEMPRE o shape v1 (payload como objeto, task_id movido para
+// dentro do payload).
 
 export interface WsEventBase {
   event: string
-  task_id?: string
+  /** Sequência por run (v1 — ordenação/recuperação; não consumida na UI). */
+  seq?: number
+  /** id da run (uuid do backend; presente em todos os eventos v1). */
+  run_id?: string
+  /** Epoch ms do backend (v1; nunca `ts`). */
   timestamp?: number
-  [k: string]: unknown
+  payload: Record<string, unknown>
 }
 
 export interface WsEventNodeExecution extends WsEventBase {
   event: 'node_execution'
-  payload: { node: NodeType; status: 'completed'; next_agent?: string; attempt_count?: number }
+  payload: {
+    node: NodeType
+    status: 'completed'
+    next_agent?: string
+    attempt_count?: number
+    task_id?: string
+  }
 }
 
 export interface WsEventPipelineStarted extends WsEventBase {
   event: 'pipeline_started'
-  payload: { idea: string; node: string }
+  payload: { idea: string; node: string; task_id?: string }
 }
 
 export interface WsEventGeneric extends WsEventBase {
-  event: 'run_created' | 'run_updated' | 'pipeline_finished' | 'pipeline_failed' | 'pipeline_error' | 'pipeline_resumed' | 'human_decision_expired' | 'human_decision_submitted'
+  event:
+    | 'run_created'
+    | 'run_updated'
+    | 'run_paused'
+    | 'pipeline_finished'
+    | 'pipeline_failed'
+    | 'pipeline_error'
+    | 'pipeline_resumed'
+    | 'human_decision_expired'
+    | 'human_decision_submitted'
 }
 
 export type WsEvent = WsEventNodeExecution | WsEventPipelineStarted | WsEventGeneric
@@ -40,6 +61,7 @@ const KNOWN = new Set([
   'human_decision_submitted',
   'run_created',
   'run_updated',
+  'run_paused',
 ])
 
 function str(v: unknown): string | undefined {
@@ -51,25 +73,37 @@ function num(v: unknown): number | undefined {
 }
 
 // Mapa de nomes reais do grafo LangGraph → NodeType do kanban (UX3).
-// Nós reais (validados em agentes/LoopForge/src/lf/pipeline/graph.py): cpo,
-// pm, tech_lead, test_writer, developer, qa, appsec, devops, parallel_audit.
-// developer → dev; appsec/devops → parallel_audit (colapsados no card Parallel
-// Audit). Membros da union (entry/dev/retry/...) mapeiam 1:1. Nome fora do
-// mapa → null (envelope desconhecido — nunca propaga string fora da union).
+// Nós de execução (validadas em agentes/LoopForge/src/lf/pipeline/graph.py):
+// cpo, pm, tech_lead, test_writer, developer, qa, parallel_audit. `dev` é
+// alias legado → developer (id canônico). entry/retry mapeiam 1:1 (virtuais
+// de apresentação). appsec/devops NÃO estão no mapa: são sub-cards de
+// parallel_audit sem nó próprio (contrato 03 §7). Nome fora do mapa → null.
 const NODE_MAP: Record<string, NodeType> = {
   entry: 'entry',
   cpo: 'cpo',
   pm: 'pm',
   tech_lead: 'tech_lead',
   test_writer: 'test_writer',
-  developer: 'dev',
-  dev: 'dev',
+  developer: 'developer',
+  dev: 'developer', // alias legado → canônico
   qa: 'qa',
   retry: 'retry',
-  appsec: 'parallel_audit',
-  devops: 'parallel_audit',
   parallel_audit: 'parallel_audit',
 }
+
+// Nós que emitem node_execution (contrato 03 §7). entry/retry são virtuais
+// (sem evento próprio); appsec/devops são sub-cards (sem evento próprio).
+// Inclui o alias legado `dev`.
+const EXECUTION_NODES: ReadonlySet<string> = new Set([
+  'cpo',
+  'pm',
+  'tech_lead',
+  'test_writer',
+  'developer',
+  'dev',
+  'qa',
+  'parallel_audit',
+])
 
 // Normaliza um nome de nó arbitrário (ex.: vindo de eventos genéricos
 // pass-through como human_decision_expired) para NodeType. Nome desconhecido
@@ -79,44 +113,67 @@ export function normalizeNodeName(name: unknown): NodeType | null {
   return NODE_MAP[name] ?? null
 }
 
-// Valida `event` conhecido e reconstrói o envelope normalizado. Retorna null
-// para eventos desconhecidos, nós de nome desconhecido ou payloads inválidos.
+// Valida `event` conhecido e reconstrói o envelope NORMALIZADO (shape v1):
+// {seq, event, run_id, timestamp, payload}. Aceita v1 e o formato legado
+// (campos ACHATADOS no topo) — o resultado é sempre v1. Retorna null para
+// eventos desconhecidos, nós de nome desconhecido ou payloads inválidos.
 export function normalizeWsEvent(raw: unknown): WsEvent | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
   if (typeof r.event !== 'string' || !KNOWN.has(r.event)) return null
 
+  // Envelope v1 tem `payload`; legado não — neste caso snapshot dos campos
+  // top-level como payload (removendo os campos do próprio envelope).
+  const hasPayload = r.payload !== undefined
+  const payload: Record<string, unknown> =
+    hasPayload && typeof r.payload === 'object' && r.payload !== null
+      ? (r.payload as Record<string, unknown>)
+      : { ...r }
+  if (!hasPayload) {
+    delete payload.event
+    delete payload.seq
+    delete payload.run_id
+    delete payload.timestamp
+  }
+
+  // task_id: NO v1 vive dentro do payload; no legado, no topo. Normaliza
+  // sempre para dentro do payload.
+  const taskId = str(hasPayload ? payload.task_id : r.task_id)
+  const { seq, run_id, timestamp } = { seq: num(r.seq), run_id: str(r.run_id), timestamp: num(r.timestamp) }
+
   if (r.event === 'node_execution') {
-    // Só aceita nomes de nó conhecidos (mapa acima); nome desconhecido →
-    // envelope desconhecido (null). Sem cast inseguro para NodeType.
-    const node = normalizeNodeName(r.node)
-    if (!node) return null
-    return {
-      event: 'node_execution',
-      task_id: str(r.task_id),
-      timestamp: num(r.timestamp),
-      payload: {
-        node,
-        status: 'completed',
-        next_agent: str(r.next_agent),
-        attempt_count: num(r.attempt_count),
-      },
+    // Só aceita nós de EXECUÇÃO (entry/retry/appsec/devops não têm evento
+    // próprio — contrato 03 §7). Nome desconhecido → envelope desconhecido
+    // (null). Sem cast inseguro para NodeType.
+    const rawNode = str(payload.node)
+    if (!rawNode) return null
+    const node = normalizeNodeName(rawNode)
+    if (!node || !EXECUTION_NODES.has(rawNode)) return null
+    const p: WsEventNodeExecution['payload'] = {
+      node,
+      status: 'completed',
+      next_agent: str(payload.next_agent),
+      attempt_count: num(payload.attempt_count),
     }
+    if (taskId !== undefined) p.task_id = taskId
+    return { event: 'node_execution', seq, run_id, timestamp, payload: p }
   }
 
   if (r.event === 'pipeline_started') {
-    return {
-      event: 'pipeline_started',
-      task_id: str(r.task_id),
-      timestamp: num(r.timestamp),
-      payload: {
-        idea: str(r.idea) ?? '',
-        node: str(r.node) ?? '',
-      },
+    const p: WsEventPipelineStarted['payload'] = {
+      idea: str(payload.idea) ?? '',
+      node: str(payload.node) ?? '',
     }
+    if (taskId !== undefined) p.task_id = taskId
+    return { event: 'pipeline_started', seq, run_id, timestamp, payload: p }
   }
 
-  return r as unknown as WsEvent
+  // Eventos genéricos: payload = dados do evento (status, idea, current_node,
+  // action, gate_node, timeout_seconds, error, duration_seconds, task_id…).
+  // `event` já foi validado contra KNOWN — cast para a union de genéricos.
+  const genericPayload: Record<string, unknown> = { ...payload }
+  if (taskId !== undefined) genericPayload.task_id = taskId
+  return { event: r.event as WsEventGeneric['event'], seq, run_id, timestamp, payload: genericPayload }
 }
 
 // ─── Client WS com reconnect/backoff ────────────────────────────────────────

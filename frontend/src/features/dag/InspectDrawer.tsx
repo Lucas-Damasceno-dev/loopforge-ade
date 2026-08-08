@@ -4,6 +4,7 @@ import { useConsoleStore } from '../../stores/consoleStore'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Badge } from '../../shared/ui/Badge'
 import { NODE_LABELS } from './dagModel'
+import { nodeAccentTextVar } from './nodeAccent'
 
 // Mapeamentos duplicados do AgentNode (não exportados lá) — mesma semântica
 // de cor/rótulo para status do nó.
@@ -42,14 +43,17 @@ export function InspectDrawer() {
   // Logs do passo: entradas reais do console, escopadas ao nó selecionado.
   const nodeLogs = node ? entries.filter((e) => e.node === node) : []
 
+  // Rótulo do nó na variante -text do acento (§2.2) — nunca o token base.
+  const titleStyle = node ? { color: nodeAccentTextVar(node as keyof typeof nodeAccentTextVar) } : undefined
+
   return (
-    <Drawer open={open} title={label} onClose={() => selectNode(null)}>
+    <Drawer open={open} title={label} onClose={() => selectNode(null)} titleStyle={titleStyle}>
       <div className="mb-4 flex items-center gap-2">
         <Badge tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Badge>
         {entry.attemptCount > 1 && (
           <span
             title={`retry ×${entry.attemptCount}`}
-            className="rounded bg-[var(--err)]/15 px-1 text-xs font-bold text-[var(--err)]"
+            className="rounded bg-[var(--err)]/15 px-1 text-xs font-bold text-[var(--err-text)]"
           >
             ×{entry.attemptCount}
           </span>
@@ -73,7 +77,7 @@ export function InspectDrawer() {
         ) : (
           <ul className="space-y-0.5 font-mono text-xs leading-5">
             {nodeLogs.map((e) => (
-              <li key={e.id} className={e.level === 'error' ? 'text-[var(--err)]' : e.level === 'warn' ? 'text-[var(--warn)]' : 'text-[var(--text-dim)]'}>
+              <li key={e.id} className={e.level === 'error' ? 'text-[var(--err-text)]' : e.level === 'warn' ? 'text-[var(--warn)]' : 'text-[var(--text-dim)]'}>
                 [{e.node}] [{e.level.toUpperCase()}] {e.message}
               </li>
             ))}

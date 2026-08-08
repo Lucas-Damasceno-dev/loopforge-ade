@@ -27,7 +27,7 @@ export function dispatchWsEvent(e: WsEvent): void {
 // mapeamento mora aqui para funcionar tanto com WS real quanto com dispatch
 // sintético (mock da T7).
 
-const RUN_STATUSES: RunStatus[] = ['pending', 'running', 'completed', 'failed']
+const RUN_STATUSES: RunStatus[] = ['pending', 'queued', 'running', 'paused', 'completed', 'failed']
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' ? v : undefined
@@ -51,13 +51,14 @@ function log(level: LogLevel, message: string, node?: ConsoleEntry['node'], runI
   useConsoleStore.getState().addEntry(makeEntry({ level, message, node, runId }))
 }
 
-// Handler central: traduz cada evento WS normalizado em ações das stores.
+// Handler central: traduz cada evento WS NORMALIZADO (shape v1 — payload com
+// os dados, run_id/timestamp no envelope) em ações das stores.
 export function handleWsEvent(e: WsEvent): void {
   switch (e.event) {
     case 'node_execution': {
       const { node, next_agent, attempt_count } = e.payload
       useCanvasStore.getState().setNodeStatus(node, 'approved', attempt_count)
-      log('info', `node completed → ${next_agent ?? ''}`, node)
+      log('info', `node completed → ${next_agent ?? ''}`, node, str(e.run_id))
       break
     }
     case 'pipeline_started':
@@ -67,9 +68,10 @@ export function handleWsEvent(e: WsEvent): void {
     case 'run_updated': {
       const id = str(e.run_id)
       if (!id) break
-      const status = toRunStatus(str(e.status))
-      const idea = str(e.idea)
-      const current_node = str(e.current_node)
+      const p = e.payload
+      const status = toRunStatus(str(p.status))
+      const idea = str(p.idea)
+      const current_node = str(p.current_node)
       // patch só com campos presentes — merge preserva idea/stack da run
       // existente quando o evento (ex.: run_updated) não os traz.
       const patch: Partial<Run> & { id: string } = { id, status }
@@ -79,27 +81,36 @@ export function handleWsEvent(e: WsEvent): void {
       log('info', e.event === 'run_created' ? `run created: ${idea || id}` : `run updated: ${status}`, undefined, id)
       break
     }
+    case 'run_paused': {
+      // Backend emite run_paused (payload {status}) quando a run pausa
+      // (HITL/timeout) — reflete no status da run (badge da aba).
+      const id = str(e.run_id)
+      if (id) useRunsStore.getState().updateStatus(id, 'paused')
+      log('warn', 'run paused', undefined, id)
+      break
+    }
     case 'human_decision_expired': {
-      const node = normalizeNodeName(e.node)
-      const timeout = num(e.timeout_seconds)
+      const p = e.payload
+      const node = normalizeNodeName(p.node)
+      const timeout = num(p.timeout_seconds)
       if (node) useCanvasStore.getState().setNodeStatus(node, 'paused')
       log('warn', `HITL decision expired (${timeout ?? '?'}s)`, node ?? 'system')
       break
     }
     case 'human_decision_submitted': {
-      const action = str(e.action) ?? '?'
-      const gate_node = str(e.gate_node) ?? '?'
+      const p = e.payload
+      const action = str(p.action) ?? '?'
+      const gate_node = str(p.gate_node) ?? '?'
       log('info', `decision: ${action} on ${gate_node}`)
       break
     }
     case 'pipeline_finished': {
-      // App real (app.py _execute_pipeline_in_background) envia
-      // {run_id, status: 'completed'|'failed', duration_seconds} — única fonte
-      // WS da run chegar a completed/failed. Variante do dispatcher (task_id,
-      // sem run_id) → só log, sem update na store.
+      // App real (app.py _execute_pipeline_in_background) envia via envelope
+      // {run_id, payload: {status: 'completed'|'failed', duration_seconds}} —
+      // única fonte WS da run chegar a completed/failed.
       const id = str(e.run_id)
       if (id) {
-        const status = toRunStatus(str(e.status)) === 'failed' ? 'failed' : 'completed'
+        const status = toRunStatus(str(e.payload.status)) === 'failed' ? 'failed' : 'completed'
         useRunsStore.getState().updateStatus(id, status)
       }
       log('info', 'pipeline finished', undefined, id)

@@ -40,7 +40,8 @@ describe('wsStore', () => {
     useWsStore.getState().connect()
     const ws = FakeWebSocket.instances[0]
     ws.open()
-    ws.emit({ event: 'run_created', run_id: 'r1', idea: 'x', status: 'pending' })
+    // Envelope v1 real (EventBus): seq/run_id/timestamp/payload.
+    ws.emit({ seq: 1, event: 'run_created', run_id: 'r1', timestamp: 123, payload: { idea: 'x', status: 'pending' } })
     expect(useWsStore.getState().lastEventAt).toBeTypeOf('number')
     useWsStore.getState().setConnected(false)
     expect(useWsStore.getState().connected).toBe(false)

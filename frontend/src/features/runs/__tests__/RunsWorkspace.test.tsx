@@ -44,7 +44,7 @@ describe('RunsWorkspace', () => {
   it('shows empty state and run demo creates a tab', () => {
     renderWorkspace()
     expect(screen.getByRole('button', { name: /run demo/i })).toBeInTheDocument()
-    expect(screen.getByText('No run selected')).toBeInTheDocument()
+    expect(screen.getByText('No active run')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /run demo/i }))
     // addRun é síncrono — a aba aparece sem avançar timers.
     expect(screen.getAllByRole('tab')).toHaveLength(1)

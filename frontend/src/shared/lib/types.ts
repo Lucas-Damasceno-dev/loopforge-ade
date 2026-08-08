@@ -23,18 +23,25 @@
  * - POST /api/runs NÃO aceita thread_id/checkpoint (gap do plano).
  */
 
+// Ids canônicos de EXECUÇÃO (contrato 03 §7): cpo, pm, tech_lead,
+// test_writer, developer, qa, parallel_audit (appsec/devops = sub-cards de
+// parallel_audit, sem nó próprio). entry/retry são VIRTUAIS de apresentação
+// (presentes no canvas, sem node_execution próprio; retry deriva de
+// attempt_count>0).
 export type NodeType =
   | 'entry'
   | 'cpo'
   | 'pm'
   | 'tech_lead'
   | 'test_writer'
-  | 'dev'
+  | 'developer'
   | 'qa'
   | 'retry'
   | 'parallel_audit'
 
-export type RunStatus = 'pending' | 'running' | 'completed' | 'failed'
+// Status da run: backend agora também emite queued (fila) e paused
+// (HITL/timeout) via run_updated/run_paused e GET /api/runs.
+export type RunStatus = 'pending' | 'queued' | 'running' | 'paused' | 'completed' | 'failed'
 
 export interface Run {
   id: string

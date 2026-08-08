@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { createRun } from '../../shared/lib/api'
 import { Button } from '../../shared/ui/Button'
+import { Textarea } from '../../shared/ui/Textarea'
 import type { Run } from '../../shared/lib/types'
 
 export interface NewRunFormProps {
@@ -29,19 +30,19 @@ export function NewRunForm({ onCreated }: NewRunFormProps) {
 
   return (
     <form onSubmit={submit} className="flex flex-1 items-center gap-2">
-      <textarea
+      <Textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
         placeholder="Idea for the pipeline…"
         aria-label="Idea"
         rows={1}
-        className="flex-1 resize-none rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-1 text-sm text-[var(--text)] placeholder:text-[var(--text-dim)] focus:outline-2 focus:outline-[var(--accent)]"
+        className="flex-1 resize-none py-1"
       />
       <Button type="submit" variant="primary" size="sm" disabled={mutation.isPending || !idea.trim()}>
         {mutation.isPending ? 'Running…' : 'Run'}
       </Button>
       {mutation.isError ? (
-        <p role="alert" className="text-xs text-[var(--err)]">Failed to start run</p>
+        <p role="alert" className="text-xs text-[var(--err-text)]">Failed to start run</p>
       ) : null}
     </form>
   )

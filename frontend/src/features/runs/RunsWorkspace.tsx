@@ -9,8 +9,9 @@ import type { Run } from '../../shared/lib/types'
 
 // Workspace de runs: barra de abas (UX11) + toolbar (demo/form) + painel
 // principal (empty state OU FlowCanvas da run ativa). A fila (E3) aparece
-// como abas com rótulo "queued".
-export function RunsWorkspace() {
+// como abas com rótulo "queued". hideChrome = fullscreen (F11, §6.1): restam
+// apenas canvas e console.
+export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) {
   const runs = useRunsStore((s) => s.runs)
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const queue = useRunsStore((s) => s.queue)
@@ -34,18 +35,22 @@ export function RunsWorkspace() {
 
   return (
     <div className="flex h-full flex-col" data-testid="runs-workspace">
-      <RunTabs runs={runs} activeRunId={activeRunId} queue={queue} onSelect={selectRun} onClose={handleClose} />
-      <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-        <Button variant="primary" size="sm" onClick={() => runDemo()}>Run demo</Button>
-        <NewRunForm onCreated={handleCreated} />
-      </div>
+      {!hideChrome && (
+        <>
+          <RunTabs runs={runs} activeRunId={activeRunId} queue={queue} onSelect={selectRun} onClose={handleClose} />
+          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+            <Button variant="primary" size="sm" onClick={() => runDemo()}>Run demo</Button>
+            <NewRunForm onCreated={handleCreated} />
+          </div>
+        </>
+      )}
       <div className="relative flex-1 overflow-hidden">
         {activeRun ? (
           <FlowCanvas />
         ) : (
           <EmptyState
-            title="No run selected"
-            description="Start a new run with the form above or run the demo to preview the pipeline."
+            title="No active run"
+            description="Start a run to see the pipeline in action"
           />
         )}
       </div>
