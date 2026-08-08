@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+/* Design tokens — fonte de verdade visual (01b-design-system.md §2).
+ * Paleta dark zinc + índigo único acento; cor semântica só para estado.
+ */
+:root {
+  color-scheme: dark;
+
+  /* §2.1 — paleta */
+  --bg: #09090b;          /* zinc-950 */
+  --bg-elev: #18181b;     /* zinc-900 */
+  --bg-elev-2: #27272a;   /* zinc-800 */
+  --border: #3f3f46;      /* zinc-700 */
+  --text: #fafafa;        /* zinc-50 */
+  --text-dim: #a1a1aa;    /* zinc-400 */
+  --border-hover: rgba(161, 161, 170, 0.4); /* --text-dim a 40% — hover de borda (§3.12) */
+  --accent: #4f46e5;      /* indigo-600 — estado ativo do sistema */
+  --ok: #16a34a;          /* green-600 */
+  --warn: #d97706;        /* amber-600 */
+  --err: #dc2626;         /* red-600 */
+  --info: #3b82f6;        /* blue-500 — log info + cost bar <80% (§3.4) */
+
+  /* Variantes -text: texto de cor semântica/acento SEMPRE usa a variante
+   * clara quando a base fica <4.5:1 sobre o fundo real (01b §2.3). */
+  --accent-text: #818cf8; /* indigo-400 — 5.9:1 sobre --bg-elev (AA) */
+  --ok-text: #22c55e;     /* green-500 — 6.4:1 sobre ok/15 (AA) */
+  --err-text: #f87171;    /* red-400 — 5.8:1 sobre err/15 (AA) */
+
+  /* §2.2 — acentos por tipo de nó. Base = border/chip (decorativo);
+   * rótulo do nó usa a variante -text quando base <4.5:1 (obrigatório). */
+  --node-entry: #64748b;  --node-entry-text: #94a3b8;       /* slate-500/400 */
+  --node-cpo: #4f46e5;                                       /* = --accent; rótulo usa --accent-text */
+  --node-pm: #0ea5e9;                                        /* sky-500 */
+  --node-tech-lead: #8b5cf6; --node-tech-lead-text: #a78bfa; /* violet-500/400 */
+  --node-test-writer: #ec4899;                               /* pink-500 */
+  --node-developer: #10b981;                                 /* emerald-500 — id canônico (contrato 03 §7) */
+  --node-dev: #10b981;                                       /* emerald-500 — alias legado (mantido p/ compat) */
+  --node-qa: #f59e0b;                                        /* amber-500 */
+  --node-retry: #f43f5e;                                     /* rose-500 */
+  --node-parallel-audit: #14b8a6;                            /* teal-500 */
+
+  /* §2.7 — overlays (substituem black/40 e black/60 hardcoded) */
+  --overlay: rgb(0 0 0 / 0.40);
+  --overlay-strong: rgb(0 0 0 / 0.60);
+
+  /* §2.7 — sombras com tinta única (sem coloração de acento) */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-node: 0 4px 6px -1px rgb(0 0 0 / 0.45);
+  --shadow-drawer: -16px 0 32px rgb(0 0 0 / 0.40);
+  --shadow-modal: 0 24px 48px -12px rgb(0 0 0 / 0.60);
+
+  /* §2.6 — raios */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* §2.4 — tipografia (fallbacks de sistema; carregar Inter/JetBrains Mono
+   * via font-face/CDN quando a infra permitir) */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* ─── Base ─────────────────────────────────────────────────────────────── */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbar (01b §2.8) — console, drawers, abas, painéis ──────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #52525b; /* zinc-600 */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* ─── Motion (01b §4) — ≤300ms, easing único, reduced-motion zera tudo ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.ade-fade-in {
+  animation: ade-fade-in 150ms ease-out;
+}
+@keyframes ade-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ade-drawer-in {
+  animation: ade-drawer-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes ade-drawer-in {
+  from { transform: translateX(24px); opacity: 0.4; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.ade-banner-in {
+  animation: ade-banner-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes ade-banner-in {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+.ade-modal-card-in {
+  animation: ade-modal-in 200ms ease-out;
+}
+@keyframes ade-modal-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Timeline slider (01b §3.5) — trilho 4px, thumb 12px, hit 24px ────── */
+.ade-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px; /* hit area tátil ≥24px (§6.4) */
+  background: transparent;
+  cursor: pointer;
+}
+.ade-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elev-2);
+}
+.ade-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+.ade-slider::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elev-2);
+}
+.ade-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+.ade-slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Chrome do React Flow em dark (01b §6.3) ──────────────────────────── */
+.react-flow__background {
+  opacity: 0.2; /* grade de pontos = --border a 20% */
+}
+.react-flow__controls {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.react-flow__controls-button {
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  fill: var(--text-dim);
+}
+.react-flow__controls-button:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  fill: var(--text);
+}
+.react-flow__minimap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.react-flow__attribution {
+  background: transparent;
+  color: var(--text-dim);
+}
+.react-flow__attribution a {
+  color: var(--text-dim);
+}
+.react-flow__edge-path {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
