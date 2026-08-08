@@ -143,4 +143,58 @@ describe('api client', () => {
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Tool read não permitida (allowlist do ade.yaml)' }), { status: 403 }))
     await expect(callMcpTool('fs', 'read', {})).rejects.toMatchObject({ status: 403, detail: 'Tool read não permitida (allowlist do ade.yaml)' })
   })
+
+  it('callMcpTool URL-encodes server/tool names', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }))
+    await callMcpTool('my server/1', 'read file', {})
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/mcp/servers/my%20server%2F1/tools/read%20file')
+    expect(String(url)).not.toContain('my server/1')
+  })
+
+  it('non-JSON error body yields ApiError with detail null', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response('<html>gateway error</html>', { status: 502 }))
+    await expect(apiFetch('/runs')).rejects.toMatchObject({ status: 502, detail: null })
+  })
+
+  it('setApiKey swallows localStorage failures (privacy/disabled storage)', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied') })
+    expect(() => setApiKey('secret')).not.toThrow()
+    getItem.mockRestore()
+  })
+
+  it('retries ALL pending 401 calls after saving the key', async () => {
+    const listener = vi.fn()
+    const unsub = onUnauthorized(listener)
+    try {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(new Response('', { status: 401 }))
+        .mockResolvedValueOnce(new Response('', { status: 401 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ a: 1 }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ b: 2 }), { status: 200 }))
+      const p1 = apiFetch<{ a: number }>('/runs/1')
+      const p2 = apiFetch<{ b: number }>('/runs/2')
+      await vi.waitFor(() => expect(listener).toHaveBeenCalled())
+      setApiKey('secret')
+      retryUnauthorizedRequests()
+      await expect(p1).resolves.toEqual({ a: 1 })
+      await expect(p2).resolves.toEqual({ b: 2 })
+      expect(fetch).toHaveBeenCalledTimes(4)
+    } finally {
+      unsub()
+    }
+  })
+
+  it('sets Content-Type only when a body is present', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ items: [], total: 0 }), { status: 200 }))
+    await listRuns()
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const headers = (init?.headers ?? {}) as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined()
+
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    await apiFetch('/runs', { method: 'POST', body: '{}' })
+    const [, init2] = vi.mocked(fetch).mock.calls[1]
+    expect((init2?.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
 })

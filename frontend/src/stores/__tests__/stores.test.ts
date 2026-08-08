@@ -22,6 +22,88 @@ describe('runsStore', () => {
     useRunsStore.getState().redo()
     expect(useRunsStore.getState().runs).toHaveLength(2)
   })
+  it('addRun with duplicate id is a no-op', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'pending' })
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'b', status: 'pending' })
+    expect(useRunsStore.getState().runs).toHaveLength(1)
+    expect(useRunsStore.getState().runs[0].idea).toBe('a')
+  })
+  it('upsertRun merge preserves existing fields when the patch omits them', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'keep me', stack: 'go', status: 'running' })
+    // patch sem idea/stack (run_updated real) → merge preserva.
+    useRunsStore.getState().upsertRun({ id: 'r1', status: 'paused', current_node: 'qa' })
+    const run = useRunsStore.getState().runs.find((r) => r.id === 'r1')
+    expect(run?.idea).toBe('keep me')
+    expect(run?.stack).toBe('go')
+    expect(run?.status).toBe('paused')
+    expect(run?.current_node).toBe('qa')
+  })
+  it('upsertRun drops undefined fields instead of overwriting', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'pending' })
+    useRunsStore.getState().upsertRun({ id: 'r1', idea: undefined, status: 'running' })
+    const run = useRunsStore.getState().runs.find((r) => r.id === 'r1')
+    expect(run?.idea).toBe('a')
+    expect(run?.status).toBe('running')
+  })
+  it('upsertRun creates the run when absent', () => {
+    useRunsStore.getState().upsertRun({ id: 'new', idea: 'x', status: 'queued' })
+    expect(useRunsStore.getState().runs).toHaveLength(1)
+    expect(useRunsStore.getState().runs[0].idea).toBe('x')
+  })
+  it('enqueue promotes to active when none is active and ignores duplicates', () => {
+    useRunsStore.getState().enqueue('r1')
+    expect(useRunsStore.getState().activeRunId).toBe('r1')
+    expect(useRunsStore.getState().queue).toEqual([])
+    // já ativa → no-op; duplicata na fila → no-op.
+    useRunsStore.getState().enqueue('r1')
+    expect(useRunsStore.getState().queue).toEqual([])
+    useRunsStore.getState().enqueue('r2')
+    useRunsStore.getState().enqueue('r2')
+    expect(useRunsStore.getState().queue).toEqual(['r2'])
+  })
+  it('dequeue with empty queue clears activeRunId', () => {
+    useRunsStore.getState().selectRun('r1')
+    useRunsStore.getState().dequeue()
+    expect(useRunsStore.getState().activeRunId).toBeNull()
+  })
+  it('dequeue promotes next queued run to active', () => {
+    useRunsStore.getState().selectRun('r1')
+    useRunsStore.getState().enqueue('r2')
+    useRunsStore.getState().enqueue('r3')
+    useRunsStore.getState().dequeue()
+    expect(useRunsStore.getState().activeRunId).toBe('r2')
+    expect(useRunsStore.getState().queue).toEqual(['r3'])
+  })
+  it('removeRun removes the run; closing the active one clears selection', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'pending' })
+    useRunsStore.getState().addRun({ id: 'r2', idea: 'b', status: 'pending' })
+    useRunsStore.getState().selectRun('r1')
+    useRunsStore.getState().removeRun('r1')
+    expect(useRunsStore.getState().runs.some((r) => r.id === 'r1')).toBe(false)
+    // removeRun não limpa a seleção (o workspace trata via handleClose) —
+    // o id órfão permanece até o selectRun explícito.
+    expect(useRunsStore.getState().activeRunId).toBe('r1')
+    useRunsStore.getState().selectRun(null)
+    expect(useRunsStore.getState().activeRunId).toBeNull()
+  })
+  it('undo/redo are no-ops when history is empty', () => {
+    const runs = useRunsStore.getState().runs
+    useRunsStore.getState().undo()
+    expect(useRunsStore.getState().runs).toBe(runs)
+    useRunsStore.getState().redo()
+    expect(useRunsStore.getState().runs).toBe(runs)
+  })
+  it('undo caps past history at 50 snapshots', () => {
+    for (let i = 0; i < 60; i++) useRunsStore.getState().addRun({ id: `r${i}`, idea: 'x', status: 'pending' })
+    expect(useRunsStore.getState().past.length).toBe(50)
+    // Desfaz até esgotar o histórico (50 snapshots retidos) — os 10 mais
+    // antigos foram descartados pelo limite (UNDO_LIMIT=50).
+    for (let i = 0; i < 60; i++) useRunsStore.getState().undo()
+    expect(useRunsStore.getState().past).toHaveLength(0)
+    expect(useRunsStore.getState().runs.map((r) => r.id)).toEqual(
+      ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'],
+    )
+  })
   it('enqueue keeps single active run', () => {
     useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'pending' })
     useRunsStore.getState().selectRun('r1')
