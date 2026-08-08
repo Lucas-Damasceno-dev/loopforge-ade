@@ -42,14 +42,15 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 | B6 (E13) | QA build/lint/test + Playwright smoke (`tests/smoke.spec.ts`: topbar, DAG demo, console limpo) | **FEITO** (`047a283`) |
 | Merge | feature/ade-fase2 → main da ADE | **FEITO** (`21c2dda`) |
 
-## Fase C — lanes (EM EXECUÇÃO — despachar por M-id, estimativa 8–10d)
+## Fase C — lanes (EM EXECUÇÃO — backend FEITO, falta UI SPA)
 
 | Lane | Tasks / M-ids | Escopo (plano 06) | Status |
 |---|---|---|---|
-| c1 | C1+C2 (M-13, M-14) | fork REAL de thread (copiar tuples do checkpoint + pin `langgraph-checkpoint-sqlite==3.1.0`); export enriquecido + import materializa thread | pendente |
-| c2 | C3 (M-12) | adjust_state de verdade (aplicar ajustes no checkpoint via aupdate_state no gate; hoje só adjust_prompt) | pendente |
-| c3 | C4 (M-11) | hitl.on_timeout: choice `continue` → `abort` com escape explícito (ADR-0006; depende do fix M-22 do HITL remoto p/ funcionar ponta a ponta) | pendente |
-| c4 | C5 (M-02) | timeline por run_id (journal de eventos + checkpoints consultáveis por run na UI/API) | pendente |
+| c1 | C1+C2 (M-13, M-14) | fork REAL de thread (copiar tuples do checkpoint + pin `langgraph-checkpoint-sqlite==3.1.0`); export enriquecido + import materializa thread | **FEITO** — trajectories.py reescrito (548 linhas): fork byte-a-byte INSERT…SELECT, export 1.1 (checkpoints+steps+events+costs), import valida/materializa; testes fork/export/roundtrip/422/404 |
+| c2 | C3 (M-12) | adjust_state de verdade (aplicar ajustes no checkpoint via aupdate_state no gate; hoje só adjust_prompt) | **FEITO** — `state_patch` em HumanDecisionCreate (validator 422 PT), action `adjust_state` no choice_map, `_apply_state_patch_to_checkpoint` (update_state sync / aupdate_state via asyncio.run), persistência atômica do patch (fix de race com polling 0.5s) |
+| c3 | C4 (M-11) | hitl.on_timeout: choice `continue` → `abort` com escape explícito (ADR-0006; depende do fix M-22 do HITL remoto p/ funcionar ponta a ponta) | **FEITO** — `AdeHITL.on_timeout: Literal["continue","abort","pause"]` (default continue); abort = pipeline_failed motivo `hitl_timeout_abort` sem LLM; pause = re-aguarda decisão tardia sem consumir LLM; evento `hitl_gate_reached` (dedup) |
+| c4 | C5 (M-02) | timeline por run_id (journal de eventos + checkpoints consultáveis por run na UI/API) | **FEITO** — commit `8e1ed04` (timeline unificada eventos+checkpoints, rotas v1 + legado) |
+| c5 | UI SPA (C1/C3/C4/C5) | Fork from here, form adjust_state com diff + JSON, banner hitl_gate_reached, timeline por run_id | **pendente** |
 
 ## Aceites da Fase A (checklist — 10/10)
 
@@ -59,7 +60,7 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 ## Próximo passo (atualizar a cada marco)
 
 1. ~~Fases A e B~~ **FECHADAS** (A: gate 83.11%; B: merge `21c2dda`).
-2. **Fase C EM EXECUÇÃO**: c1 (C1+C2 fork real + export) → c2 (C3 adjust_state) → c3 (C4 on_timeout abort) → c4 (C5 timeline) — lanes com posse disjunta (c1: trajectories.py; c2/c3: task_dispatcher+app.py; c4: api/UI). C1 é a mais arriscada (fork de checkpoint tuples do LangGraph — pin `langgraph-checkpoint-sqlite==3.1.0`, testar roundtrip export/import).
+2. **Fase C — backend FEITO**: C1 fork real, C2 export enriquecido + import, C3 adjust_state, C4 on_timeout (continue/abort/pause), C5 timeline — suíte engine **296 passed, 1 skipped, 1 xfailed** (OPENCODE_MOCK=1). Falta **c5: UI SPA** (Fork from here, form adjust_state com diff + JSON, banner hitl_gate_reached, timeline por run_id) — despachado ao designer na worktree `feature/ade-fase2`.
 3. Atualizar este arquivo + commit no `main` da ADE a cada marco.
 4. Fase D (D1–D4: chips de custo na UI, POST /mcp/servers/{name}/tools/{tool} allowlist, Settings UI PATCH /config, endurecimento E2E) após C fechada.
 
@@ -67,4 +68,4 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 
 - ADE main: `7807bcc` (docs 19 arquivos), `b21e068` (status Fase A+B2/B3), **`21c2dda`** (merge feature/ade-fase2 — SPA completa B1–B6).
 - SPA worktree `feature/ade-fase2`: `0e8605a` (design system + envelope v1 [M-19]), `403e5ae` (B2/B3 [M-20][M-08][M-10]), `047a283` (smoke E2E [E13]).
-- Engine `feature/ade-fase-a` (auto-checkpoint "checkpoint: loopforge/..."): `f927eb9` (n5/A7), `14e2974` (n1), n2a (events.py), `cac8fb1` (n3), `264fa70` (n4), `a27a618` (ruído), `d833082`/`7d93a59` (n6), B4 (spa.py+test_spa_mount), `ca97075` (B5), `0aaba9a` (.gitignore fix). HEAD da Fase B: `0aaba9a`.
+- Engine `feature/ade-fase-a` (auto-checkpoint "checkpoint: loopforge/..."): `f927eb9` (n5/A7), `14e2974` (n1), n2a (events.py), `cac8fb1` (n3), `264fa70` (n4), `a27a618` (ruído), `d833082`/`7d93a59` (n6), B4 (spa.py+test_spa_mount), `ca97075` (B5), `0aaba9a` (.gitignore fix), c1 (C1+C2 fork/export/import — auto-checkpoints), `dc825d7` (C3+C4 + flaky fix test_events_backfill), `8e1ed04` (C5 timeline [M-02]), HEAD `340c9a1`. HEAD da Fase C backend: `340c9a1`.
