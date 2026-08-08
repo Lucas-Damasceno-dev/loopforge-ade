@@ -66,6 +66,35 @@ export interface AdeBudget {
   max_usd: number
 }
 
+/** Budget efetivo de uma run (CostResponse.budget — espelha schemas.py CostBudget). */
+export interface CostBudget {
+  max_usd: number
+  percent_used: number
+}
+
+/** GET /api/v1/runs/{id}/cost (M-08/M-10) — espelha schemas.py CostResponse. */
+export interface CostResponse {
+  run_id: string
+  spent_usd: number
+  estimated: boolean
+  budget: CostBudget
+  budget_warning: boolean
+}
+
+/** Corpo do POST /api/v1/runs/{id}/cost/override — espelha BudgetOverrideRequest. */
+export interface BudgetOverrideRequest {
+  max_usd: number
+}
+
+/** Corpo do POST /api/v1/runs — espelha schemas.py RunCreate. */
+export interface CreateRunInput {
+  idea: string
+  stack?: string
+  mock_llm?: boolean
+  routing_mode?: string
+  interactive?: boolean
+}
+
 export interface AdeMcpServer {
   name: string
   command: string

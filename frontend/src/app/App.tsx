@@ -7,6 +7,7 @@ import { HitlDrawer } from '../features/hitl/HitlDrawer'
 import { TimelineBar } from '../features/timeline/TimelineBar'
 import { CostBar } from '../features/costs/CostBar'
 import { McpPlayground } from '../features/mcp/McpPlayground'
+import { ApiKeyGate } from '../features/auth/ApiKeyGate'
 import { Drawer } from '../shared/ui/Drawer'
 import { Topbar } from '../shared/ui/Topbar'
 import { useWsStore } from '../stores/wsStore'
@@ -79,6 +80,8 @@ export function App() {
         <Drawer open={mcpOpen} title="MCP Playground" onClose={() => setMcpOpen(false)}>
           <McpPlayground />
         </Drawer>
+        {/* Gate de API key (B2/M-20): overlay em 401/sem key; dispensável p/ demo. */}
+        <ApiKeyGate />
       </main>
     </QueryClientProvider>
   )
