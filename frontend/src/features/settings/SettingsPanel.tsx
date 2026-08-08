@@ -1,0 +1,266 @@
+import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { getConfig, patchConfig } from '../../shared/lib/api'
+import type { AdeConfig, DeepPartial } from '../../shared/lib/types'
+import { Drawer } from '../../shared/ui/Drawer'
+import { Button } from '../../shared/ui/Button'
+import { Input } from '../../shared/ui/Input'
+import { Toggle } from '../../shared/ui/Toggle'
+
+// Settings (Fase D/E9): GET /config → form local → PATCH /config com SOMENTE
+// os campos alterados (PATCH parcial). O backend RECONSTRÓI sub-modelos
+// (dicts) e listas inteiras (config.py patch_config: annotation(**value) /
+// setattr) — então o patch envia sub-modelos COMPLETOS (budget, hitl,
+// providers) e a lista mcp_servers inteira com o toggle alterado; enviar só
+// um campo zeraria os defaults dos demais.
+
+interface FormState {
+  budgetMaxUsd: string
+  hitlTimeout: string
+  hitlOnTimeout: string
+  providerPrimary: string
+  ollamaBaseUrl: string
+  servers: Array<{ name: string; enabled: boolean }>
+}
+
+function toForm(c: AdeConfig): FormState {
+  return {
+    budgetMaxUsd: c.budget?.max_usd !== undefined ? String(c.budget.max_usd) : '',
+    hitlTimeout: c.hitl?.timeout_seconds !== undefined ? String(c.hitl.timeout_seconds) : '',
+    hitlOnTimeout: c.hitl?.on_timeout ?? 'continue',
+    providerPrimary: c.providers?.primary ?? '',
+    ollamaBaseUrl: c.providers?.ollama_base_url ?? '',
+    servers: (c.mcp_servers ?? []).map((s) => ({ name: s.name, enabled: s.enabled })),
+  }
+}
+
+// Número → NaN se vazio/não-numérico (campo inválido fica FORA do patch; o
+// backend responde 422 se o payload completo for inválido).
+function numOrNan(text: string): number {
+  const trimmed = text.trim()
+  if (trimmed === '') return NaN
+  const v = Number(trimmed)
+  return Number.isFinite(v) ? v : NaN
+}
+
+// Diff form → patch (sub-modelos completos — semântica de replace do backend).
+function buildPatch(config: AdeConfig, form: FormState): DeepPartial<AdeConfig> {
+  const patch: DeepPartial<AdeConfig> = {}
+  const maxUsd = numOrNan(form.budgetMaxUsd)
+  if (Number.isFinite(maxUsd) && maxUsd !== config.budget?.max_usd) {
+    patch.budget = { max_usd: maxUsd }
+  }
+  const timeout = numOrNan(form.hitlTimeout)
+  const onTimeout = form.hitlOnTimeout as AdeConfig['hitl']['on_timeout']
+  if (
+    Number.isFinite(timeout) &&
+    (timeout !== config.hitl?.timeout_seconds || onTimeout !== config.hitl?.on_timeout)
+  ) {
+    patch.hitl = { timeout_seconds: timeout, on_timeout: onTimeout }
+  }
+  if (form.providerPrimary !== config.providers?.primary || form.ollamaBaseUrl !== config.providers?.ollama_base_url) {
+    patch.providers = { primary: form.providerPrimary, ollama_base_url: form.ollamaBaseUrl }
+  }
+  const origServers = config.mcp_servers ?? []
+  if (form.servers.some((s, i) => s.enabled !== origServers[i]?.enabled)) {
+    patch.mcp_servers = form.servers.map((s) => ({ name: s.name, enabled: s.enabled }))
+  }
+  return patch
+}
+
+interface ApiLikeError {
+  status: number
+  detail: unknown
+}
+function isApiError(e: unknown): e is ApiLikeError {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    typeof (e as { status?: unknown }).status === 'number' &&
+    'detail' in e
+  )
+}
+// Detail do backend exibido como veio (PT); 422 pydantic é array de erros →
+// mensagem EN genérica; fallback EN por status.
+function settingsErrorMessage(e: unknown): string {
+  if (isApiError(e)) {
+    const detail = e.detail
+    if (Array.isArray(detail)) return 'Invalid configuration value (422)'
+    if (typeof detail === 'string' && detail.trim().length > 0) return detail
+    return `API error ${e.status}`
+  }
+  return e instanceof Error && e.message ? e.message : 'Failed to save settings'
+}
+
+const ON_TIMEOUT_OPTIONS = ['continue', 'abort', 'pause'] as const
+
+// Drawer de configuração (E9): budget, HITL, providers e toggles por server
+// MCP. Load via getConfig, save via patchConfig com o diff; feedback saved
+// (role=status) / erro (role=alert); botão disabled enquanto salva e quando
+// não há mudanças.
+export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: getConfig })
+  const [form, setForm] = useState<FormState | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Popula o form quando o config carrega.
+  useEffect(() => {
+    if (config) setForm(toForm(config))
+  }, [config])
+
+  const patch = config && form ? buildPatch(config, form) : {}
+  const hasChanges = Object.keys(patch).length > 0
+  const loading = !config
+
+  const save = async () => {
+    if (!config || !hasChanges) return
+    setSaving(true)
+    setSaved(false)
+    setError(null)
+    try {
+      await patchConfig(patch)
+      setSaved(true)
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+    } catch (e) {
+      setError(settingsErrorMessage(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const setField = (partial: Partial<FormState>) => {
+    setForm((f) => (f ? { ...f, ...partial } : f))
+    setSaved(false)
+    setError(null)
+  }
+
+  return (
+    <Drawer open={open} title="Settings" onClose={onClose}>
+      {loading ? (
+        <p className="text-sm text-[var(--text-dim)]">Loading settings…</p>
+      ) : form ? (
+        <div className="space-y-5">
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-[var(--err)]/30 bg-[var(--err)]/15 px-3 py-2 text-sm text-[var(--err-text)]"
+            >
+              {error}
+            </div>
+          )}
+          {saved && (
+            <div
+              role="status"
+              className="rounded-md border border-[var(--ok)]/30 bg-[var(--ok)]/15 px-3 py-2 text-sm text-[var(--ok-text)]"
+            >
+              Saved
+            </div>
+          )}
+
+          <section>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Budget</h3>
+            <label htmlFor="settings-budget" className="mb-0.5 block text-xs text-[var(--text-dim)]">
+              Max USD per run
+            </label>
+            <Input
+              id="settings-budget"
+              aria-label="Budget max USD"
+              inputMode="decimal"
+              value={form.budgetMaxUsd}
+              onChange={(e) => setField({ budgetMaxUsd: e.target.value })}
+            />
+          </section>
+
+          <section>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Human in the loop</h3>
+            <label htmlFor="settings-hitl-timeout" className="mb-0.5 block text-xs text-[var(--text-dim)]">
+              Gate timeout (seconds)
+            </label>
+            <Input
+              id="settings-hitl-timeout"
+              aria-label="HITL timeout seconds"
+              inputMode="numeric"
+              value={form.hitlTimeout}
+              onChange={(e) => setField({ hitlTimeout: e.target.value })}
+            />
+            <label htmlFor="settings-hitl-timeout-mode" className="mb-0.5 mt-2 block text-xs text-[var(--text-dim)]">
+              On timeout
+            </label>
+            <select
+              id="settings-hitl-timeout-mode"
+              aria-label="HITL on timeout"
+              value={form.hitlOnTimeout}
+              onChange={(e) => setField({ hitlOnTimeout: e.target.value })}
+              className="h-8 w-full rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-2 text-sm text-[var(--text)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              {ON_TIMEOUT_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </section>
+
+          <section>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Providers</h3>
+            <label htmlFor="settings-provider" className="mb-0.5 block text-xs text-[var(--text-dim)]">
+              Primary provider
+            </label>
+            <Input
+              id="settings-provider"
+              aria-label="LLM provider"
+              value={form.providerPrimary}
+              onChange={(e) => setField({ providerPrimary: e.target.value })}
+              placeholder="native"
+            />
+            <label htmlFor="settings-ollama" className="mb-0.5 mt-2 block text-xs text-[var(--text-dim)]">
+              Ollama base URL
+            </label>
+            <Input
+              id="settings-ollama"
+              aria-label="Ollama base URL"
+              value={form.ollamaBaseUrl}
+              onChange={(e) => setField({ ollamaBaseUrl: e.target.value })}
+              placeholder="http://localhost:11434"
+            />
+          </section>
+
+          <section>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">MCP servers</h3>
+            {form.servers.length === 0 ? (
+              <p className="text-sm text-[var(--text-dim)]">No MCP servers configured</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {form.servers.map((s) => (
+                  <li
+                    key={s.name}
+                    className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-2"
+                  >
+                    <span className="font-mono text-xs">{s.name}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-xs text-[var(--text-dim)]">{s.enabled ? 'enabled' : 'disabled'}</span>
+                      <Toggle
+                        checked={s.enabled}
+                        onChange={(enabled) =>
+                          setField({ servers: form.servers.map((x) => (x.name === s.name ? { ...x, enabled } : x)) })
+                        }
+                        label={`MCP server ${s.name}`}
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <div className="flex justify-end">
+            <Button size="sm" variant="primary" disabled={saving || !hasChanges} onClick={save}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </Drawer>
+  )
+}

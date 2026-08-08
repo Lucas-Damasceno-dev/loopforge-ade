@@ -72,6 +72,13 @@ export interface CostBudget {
   percent_used: number
 }
 
+/** Custo agrupado por nó (CostResponse.nodes — aditivo, default []). */
+export interface CostNode {
+  node: string
+  spent_usd: number
+  estimated: boolean
+}
+
 /** GET /api/v1/runs/{id}/cost (M-08/M-10) — espelha schemas.py CostResponse. */
 export interface CostResponse {
   run_id: string
@@ -79,6 +86,8 @@ export interface CostResponse {
   estimated: boolean
   budget: CostBudget
   budget_warning: boolean
+  /** Custos por nó do DAG (Fase D/UC-04) — ausente no V1 → default []. */
+  nodes?: CostNode[]
 }
 
 /** Corpo do POST /api/v1/runs/{id}/cost/override — espelha BudgetOverrideRequest. */
@@ -110,6 +119,8 @@ export interface AdeProviders {
 
 export interface AdeHITL {
   timeout_seconds: number
+  /** C4 (M-11): comportamento ao esgotar o timeout do gate (espelha schema.py). */
+  on_timeout: 'continue' | 'abort' | 'pause'
 }
 
 export interface AdeConfig {
