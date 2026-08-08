@@ -1,6 +1,8 @@
 # 03 — Contratos de API (REST + WebSocket)
 
-> Estado alvo do MVP. Onde difere do implementado, ver `09-mudancas-sobre-o-existente.md` (IDs M-xx).
+> Contratos **implementados** (verificado no código até a Fase D: engine `7cbfd61`,
+> SPA `0394520`). Onde divergem de decisões históricas, ver
+> `09-mudancas-sobre-o-existente.md` (IDs M-xx).
 > Prefixo canônico: `/api/v1`. Legado `/api/runs*` responde com `Sunset` + `Deprecation` (M-18).
 
 ## 1. Convenções
@@ -19,26 +21,41 @@
 
 | Método | Path | Descrição | Body → Resposta |
 |---|---|---|---|
-| POST | `/api/v1/runs` | Cria run e enfileira (E3: 1 ativa + fila) | `{idea, stack="python", routing_mode="full", mock_llm=false, interactive=false}` → `201 Run` |
+| POST | `/api/v1/runs` | Cria run e enfileira (E3/M-21: 1 ativa + fila) | `{idea, stack="python", routing_mode="full", mock_llm=false, interactive=false}` → `201 Run` |
 | GET | `/api/v1/runs` | Lista paginada | → `{items: [Run], total}` |
 | GET | `/api/v1/runs/{id}` | Detalhe | → `Run` |
 | DELETE | `/api/v1/runs/{id}` | Remove run (não toca checkpoints) | → `204` |
-| POST | `/api/v1/runs/{id}/execute` | (Re)dispara run `pending`/`failed` | → `202 Run` |
+| POST | `/api/runs/{id}/execute` | (Re)dispara run `pending`/`failed` — **só legado** (sem variante v1) | → `202 Run` |
 | POST | `/api/v1/runs/{id}/resume` | Resume do último checkpoint (usa `thread_id` persistido — M-01) | → `202 Run` |
-| GET | `/api/v1/runs/{id}/events` | **Backfill do journal** (M-06) | `?after_seq=0&limit=200` → `{items: [EventEnvelope], last_seq}` |
-| GET | `/api/v1/runs/{id}/cost` | **Agregado de custo** (M-08) | → `{run_id, budget_usd, spent_usd, pct, per_node: [{node, cost_usd, estimated}], hard_stopped}` |
-| POST | `/api/v1/runs/{id}/budget-override` | Override de budget e resume (M-10) | `{new_max_usd}` → `200 {budget_usd}` |
+| GET | `/api/v1/runs/{id}/events` | **Backfill do journal** (M-06) | `?after_seq=0&limit=200` → `{run_id, events: [Envelope], next_after_seq}` |
+| GET | `/api/v1/runs/{id}/timeline` | **Timeline unificada** (C5/M-02): eventos + checkpoints intercalados | `?after_seq=0&limit=100` → `{run_id, timeline: [{seq, type, timestamp, node, data}], total_count, has_more, next_after_seq}` |
+| GET | `/api/v1/runs/{id}/cost` | **Agregado de custo** (M-08) + **breakdown por nó** (D1) | → `CostResponse` (abaixo) |
+| POST | `/api/v1/runs/{id}/cost/override` | Override de budget efetivo e resume (M-10; **em memória**, por processo) | `{max_usd: float\|null}` → `200 CostResponse` |
 
 ```jsonc
 // Run (response)
 {
   "id": "…", "idea": "…", "stack": "python",
-  "status": "pending|running|waiting_decision|decision_expired|budget_exceeded|completed|failed|aborted",
+  "status": "pending|queued|running|waiting_decision|decision_expired|budget_exceeded|paused|completed|failed|aborted",
   "current_node": "developer|null",
   "thread_id": "run-…",            // ADR-0003
   "parent_run_id": null,           // preenchido em forks (M-13)
   "logs": "…", "duration_seconds": 0.0,
   "created_at": "…", "updated_at": "…"
+}
+// `queued`: criada e na fila E3 (M-21); `paused`: hard-stop de budget (M-10) —
+// a run NÃO falha; o grafo fica interrompido no nó pendente (checkpoint com next != []).
+
+// CostResponse (GET /cost e POST /cost/override — verificado em costs.py/schemas.py)
+{
+  "run_id": "…",
+  "spent_usd": 1.234,              // soma de llm_costs da run
+  "estimated": true,               // true se QUALQUER linha é estimada (subprocess OpenCode)
+  "budget": { "max_usd": 10.0, "percent_used": 0.1234 },
+  "budget_warning": false,         // percent_used >= 0.80 (M-10)
+  "nodes": [                       // breakdown por nó (D1/Fase D) — campo ADITIVO
+    { "node": "developer", "spent_usd": 0.9, "estimated": true }
+  ]
 }
 ```
 
@@ -46,8 +63,11 @@
 
 | Método | Path | Descrição | Body → Resposta |
 |---|---|---|---|
-| POST | `/api/v1/runs/{id}/decide` | Registra decisão humana | ver abaixo → `201` |
-| GET | `/api/v1/runs/{id}/decisions` | Audit trail (quem/quando/o quê/com qual estado) | → `[Decision]` |
+| POST | `/api/v1/runs/{id}/decide` | Registra decisão humana | `HumanDecisionCreate` → `201 HumanDecisionResponse` |
+| GET | `/api/runs/{id}/decisions` | Audit trail (quem/quando/o quê/com qual estado) | → `[HumanDecisionResponse]` |
+
+> Nota (M-18): a rota de audit trail **não tem variante `/api/v1`** — apenas o
+> path legado acima responde hoje.
 
 ```jsonc
 // HumanDecisionCreate (M-12 adiciona adjust_state)
@@ -69,35 +89,61 @@ via `aupdate_state` (422 caso contrário).
 
 | Método | Path | Descrição |
 |---|---|---|
-| GET | `/api/v1/trajectories/{id}/checkpoints` | Lista checkpoints da run (aceita `run_id` ou `thread_id` — M-02) → `[{checkpoint_id, ts, step, node}]` |
-| GET | `/api/v1/trajectories/{id}/checkpoints/{checkpoint_id}` | Estado completo (`channel_values`) naquele ponto |
-| GET | `/api/v1/trajectories/{id}/export` | Envelope **enriquecido** (M-14): `steps` (por nó: ts, state_in/out, tokens, cost_usd, decision) + `events` (journal) |
-| POST | `/api/v1/trajectories/import` | Importa envelope; `409` thread existente (sem merge no V1); `422` schema inválido |
-| POST | `/api/v1/trajectories/{id}/fork` | **Fork real** (M-13): `{checkpoint_id?}` → copia checkpoints para nova thread e cria run filha → `201 {run_id, thread_id, parent_run_id}` |
+| GET | `/api/v1/trajectories/{thread_id}/checkpoints` | **Existe a thread?** → `[{thread_id}]` (filtro de existência) ou `[]` — a listagem rica por run está no `timeline` |
+| GET | `/api/v1/trajectories/{thread_id}/checkpoints/{checkpoint_id}` | Estado completo (`channel_values`) naquele ponto → `{thread_id, checkpoint_id, state}` |
+| POST | `/api/v1/trajectories/export/{run_id}` | Export **enriquecido v1.1** (M-14) pela run (thread canônica `run-{run_id}`) → `TrajectoryExport` |
+| GET | `/api/v1/trajectories/{thread_id}/export` | Alias compat do export (mesmo payload enriquecido) |
+| POST | `/api/v1/trajectories/import` | Importa envelope; `422` schema inválido (exige `schema_version: "1.1"`); `409` thread já existe (sem merge no V1) → `201 {run_id, thread_id, checkpoints_imported}` |
+| POST | `/api/v1/trajectories/{thread_id}/fork` | **Fork real** (M-13) do head da thread: copia checkpoints byte-a-byte e cria run filha. `404` origem sem trajetória; `409` sem checkpoint copiável → `201 {fork_run_id, thread_id, checkpoint_id}` |
+
+```jsonc
+// TrajectoryExport (schema_version "1.1" — aceito apenas pelo POST /import)
+{
+  "schema_version": "1.1",
+  "run_id": "…", "thread_id": "run-…", "exported_at": "…", "idea": "…",
+  "checkpoints": [{ "checkpoint_id": "…", "parent_checkpoint_id": null,
+                    "checkpoint_ns": "", "ts": "…", "step": 0, "node": "developer",
+                    "state": { "…": "…" }, "state_summary": null, "metadata": {} }],
+  "steps": [{ "checkpoint_id": "…", "node": "developer", "step": 0, "ts": "…" }],
+  "events": [ /* Envelope v1 (mesmo do WS/backfill) */ ],
+  "costs": { "total_usd": 1.2, "estimated": false, "rows": [{ "model": "…",
+             "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0,
+             "node": "developer", "estimated": false, "created_at": "…" }] }
+}
+```
 
 ## 5. REST — Config / MCP / Providers (já existentes na Fase 1)
 
 - `GET /api/v1/config` / `PATCH /api/v1/config` — lê/escreve `.loopforge/ade.yaml`
-  (merge profundo, validado antes de escrita atômica, 422 inválido). **Auth a partir de M-03.**
-- `GET /api/v1/mcp/servers` → `[{name, status}]`; `GET /api/v1/mcp/servers/{name}/tools` → tools do server.
-- `POST /api/v1/mcp/servers/{name}/tools/{tool}` — **novo na Fase D**: executa tool
-  respeitando allowlist (403 `MCPPermissionDenied`); body = JSON dos args; resposta = resultado do tool.
+  (merge profundo; sub-modelos aninhados `budget`/`hitl`/`providers` reconstruídos
+  com validação pydantic; **`mcp_servers` validado via `TypeAdapter(list[AdeMcpServer])`
+  desde a D3** — antes itens inválidos eram descartados em silêncio). Inválido → `422`; **auth a partir de M-03.**
+- `GET /api/v1/mcp/servers` → `[{name, status}]`; `GET /api/v1/mcp/servers/{name}/tools` → tools do server (`503` se server não conectado).
+- `POST /api/v1/mcp/servers/{name}/tools/{tool}` — **Fase D (D2)**: executa a tool
+  MCP respeitando a `tools_allowlist` (deny-by-default). Body `{arguments: {...}}`
+  (opcional, default `{}`) → `200` resultado do tool (dict); `403` tool fora da
+  allowlist (`MCPPermissionDenied`); `404` server não declarado no `ade.yaml`;
+  `503` server não conectado.
 - `GET /api/v1/providers/ollama/models` — auto-discovery (503 se Ollama fora).
 
 ## 6. WebSocket — envelope v1 (ADR-0002)
 
-**Toda** mensagem server→cliente (live e backfill):
+**Toda** mensagem server→cliente (live e backfill) — envelope serializado real
+(`EventBus._to_envelope`, verificado no código):
 
 ```jsonc
 {
-  "schema_version": "1",
+  "seq": 17,                        // por run, monotônico 1-based (gap detection)
   "event": "node_execution",
-  "run_id": "…", "thread_id": "run-…",
-  "seq": 17,                        // por run, monotônico (gap detection)
-  "ts": "2026-08-07T12:00:00Z",
-  "payload": { "…": "…" }           // específico por evento
+  "run_id": "…",
+  "timestamp": "2026-08-07T12:00:00Z",
+  "payload": { "…": "…", "task_id": "…" }   // específico por evento; task_id preservado (B1)
 }
 ```
+
+> O `schema_version` é **implícito (v1, ADR-0002/M-05)** — não é serializado no
+> envelope atual; o `thread_id` derivado é `run-{run_id}` (ADR-0003), quando
+> necessário vem dentro do `payload` (ex.: `hitl_gate_reached`).
 
 - `/ws/runs/{run_id}` — canal **filtrado** da run (M-06).
 - `/ws/streaming` — feed global (lista de runs, todos os eventos).
@@ -150,12 +196,15 @@ Regras de reconciliação (M-19):
 | `pipeline_finished` | `{status, duration_seconds}` | dispatcher |
 | `pipeline_failed` / `pipeline_error` | `{status?, error}` | dispatcher / API |
 | `pipeline_resumed` | `{resuming_from_node}` | dispatcher |
-| `hitl_gate_reached` | `{node, timeout_seconds}` | dispatcher (novo — abre o drawer na UI) |
-| `human_decision_submitted` | `{gate_node, action, feedback_category?, user}` | API |
-| `human_decision_expired` | `{node, timeout_seconds, on_timeout}` | dispatcher |
-| `budget_warning` | `{spent_usd, budget_usd, pct}` | dispatcher (M-10) |
-| `budget_exceeded` | `{spent_usd, budget_usd}` | dispatcher (M-10) |
-| `fork_created` | `{parent_run_id, run_id, checkpoint_id}` | API (M-13) |
+| `hitl_gate_reached` | `{gate_node, thread_id, run_id, timeout_seconds, on_timeout, ts}` | dispatcher (novo — abre o drawer na UI; dedup por (run, nó)) |
+| `human_decision_submitted` | `{gate_node, action, feedback_category?, user, state_patch?}` | API |
+| `human_decision_expired` | `{node, timeout_seconds, run_status}` | dispatcher |
+| `fork_created` | `{parent_run_id, fork_run_id, checkpoint_id}` | API (M-13) |
+
+> **Budget não emite evento WS**: `budget_warning`/`budget_exceeded` (M-10) não
+> existem como eventos — o estado vem do `GET /runs/{id}/cost` (`budget_warning`
+> field) e o hard-stop é detectado pelo checkpoint pendente (status da run
+> `paused`; verificado no código — `app.py:_run_pipeline`).
 
 `node_execution` **não** carrega texto/tokens (UX4, ADR-0007); logs por nó ficam
 no journal como `payload.log_excerpt` (máx. ~2 KB) e no `run.logs` agregado.
@@ -164,8 +213,9 @@ no journal como `payload.log_excerpt` (máx. ~2 KB) e no `run.logs` agregado.
 
 - REST: prefixo `/api/v{n}`; mudança quebradora ⇒ novo prefixo, antigo com
   `Sunset` por pelo menos uma major do `lf`.
-- WS: `schema_version` no envelope; cliente ignora eventos desconhecidos
-  (forward-compatible) e rejeita `schema_version` maior que a suportada com erro
-  visível (força upgrade da UI).
-- Envelope de export de trajectories: `schema_version: "1.0"` (já existente) —
-  versionado independentemente; import aceita `1.0` apenas (V1).
+- WS: `schema_version` **implícito (v1)** no envelope (não serializado hoje);
+  cliente ignora eventos desconhecidos (forward-compatible) e rejeita versão maior
+  que a suportada com erro visível (força upgrade da UI).
+- Envelope de export de trajectories: `schema_version: "1.1"` (M-14, enriquecido
+  com `steps`/`events`/`costs`) — versionado independentemente; import aceita
+  `1.1` apenas (V1).

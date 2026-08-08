@@ -12,7 +12,7 @@ adversários multiusuário (V2).
 | REST `/api/*` | `X-API-Key` (ou Basic) em **todas** as rotas (M-03). Key gerada por `lf serve` (`secrets.token_hex(16)`) e impressa no console; override via `LF_API_API_KEY`. Constant-time compare. |
 | WS | `?token=` nos dois paths; close `1008` se inválido. |
 | Binding | default `127.0.0.1` (E5). `--host 0.0.0.0` possível mas exige key ativa; log de aviso explícito no boot. |
-| CORS | `LF_CORS_ORIGINS` (csv), default `http://127.0.0.1:5173,http://localhost:5173` (M-04). Produção = same-origin (SPA servida pelo `lf`), CORS inócuo. Sem `*` + credentials. |
+| CORS | `LF_CORS_ORIGINS` (csv) restringe; **default é `*` (wildcard)** (M-04). Produção = same-origin (SPA servida pelo `lf`), CORS inócuo. `allow_credentials` só com origens explícitas (nunca `*` + credentials). |
 | Rate limiting | **Não** no V1 — localhost + key tornam irrelevante; brute-force local é cenário fora do modelo de ameaça. Revisitar se binding externo virar caso suportado. |
 
 ## 2. Controle de custos (diretriz 1 — não negociável)
@@ -20,9 +20,11 @@ adversários multiusuário (V2).
 - **Fonte única**: `ade.yaml budget.max_usd` → `CircuitBreaker` (ADR-0005).
 - **Ledger**: `llm_costs` por chamada com `run_id`/`node`/`estimated` (M-08);
   subprocess OpenCode registra estimativa (`estimated=1`, tiktoken/chars) (M-09).
-- **Enforcement**: 80% → `budget_warning` (toast); 100% (com buffer de 10% sobre
-  estimados) → run **pausa** (`budget_exceeded`) — checkpoints íntegros;
-  override via UI/API (`budget-override`, auditado) ou abort (M-10).
+- **Enforcement**: 80% → `budget_warning` (campo do `GET /cost`, toast na UI); 100%
+  (com buffer de 10% sobre estimados) → run **pausa** (status `paused`, checkpoint
+  íntegro e pendente) — override via UI/API (`POST /runs/{id}/cost/override`,
+  **em memória por processo**, aplicado também ao CircuitBreaker do checkpoint)
+  ou abort (M-10).
 - **Outros limites** (CircuitBreaker, já existentes): `max_consecutive_failures=5`,
   `max_iterations=20`. Retries de nó: `max_retries=3` (QA/AppSec loops).
 - **Visão honesta**: chips por nó mostram `~` quando estimado; a barra nunca
@@ -32,18 +34,22 @@ adversários multiusuário (V2).
 
 | Camada | MVP? | Mecanismo |
 |---|---|---|
-| 1 — interrupt técnico | ✔ | `interrupt_after` + `/decide` persistem decisão (existem); **polling remoto está quebrado hoje** — dispatcher consulta `human_decisions` por `thread_id` e a API grava por uuid da run (verificado: `task_dispatcher.py:336` vs `app.py:357`). Fix = M-22 (Fase A, com teste E2E). |
+| 1 — interrupt técnico | ✔ | `interrupt_after` + `/decide` persistem decisão. Polling remoto **funciona** desde a Fase A (M-22: dispatcher consulta `human_decisions` pelo uuid da run, não pelo thread — verificado no código); race do `state_patch` (INSERT/UPDATE separados) fixado na Fase C com persistência atômica. |
 | 2 — aprovação de unidade de trabalho (equipe) | ✖ | V2 (público multiusuário) |
 | 3 — override com rollback | ✔ | `adjust_state` + fork de checkpoint (M-12/M-13) |
 
 - **Ações**: approve / retry / adjust_prompt / adjust_state / abort. `state_patch`
-  validado contra chaves do `GraphState` antes de `aupdate_state` (422 se inválido).
-- **Timeout**: `hitl.timeout_seconds` (default 300) + **`on_timeout: pause|continue`**
-  (default `pause` — fail-safe, ADR-0006). `pause` mantém a run esperando
-  indefinidamente sem consumir LLM; decisão tardia sempre aceita e logada.
-- **Audit trail**: toda decisão (incl. override de budget) em `human_decisions`
-  com usuário, timestamp, ação, payload e estado-alvo. Consultável na UI
-  (drawer) e via API. Append-only — sem edição/remoção no V1.
+  validado contra chaves do `GraphState` antes de `aupdate_state` (422 se inválido);
+  persistido na MESMA transação do INSERT (sem race no polling de 0,5s).
+- **Timeout**: `hitl.timeout_seconds` (default 300) + **`on_timeout: continue|abort|pause`**
+  (default `continue` — compat/legado; ADR-0006 propôs `pause` como fail-safe, a
+  implementação C4/M-11 manteve `continue` por compatibilidade e adicionou `abort`
+  fail-closed explícito). `continue` = transição graciosa; `abort` = run falha
+  controladamente sem consumir LLM (`hitl_timeout_abort`); `pause` = gate permanece
+  aberto aguardando decisão tardia sem consumir LLM. Decisão tardia sempre aceita e logada.
+- **Audit trail**: toda decisão (incl. `state_patch` de `adjust_state`) em
+  `human_decisions` com usuário, timestamp, ação, payload e estado-alvo.
+  Consultável na UI (drawer) e via API. Append-only — sem edição/remoção no V1.
 
 ## 4. Sandbox MCP
 
@@ -56,7 +62,9 @@ adversários multiusuário (V2).
   auth como todo `/api/*`. Nenhum nó do pipeline chama MCP autonomamente no V1 —
   tools são invocadas pelo operador (playground) ou por nós explicitamente
   codificados.
-- Server morto → `MCPUnavailable` → 503; UI mostra status down sem quebrar a run.
+- Server morto → `MCPUnavailable` → 503; server não declarado no `ade.yaml` → 404;
+  tool fora da allowlist → 403 (`MCPPermissionDenied`). UI mostra status down sem
+  quebrar a run.
 
 ## 5. Dados sensíveis
 
@@ -67,10 +75,32 @@ adversários multiusuário (V2).
   único destinatário. V2 candidato: redaction patterns no export.
 - API key nunca logada; impressa uma vez no boot do `lf serve`.
 
-## 6. Checklist de governança do MVP (aceite)
+## 6. Checklist de governança do MVP (aceite — estado real)
 
-- [ ] Nenhuma rota `/api/*` responde sem key (teste de contrato).
-- [ ] Estourar budget pausa a run e exige ação explícita (teste E2E).
-- [ ] Tool fora da allowlist retorna 403 (teste existente, mantido).
-- [ ] Toda decisão HITL aparece no audit trail com estado-alvo.
-- [ ] CORS rejeita origem não listada (teste).
+**Implementado e verificado no código/testes:**
+
+- [x] Nenhuma rota `/api/*` responde sem key (M-03 aplicado em routers e rotas;
+      teste de contrato 401 em rota v1 — Fase A).
+- [x] Estourar budget **pausa** a run (status `paused`, checkpoint íntegro) e
+      exige ação explícita (`POST /runs/{id}/cost/override` + `/resume`; testado
+      na Fase A: n4+n2b).
+- [x] Tool MCP fora da `tools_allowlist` retorna **403** (D2 — POST tool mapeia
+      403/404/503 com detail PT).
+- [x] Toda decisão HITL aparece no audit trail com estado-alvo (`state_patch`
+      persistido atomicamente — M-12).
+- [x] `hitl.on_timeout: abort` é fail-closed: run falha controladamente sem
+      consumir LLM (C4/M-11); `pause` re-aguarda decisão tardia sem LLM.
+- [x] `adjust_state` valida `state_patch` contra o `GraphState` (422) antes de
+      aplicar via `aupdate_state` (M-12).
+- [x] Fork real de trajetória (M-13) e export/import enriquecido v1.1 (M-14)
+      — ações explícitas do operador, auth exigida.
+- [x] `PATCH /api/v1/config` valida `mcp_servers` (TypeAdapter) e sub-modelos —
+      inválido → 422 (D3).
+
+**Pendente / não se aplica no modelo atual:**
+
+- [ ] CORS rejeita origem não listada (teste) — **default é `*`** (wildcard,
+      M-04); a restrição só existe quando `LF_CORS_ORIGINS` é definida. Teste de
+      rejeição faz sentido apenas nesse modo.
+- Rate limiting: **não** no V1 (localhost + key; brute-force local fora do modelo
+  de ameaça) — revisitar se binding externo virar caso suportado.

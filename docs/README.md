@@ -30,7 +30,7 @@ rastreadas em `09-mudancas-sobre-o-existente.md`.
 | `0003` | Identidade run↔thread 1:1 persistida; dispatcher escritor canônico |
 | `0004` | API `/api/v1` canônica, auth uniforme, CORS restrito |
 | `0005` | Orçamento fonte única (`ade.yaml`) e hard-stop com pausa + override |
-| `0006` | HITL `on_timeout: pause\|continue` (default fail-safe `pause`) |
+| `0006` | HITL `on_timeout: continue\|abort\|pause` (default `continue` — compat; `abort` fail-closed explícito, `pause` re-aguarda decisão tardia) |
 | `0007` | Token streaming fora do MVP |
 
 ## Convenções
@@ -41,5 +41,9 @@ rastreadas em `09-mudancas-sobre-o-existente.md`.
 - Afirmações sobre o estado atual são marcadas como **"verificado no código"**
   (auditadas no fonte) ou **"planejado"** (existe apenas em spec/plano, ainda
   não implementado).
-- Estado de implementação auditado em 2026-08-07: engine Fase 1 concluída; SPA
-  T1–T11 no branch `feature/ade-fase2`.
+- Estado de implementação auditado em 2026-08-08: engine **Fases A–C completas +
+  D (D1–D3)** no branch `feature/ade-fase-a` (HEAD `7cbfd61`, suíte **302 passed /
+  1 skipped / 1 xfailed** com `OPENCODE_MOCK=1`); SPA B–D no branch
+  `feature/ade-fase2` (HEAD `0394520`, **24 arquivos / 126 testes**, build/lint
+  limpos). Pendente da Fase D: D4 (endurecimento E2E) e `STATUS-IMPLEMENTACAO.md`
+  (orquestrador).
