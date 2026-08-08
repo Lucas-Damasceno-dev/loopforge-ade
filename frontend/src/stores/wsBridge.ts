@@ -4,6 +4,7 @@ import type { Run, RunStatus } from '../shared/lib/types'
 import { useRunsStore } from './runsStore'
 import { useCanvasStore } from './canvasStore'
 import { useConsoleStore } from './consoleStore'
+import { useHitlGateStore } from './hitlGateStore'
 import type { ConsoleEntry, LogLevel } from './consoleStore'
 
 // Barramento de eventos WS: stores de features registram handlers aqui
@@ -130,6 +131,27 @@ export function handleWsEvent(e: WsEvent): void {
     }
     case 'pipeline_resumed':
       log('info', 'pipeline resumed')
+      break
+    case 'hitl_gate_reached': {
+      // C3 (M-12): gate HITL alcançado → banner informativo não-bloqueante
+      // (hitlGateStore) + log. O drawer HITL continua abrindo pelo
+      // canvasStore (run_paused/node paused) — o banner é complementar.
+      const p = e.payload
+      useHitlGateStore.getState().push({
+        gateNode: str(p.gate_node) ?? '?',
+        runId: str(e.run_id),
+        threadId: str(p.thread_id),
+        timeoutSeconds: num(p.timeout_seconds),
+        onTimeout: str(p.on_timeout),
+        ts: num(p.ts),
+      })
+      log('warn', `HITL gate reached: ${str(p.gate_node) ?? '?'}`, 'system', str(e.run_id))
+      break
+    }
+    case 'fork_created':
+      // Fork é iniciado pela própria UI (resposta síncrona do POST) — o
+      // evento de broadcast apenas confirma; nada a fazer aqui no V1.
+      log('info', 'fork created', undefined, str(e.run_id))
       break
   }
 }

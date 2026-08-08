@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized } from '../api'
+import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun } from '../api'
 
 describe('api client', () => {
   beforeEach(() => {
@@ -86,5 +86,39 @@ describe('api client', () => {
     await vi.waitFor(() => expect(onUnauthorized).toBeDefined())
     rejectPendingUnauthorized()
     await expect(pending).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('trajectory endpoints (Fase C): fork/export/import/timeline hit v1 routes', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ fork_run_id: 'f1', thread_id: 'run-f1', checkpoint_id: 'c1' }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ schema_version: '1.1', run_id: 'r1', thread_id: 'run-r1', checkpoints: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ run_id: 'r9', thread_id: 'run-r9', checkpoints_imported: 3 }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ run_id: 'r1', timeline: [], total_count: 0, has_more: false, next_after_seq: null }), { status: 200 }))
+
+    // Fork: thread canônica 'run-{id}' → POST /trajectories/{thread_id}/fork.
+    const fork = await forkTrajectory(threadIdForRun('r1'))
+    expect(fork.fork_run_id).toBe('f1')
+    expect(threadIdForRun('r1')).toBe('run-r1')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/trajectories/run-r1/fork'), expect.objectContaining({ method: 'POST' }))
+
+    // Export: POST /trajectories/export/{run_id} (schema 1.1).
+    const exp = await exportTrajectory('r1')
+    expect(exp.schema_version).toBe('1.1')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/trajectories/export/r1'), expect.objectContaining({ method: 'POST' }))
+
+    // Import: POST /trajectories/import com o payload exportado.
+    const imp = await importTrajectory({ schema_version: '1.1', run_id: 'r9', thread_id: 'run-r9', checkpoints: [] })
+    expect(imp.checkpoints_imported).toBe(3)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/trajectories/import'), expect.objectContaining({ method: 'POST' }))
+
+    // Timeline: GET /runs/{run_id}/timeline?after_seq=&limit=.
+    const tl = await getRunTimeline('r1', 10, 50)
+    expect(tl.has_more).toBe(false)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs/r1/timeline?after_seq=10&limit=50'), expect.anything())
+  })
+
+  it('fork throws ApiError with PT detail on 404', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Run run-r1 não encontrada (sem trajetória)' }), { status: 404 }))
+    await expect(forkTrajectory('run-r1')).rejects.toMatchObject({ status: 404, detail: 'Run run-r1 não encontrada (sem trajetória)' })
   })
 })
