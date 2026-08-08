@@ -2,12 +2,14 @@ import { beforeEach, describe, it, expect } from 'vitest'
 import { useRunsStore } from '../runsStore'
 import { useCanvasStore } from '../canvasStore'
 import { useConsoleStore } from '../consoleStore'
+import { useHitlGateStore } from '../hitlGateStore'
 import { dispatchWsEvent } from '../wsBridge'
 
 beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
   useConsoleStore.setState({ entries: [], filters: { node: 'all', level: 'all', query: '' }, autoScroll: true })
+  useHitlGateStore.setState({ gates: [] })
 })
 
 describe('runsStore', () => {
@@ -82,6 +84,17 @@ describe('canvasStore', () => {
   it('maps human_decision_expired to paused', () => {
     dispatchWsEvent({ event: 'human_decision_expired', run_id: 'r1', payload: { node: 'qa', timeout_seconds: 300 } })
     expect(useCanvasStore.getState().nodeStatus.qa?.status).toBe('paused')
+  })
+  it('maps hitl_gate_reached to hitlGateStore + warn log (C3)', () => {
+    dispatchWsEvent({
+      event: 'hitl_gate_reached',
+      run_id: 'r1',
+      payload: { gate_node: 'qa', thread_id: 'run-r1', timeout_seconds: 300, on_timeout: 'continue' },
+    })
+    const gates = useHitlGateStore.getState().gates
+    expect(gates).toHaveLength(1)
+    expect(gates[0]).toMatchObject({ gateNode: 'qa', runId: 'r1', timeoutSeconds: 300, onTimeout: 'continue' })
+    expect(useConsoleStore.getState().entries.some((e) => e.level === 'warn' && /gate reached/i.test(e.message))).toBe(true)
   })
 })
 

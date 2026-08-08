@@ -4,9 +4,11 @@ import { RunsWorkspace } from '../features/runs/RunsWorkspace'
 import { ConsolePanel } from '../features/console/ConsolePanel'
 import { InspectDrawer } from '../features/dag/InspectDrawer'
 import { HitlDrawer } from '../features/hitl/HitlDrawer'
+import { HitlGateBanner } from '../features/hitl/HitlGateBanner'
 import { TimelineBar } from '../features/timeline/TimelineBar'
 import { CostBar } from '../features/costs/CostBar'
 import { McpPlayground } from '../features/mcp/McpPlayground'
+import { TrajectoriesPanel } from '../features/trajectories/TrajectoriesPanel'
 import { ApiKeyGate } from '../features/auth/ApiKeyGate'
 import { Drawer } from '../shared/ui/Drawer'
 import { Topbar } from '../shared/ui/Topbar'
@@ -19,6 +21,7 @@ const queryClient = new QueryClient()
 export function App() {
   const connected = useRef(false)
   const [mcpOpen, setMcpOpen] = useState(false)
+  const [trajectoriesOpen, setTrajectoriesOpen] = useState(false)
   // Fullscreen do canvas (01b §6.1): F11 alterna; oculta topbar + chrome das
   // runs — restam canvas e console. Indicador discreto no canto do canvas.
   const [fullscreen, setFullscreen] = useState(false)
@@ -49,6 +52,14 @@ export function App() {
               <>
                 {/* UX12: barra de orçamento global sempre visível. */}
                 <CostBar className="w-44" />
+                {/* Fase C: tela de trajetórias (fork/export/import/timeline). */}
+                <button
+                  type="button"
+                  onClick={() => setTrajectoriesOpen(true)}
+                  className="rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-dim)] transition-colors duration-100 hover:bg-[var(--bg-elev)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  Trajetórias
+                </button>
                 <button
                   type="button"
                   onClick={() => setMcpOpen(true)}
@@ -60,6 +71,8 @@ export function App() {
             }
           />
         )}
+        {/* Banner de gate HITL (C3/M-12): informativo, descartável, não-bloqueante. */}
+        {!fullscreen && <HitlGateBanner />}
         <div className="relative min-h-0 flex-1">
           <RunsWorkspace hideChrome={fullscreen} />
           {/* Indicador de saída do fullscreen (01b §6.1). */}
@@ -76,6 +89,8 @@ export function App() {
         <InspectDrawer />
         {/* Drawer HITL (portal p/ body) — complementar: abre com nó paused. */}
         <HitlDrawer />
+        {/* Trajetórias (Fase C): fork/export/import/timeline por run. */}
+        <TrajectoriesPanel open={trajectoriesOpen} onClose={() => setTrajectoriesOpen(false)} />
         {/* Playground MCP (feature #5, V1 parcial) — drawer aberto pelo header. */}
         <Drawer open={mcpOpen} title="MCP Playground" onClose={() => setMcpOpen(false)}>
           <McpPlayground />

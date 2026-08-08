@@ -35,6 +35,20 @@ export interface WsEventPipelineStarted extends WsEventBase {
   payload: { idea: string; node: string; task_id?: string }
 }
 
+// C3 (M-12): gate HITL alcançado — a run pausa aguardando decisão. Payload:
+// {gate_node, thread_id, run_id, timeout_seconds, on_timeout, ts}.
+export interface WsEventHitlGate extends WsEventBase {
+  event: 'hitl_gate_reached'
+  payload: {
+    gate_node: string
+    thread_id?: string
+    timeout_seconds?: number
+    on_timeout?: string
+    ts?: number
+    task_id?: string
+  }
+}
+
 export interface WsEventGeneric extends WsEventBase {
   event:
     | 'run_created'
@@ -46,9 +60,10 @@ export interface WsEventGeneric extends WsEventBase {
     | 'pipeline_resumed'
     | 'human_decision_expired'
     | 'human_decision_submitted'
+    | 'fork_created'
 }
 
-export type WsEvent = WsEventNodeExecution | WsEventPipelineStarted | WsEventGeneric
+export type WsEvent = WsEventNodeExecution | WsEventPipelineStarted | WsEventHitlGate | WsEventGeneric
 
 const KNOWN = new Set([
   'pipeline_started',
@@ -62,6 +77,8 @@ const KNOWN = new Set([
   'run_created',
   'run_updated',
   'run_paused',
+  'hitl_gate_reached',
+  'fork_created',
 ])
 
 function str(v: unknown): string | undefined {
@@ -166,6 +183,22 @@ export function normalizeWsEvent(raw: unknown): WsEvent | null {
     }
     if (taskId !== undefined) p.task_id = taskId
     return { event: 'pipeline_started', seq, run_id, timestamp, payload: p }
+  }
+
+  // C3 (M-12): hitl_gate_reached — tipa os campos que o banner consome
+  // (gate_node, timeout_seconds, on_timeout) sem exigir presença obrigatória.
+  if (r.event === 'hitl_gate_reached') {
+    const p: WsEventHitlGate['payload'] = { gate_node: str(payload.gate_node) ?? '' }
+    const threadId = str(payload.thread_id)
+    if (threadId !== undefined) p.thread_id = threadId
+    const timeoutSeconds = num(payload.timeout_seconds)
+    if (timeoutSeconds !== undefined) p.timeout_seconds = timeoutSeconds
+    const onTimeout = str(payload.on_timeout)
+    if (onTimeout !== undefined) p.on_timeout = onTimeout
+    const ts = num(payload.ts)
+    if (ts !== undefined) p.ts = ts
+    if (taskId !== undefined) p.task_id = taskId
+    return { event: 'hitl_gate_reached', seq, run_id, timestamp, payload: p }
   }
 
   // Eventos genéricos: payload = dados do evento (status, idea, current_node,

@@ -7,7 +7,21 @@ import { useConsoleStore } from '../../../stores/consoleStore'
 import { decideRun } from '../../../shared/lib/api'
 import type { Run } from '../../../shared/lib/types'
 
-vi.mock('../../../shared/lib/api', () => ({ decideRun: vi.fn(), getDecisions: vi.fn().mockResolvedValue([]) }))
+vi.mock('../../../shared/lib/api', () => ({
+  decideRun: vi.fn(),
+  getDecisions: vi.fn().mockResolvedValue([]),
+  getCheckpoints: vi.fn().mockResolvedValue([]),
+  getCheckpoint: vi.fn(),
+}))
+
+// Reset dos stores + mocks entre testes (os `not.toHaveBeenCalled()` de
+// adjust_state dependem de chamadas acumuladas do decideRun zeradas).
+beforeEach(() => {
+  vi.clearAllMocks()
+  useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
+  useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
+  useConsoleStore.setState({ entries: [], filters: { node: 'all', level: 'all', query: '' }, autoScroll: true })
+})
 
 // RunStatus não inclui 'paused' (o estado paused mora no canvasStore) — o
 // status da run no teste é irrelevante p/ o drawer; cast mantém o valor do brief.
@@ -36,24 +50,44 @@ it('shows expired timeout banner', () => {
   render(<HitlDrawer />)
   expect(screen.getByText(/decision expired/i)).toBeInTheDocument()
 })
-it('adjust state sends adjust_prompt with feedback and documents V1 gap', async () => {
+it('adjust state (C3) sends adjust_state with state_patch from guided fields', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
   render(<HitlDrawer />)
   await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
-  // GAP V1 documentado: o backend NÃO aplica o estado — vai como feedback_message.
-  expect(screen.getByText(/not applied yet/i)).toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText(/state json/i), { target: { value: '{"memory":{"flag":true}}' } })
-  await userEvent.click(screen.getByRole('button', { name: /apply/i }))
-  // Wire real: action 'adjust_prompt' (não 'adjust_state') + feedback_message.
+  // Form guiado: canais reais do GraphState → state_patch.
+  await userEvent.type(screen.getByLabelText('Ideia'), 'Nova direção')
+  await userEvent.selectOptions(screen.getByLabelText('Modo de roteamento'), 'fast')
+  await userEvent.click(screen.getByRole('button', { name: /aplicar/i }))
   expect(decideRun).toHaveBeenCalledWith(
     'r1',
     expect.objectContaining({
-      action: 'adjust_prompt',
+      action: 'adjust_state',
       gate_node: 'qa',
-      feedback_message: '{"memory":{"flag":true}}',
+      state_patch: { idea: 'Nova direção', routing_mode: 'fast' },
     }),
   )
+})
+it('adjust state advanced JSON validates and shows PT error on invalid syntax', async () => {
+  useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
+  useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
+  render(<HitlDrawer />)
+  await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
+  await userEvent.click(screen.getByRole('switch', { name: 'JSON avançado' }))
+  fireEvent.change(screen.getByLabelText('JSON do estado'), { target: { value: '{invalid' } })
+  expect(screen.getByRole('alert')).toHaveTextContent('JSON inválido')
+  // Estado inválido bloqueia o Apply (o alert continua, nada é enviado).
+  await userEvent.click(screen.getByRole('button', { name: /aplicar/i }))
+  expect(decideRun).not.toHaveBeenCalled()
+})
+it('adjust state with no edited fields shows PT error before sending', async () => {
+  useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
+  useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
+  render(<HitlDrawer />)
+  await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
+  await userEvent.click(screen.getByRole('button', { name: /aplicar/i }))
+  expect(screen.getByRole('alert')).toHaveTextContent('Nenhum campo alterado')
+  expect(decideRun).not.toHaveBeenCalled()
 })
 it('abort requires destructive confirmation before sending', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })

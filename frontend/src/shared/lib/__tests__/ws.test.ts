@@ -79,6 +79,29 @@ describe('normalizeWsEvent', () => {
       payload: { status: 'paused' },
     })
   })
+  it('normalizes hitl_gate_reached with typed payload (C3)', () => {
+    const raw = {
+      seq: 7,
+      event: 'hitl_gate_reached',
+      run_id: 'r1',
+      timestamp: 123,
+      payload: { gate_node: 'qa', thread_id: 'run-r1', timeout_seconds: 300, on_timeout: 'continue', ts: 456 },
+    }
+    expect(normalizeWsEvent(raw)).toMatchObject({
+      event: 'hitl_gate_reached',
+      run_id: 'r1',
+      timestamp: 123,
+      payload: { gate_node: 'qa', thread_id: 'run-r1', timeout_seconds: 300, on_timeout: 'continue', ts: 456 },
+    })
+  })
+  it('normalizes fork_created as generic event', () => {
+    const raw = { event: 'fork_created', run_id: 'f1', payload: { parent_run_id: 'r1', fork_run_id: 'f1' } }
+    expect(normalizeWsEvent(raw)).toMatchObject({
+      event: 'fork_created',
+      run_id: 'f1',
+      payload: { parent_run_id: 'r1', fork_run_id: 'f1' },
+    })
+  })
 })
 
 describe('createWsClient', () => {

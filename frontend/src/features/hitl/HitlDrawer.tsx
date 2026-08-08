@@ -7,16 +7,34 @@ import { Drawer } from '../../shared/ui/Drawer'
 import { Button } from '../../shared/ui/Button'
 import { Badge } from '../../shared/ui/Badge'
 import { Banner } from '../../shared/ui/Banner'
+import { Input } from '../../shared/ui/Input'
 import { Textarea } from '../../shared/ui/Textarea'
 import { Toggle } from '../../shared/ui/Toggle'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
-import { decideRun, getDecisions } from '../../shared/lib/api'
+import { decideRun, getDecisions, getCheckpoints, getCheckpoint } from '../../shared/lib/api'
 import type { DecisionRecord } from '../../shared/lib/types'
 import { NODE_LABELS, PIPELINE_ORDER } from '../dag/dagModel'
 
 // Ações reais do backend (HumanDecisionCreate.action): approve, retry,
-// adjust_prompt, abort — task_dispatcher mapeia p/ "c"/"r"/"a"/"x".
-type Action = 'approve' | 'retry' | 'abort' | 'adjust_prompt'
+// adjust_prompt, adjust_state, abort — task_dispatcher mapeia p/ "c"/"r"/"a"/"as"/"x".
+type Action = 'approve' | 'retry' | 'abort' | 'adjust_prompt' | 'adjust_state'
+
+// Campos do form guiado (C3/M-12): canais REAIS do GraphState
+// (src/lf/pipeline/state.py — idea, stack, routing_mode, next_agent, code).
+// O backend descarta canais fora do TypedDict — "requirements" NÃO é canal.
+const GUIDED_FIELDS: Array<{ key: string; label: string; kind: 'text' | 'select' | 'textarea'; options?: string[] }> = [
+  { key: 'idea', label: 'Ideia', kind: 'text' },
+  { key: 'stack', label: 'Stack', kind: 'text' },
+  { key: 'routing_mode', label: 'Modo de roteamento', kind: 'select', options: ['full', 'fast', 'patch', 'review-only', 'explore'] },
+  { key: 'next_agent', label: 'Próximo agente', kind: 'text' },
+  { key: 'code', label: 'Código', kind: 'textarea' },
+]
+
+// Valor curto para o diff (antes → depois); undefined = desconhecido.
+function fmt(v: unknown): string {
+  if (typeof v === 'string') return v.length === 0 ? '""' : v
+  return JSON.stringify(v) ?? '—'
+}
 
 // Drawer HITL (UX8/UX9/UX10): abre automaticamente quando a run ativa tem um
 // nó paused no canvas (não-modal — o nó segue visível). Ações chamam a API
@@ -24,6 +42,12 @@ type Action = 'approve' | 'retry' | 'abort' | 'adjust_prompt'
 // (role=alert); timeout (UX10) detectado pelo warn 'HITL decision expired'
 // que o wsBridge (T5) já loga; histórico auditável via getDecisions. Sem run
 // ativa ou sem nó paused → não renderiza nada.
+//
+// C3 (M-12): "Adjust State" agora usa action=adjust_state com state_patch
+// (aplicado ao checkpoint pelo backend) — form guiado com os canais do
+// GraphState + modo JSON avançado (validação com erro PT) + diff leve
+// antes→depois dos campos editados (best-effort: valores atuais vêm do último
+// checkpoint da thread quando disponível; senão, só o resumo dos campos).
 export function HitlDrawer() {
   const nodeStatus = useCanvasStore((s) => s.nodeStatus)
   const setNodeStatus = useCanvasStore((s) => s.setNodeStatus)
@@ -36,7 +60,10 @@ export function HitlDrawer() {
   const [error, setError] = useState<string | null>(null)
   const [showAdjust, setShowAdjust] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [jsonState, setJsonState] = useState('{}')
+  const [patch, setPatch] = useState<Record<string, unknown>>({})
+  const [jsonText, setJsonText] = useState('{}')
+  const [jsonError, setJsonError] = useState<string | null>(null)
+  const [beforeValues, setBeforeValues] = useState<Record<string, unknown> | null>(null)
   const [decisions, setDecisions] = useState<DecisionRecord[]>([])
   const [decisionsLoading, setDecisionsLoading] = useState(true)
   const [dismissed, setDismissed] = useState(false)
@@ -45,10 +72,36 @@ export function HitlDrawer() {
   const gateNode = useMemo(() => PIPELINE_ORDER.find((n) => nodeStatus[n]?.status === 'paused') ?? null, [nodeStatus])
   const run = runs.find((r) => r.id === activeRunId) ?? null
 
-  // Reabre o drawer quando o gate muda (nova pausa).
+  // Reabre o drawer quando o gate muda (nova pausa) e zera o form de ajuste.
   useEffect(() => {
     setDismissed(false)
+    setShowAdjust(false)
+    setPatch({})
+    setJsonText('{}')
+    setJsonError(null)
+    setBeforeValues(null)
   }, [gateNode])
+
+  // Valores atuais dos campos (diff antes→depois): último checkpoint da
+  // thread quando o backend serve checkpoint_id (V1 best-effort — sem ele,
+  // o diff vira só o resumo dos campos editados).
+  useEffect(() => {
+    if (!showAdjust || !run?.thread_id) return
+    const threadId = run.thread_id
+    let cancelled = false
+    getCheckpoints(threadId)
+      .then(async (cps) => {
+        if (cancelled || cps.length === 0) return
+        const last = cps[cps.length - 1] as { checkpoint_id?: string }
+        if (typeof last.checkpoint_id !== 'string') return // V1: [{thread_id}] sem id
+        const cp = await getCheckpoint(threadId, last.checkpoint_id)
+        if (cancelled) return
+        const channel = (cp.state?.channel_values ?? {}) as Record<string, unknown>
+        setBeforeValues(channel)
+      })
+      .catch(() => { /* best-effort — sem checkpoint/backend, segue o resumo */ })
+    return () => { cancelled = true }
+  }, [showAdjust, run?.thread_id])
 
   // Timeout (UX10): human_decision_expired → o wsBridge loga warn com os
   // segundos na mensagem ('HITL decision expired (300s)') — segundos parseados.
@@ -87,7 +140,11 @@ export function HitlDrawer() {
       await decideRun(run.id, { action, gate_node: gateNode, ...body })
       // Sucesso: o gate sai do paused — o drawer fecha automaticamente.
       const next: NodeStatus =
-        action === 'approve' || action === 'adjust_prompt' ? 'approved' : action === 'abort' ? 'rejected' : 'pending'
+        action === 'approve' || action === 'adjust_prompt' || action === 'adjust_state'
+          ? 'approved'
+          : action === 'abort'
+            ? 'rejected'
+            : 'pending'
       setNodeStatus(gateNode, next)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Decision failed')
@@ -96,18 +153,44 @@ export function HitlDrawer() {
     }
   }
 
-  const submitAdjust = async () => {
-    // Valida o JSON antes de enviar. GAP V1 documentado: HumanDecisionCreate
-    // não tem campo `state` (Pydantic v2 ignora extras) — o JSON vai no
-    // feedback_message e o backend NÃO aplica o estado editado no pipeline.
+  // Escreve um campo guiado no patch (fonte única de verdade) e sincroniza o
+  // texto JSON avançado. Valor vazio remove o canal (patch menor).
+  const updatePatch = (key: string, value: string) => {
+    setPatch((prev) => {
+      const next = { ...prev }
+      if (value === '') delete next[key]
+      else next[key] = value
+      setJsonText(JSON.stringify(next, null, 2))
+      return next
+    })
+  }
+
+  // Edição livre do JSON avançado: parse em tempo real, erro PT se inválido.
+  const onJsonChange = (text: string) => {
+    setJsonText(text)
     try {
-      JSON.parse(jsonState)
+      const parsed = JSON.parse(text)
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setJsonError('O estado deve ser um objeto JSON (dict) válido')
+        return
+      }
+      setPatch(parsed as Record<string, unknown>)
+      setJsonError(null)
     } catch {
-      setError('Invalid JSON')
+      setJsonError('JSON inválido — confira a sintaxe antes de aplicar')
+    }
+  }
+
+  const submitAdjustState = async () => {
+    if (jsonError) return // erro inline já visível abaixo do JSON
+    if (Object.keys(patch).length === 0) {
+      setError('Nenhum campo alterado — edite ao menos um campo do estado')
       return
     }
-    await runAction('adjust_prompt', { feedback_category: 'state_adjust', feedback_message: jsonState })
+    await runAction('adjust_state', { state_patch: patch })
   }
+
+  const editedKeys = Object.keys(patch)
 
   return (
     <>
@@ -152,30 +235,90 @@ export function HitlDrawer() {
         {showAdjust && (
           <div className="mb-4 rounded-md border border-[var(--border)] bg-[var(--bg)] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Adjust state</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Ajustar estado</span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-xs text-[var(--text-dim)]">Advanced JSON</span>
-                <Toggle checked={showAdvanced} onChange={setShowAdvanced} label="Advanced JSON" />
+                <span className="text-xs text-[var(--text-dim)]">JSON avançado</span>
+                <Toggle checked={showAdvanced} onChange={setShowAdvanced} label="JSON avançado" />
               </span>
             </div>
-            {showAdvanced && (
-              <p className="mb-2 text-xs text-[var(--text-dim)]">
-                Expected: JSON object of state fields, e.g. {'{ "memory": { "flag": true } }'}.
-              </p>
-            )}
-            <Textarea
-              aria-label="State JSON"
-              value={jsonState}
-              onChange={(e) => setJsonState(e.target.value)}
-              className="h-28 font-mono text-xs"
-            />
-            {/* GAP V1: o wire real (HumanDecisionCreate) não aplica estado — só feedback. */}
-            <p className="mt-2 text-xs text-[var(--warn)]">
-              V1 gap: state edits are not applied yet — JSON is sent as feedback_message.
+            <p className="mb-3 text-xs text-[var(--text-dim)]">
+              Edite campos do estado do pipeline — a run continua após aplicar (action{' '}
+              <span className="font-mono">adjust_state</span> + <span className="font-mono">state_patch</span>).
             </p>
-            <div className="mt-2 flex justify-end">
-              <Button size="sm" variant="primary" disabled={pendingAction !== null} onClick={submitAdjust}>
-                Apply
+
+            {/* Form guiado: canais reais do GraphState. */}
+            <div className="space-y-2.5">
+              {GUIDED_FIELDS.map((f) => {
+                const value = typeof patch[f.key] === 'string' ? (patch[f.key] as string) : ''
+                const common = { 'aria-label': f.label }
+                return (
+                  <div key={f.key}>
+                    <span className="mb-0.5 block text-[11px] text-[var(--text-dim)]">{f.label}</span>
+                    {f.kind === 'select' ? (
+                      <select
+                        {...common}
+                        value={value}
+                        onChange={(e) => updatePatch(f.key, e.target.value)}
+                        className="h-8 w-full rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-2 text-sm text-[var(--text)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                      >
+                        <option value="">—</option>
+                        {(f.options ?? []).map((o) => (
+                          <option key={o} value={o}>{o}</option>
+                        ))}
+                      </select>
+                    ) : f.kind === 'textarea' ? (
+                      <Textarea {...common} value={value} onChange={(e) => updatePatch(f.key, e.target.value)} className="h-20 font-mono text-xs" />
+                    ) : (
+                      <Input {...common} value={value} onChange={(e) => updatePatch(f.key, e.target.value)} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* JSON avançado: visão completa do patch, editável. */}
+            {showAdvanced && (
+              <div className="mt-3">
+                <Textarea
+                  aria-label="JSON do estado"
+                  value={jsonText}
+                  invalid={jsonError !== null}
+                  onChange={(e) => onJsonChange(e.target.value)}
+                  className="h-28 font-mono text-xs"
+                />
+                <p className="mt-1 text-[11px] text-[var(--text-dim)]">
+                  Patch completo enviado como <span className="font-mono">state_patch</span>. Canais fora do
+                  GraphState são descartados pelo backend.
+                </p>
+                {jsonError && (
+                  <p role="alert" className="mt-1 text-xs text-[var(--err-text)]">{jsonError}</p>
+                )}
+              </div>
+            )}
+
+            {/* Diff leve: antes → depois dos campos editados (best-effort). */}
+            {editedKeys.length > 0 && (
+              <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--bg)] p-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                  Campos alterados ({editedKeys.length})
+                </p>
+                <ul className="mt-1 space-y-0.5 font-mono text-[11px]">
+                  {editedKeys.map((k) => (
+                    <li key={k} className="flex items-baseline gap-1 text-[var(--text-dim)]">
+                      <span className="shrink-0 text-[var(--accent-text)]">{k}</span>
+                      <span className="shrink-0">:</span>
+                      <span className="min-w-0 flex-1 truncate">{beforeValues ? fmt(beforeValues[k]) : '—'}</span>
+                      <span aria-hidden="true" className="shrink-0 text-[var(--warn)]">→</span>
+                      <span className="min-w-0 flex-1 truncate text-[var(--text)]">{fmt(patch[k])}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-3 flex justify-end">
+              <Button size="sm" variant="primary" disabled={pendingAction !== null} onClick={submitAdjustState}>
+                Aplicar
               </Button>
             </div>
           </div>

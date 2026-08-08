@@ -150,6 +150,59 @@ export interface DecisionRecord {
   timestamp?: string
 }
 
+// ─── Fase C — trajetórias (fork/export/import/timeline) ─────────────────────
+// Espelha src/lf/api/trajectories.py e app.py (rotas /trajectories/* e
+// /runs/{id}/timeline). Thread canônica de uma run é `run-{run_id}` (ADR-0003).
+
+/** Resposta de POST /trajectories/{thread_id}/fork (201). */
+export interface ForkResult {
+  fork_run_id: string
+  thread_id: string
+  checkpoint_id: string
+}
+
+/** Resposta de POST /trajectories/import (201). */
+export interface ImportResult {
+  run_id: string
+  thread_id: string
+  checkpoints_imported: number
+}
+
+/** Export enriquecido (schema_version 1.1) — payload livre, campos de topo tipados. */
+export interface TrajectoryExport {
+  schema_version: string
+  run_id: string
+  thread_id: string
+  exported_at?: string
+  idea?: string
+  checkpoints?: unknown[]
+  steps?: unknown[]
+  events?: unknown[]
+  costs?: unknown
+  [key: string]: unknown
+}
+
+/** Item da timeline unificada (GET /runs/{id}/timeline) — evento OU checkpoint. */
+export interface TimelineEntry {
+  seq: number
+  type: 'event' | 'checkpoint'
+  /** Epoch ms (eventos) ou string ISO (checkpoints LangGraph). */
+  timestamp: number | string
+  /** Nome do nó quando disponível no payload/metadata. */
+  node: string | null
+  /** Payload do evento OU checkpoint serializado. */
+  data: Record<string, unknown>
+}
+
+/** Resposta de GET /runs/{id}/timeline?after_seq=&limit=. */
+export interface TimelineResponse {
+  run_id: string
+  timeline: TimelineEntry[]
+  total_count: number
+  has_more: boolean
+  next_after_seq: number | null
+}
+
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K]
 }

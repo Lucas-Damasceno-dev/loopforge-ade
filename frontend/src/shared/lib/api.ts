@@ -1,4 +1,4 @@
-import type { AdeConfig, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, McpServer, McpTool, Run, RunListResponse } from './types'
+import type { AdeConfig, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, ForkResult, ImportResult, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
 
 // Base da API v1: VITE_API_BASE opcional (ex.: http://127.0.0.1:8787) —
 // default '/api/v1' (no dev, o Vite faz proxy de /api → backend real).
@@ -115,3 +115,25 @@ export const listMcpTools = (name: string) => apiFetch<McpTool[]>(`/mcp/servers/
 // O backend retorna [{thread_id}] para a listagem de checkpoints de uma thread.
 export const getCheckpoints = (threadId: string) => apiFetch<Array<{ thread_id: string }>>(`/trajectories/${encodeURIComponent(threadId)}/checkpoints`)
 export const getCheckpoint = (threadId: string, checkpointId: string) => apiFetch<Checkpoint>(`/trajectories/${encodeURIComponent(threadId)}/checkpoints/${encodeURIComponent(checkpointId)}`)
+
+// ─── Fase C — trajetórias (M-13/M-14/C5) ────────────────────────────────────
+// Thread canônica de uma run: `run-{run_id}` (ADR-0003 — trajectories.py).
+export const threadIdForRun = (runId: string) => `run-${runId}`
+
+// Fork REAL (M-13): POST /trajectories/{thread_id}/fork → 201 {fork_run_id,
+// thread_id, checkpoint_id}; 404 run inexistente; 409 sem checkpoint copiável.
+export const forkTrajectory = (threadId: string) =>
+  apiFetch<ForkResult>(`/trajectories/${encodeURIComponent(threadId)}/fork`, { method: 'POST' })
+
+// Export enriquecido (M-14): POST /trajectories/export/{run_id} (schema 1.1).
+export const exportTrajectory = (runId: string) =>
+  apiFetch<TrajectoryExport>(`/trajectories/export/${encodeURIComponent(runId)}`, { method: 'POST' })
+
+// Import (M-14): POST /trajectories/import → 201 {run_id, thread_id,
+// checkpoints_imported}; 422 payload inválido; 409 thread já existe.
+export const importTrajectory = (payload: TrajectoryExport) =>
+  apiFetch<ImportResult>('/trajectories/import', { method: 'POST', body: JSON.stringify(payload) })
+
+// Timeline unificada (C5/M-02): GET /runs/{run_id}/timeline?after_seq=&limit=.
+export const getRunTimeline = (runId: string, afterSeq = 0, limit = 50) =>
+  apiFetch<TimelineResponse>(`/runs/${encodeURIComponent(runId)}/timeline?after_seq=${afterSeq}&limit=${limit}`)
