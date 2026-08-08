@@ -9,9 +9,14 @@ import {
   useNodesState,
   useEdgesState,
 } from '@xyflow/react'
+import { useQuery } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '../../stores/canvasStore'
+import { useRunsStore } from '../../stores/runsStore'
+import { getRunCost } from '../../shared/lib/api'
+import { normalizeNodeName } from '../../shared/lib/ws'
+import type { CostNode, CostResponse } from '../../shared/lib/types'
 import { AgentNode } from './AgentNode'
 import { buildNodes, buildEdges, type DagNode, type DagEdge } from './dagModel'
 
@@ -25,6 +30,11 @@ export interface FlowCanvasProps {
 // Canvas do DAG: kanban linear ou grafo 2D. NÃO guarda estado de status —
 // renderiza puramente de canvasStore (nodeStatus/mode/ghostToStep) re-derivando
 // via buildNodes/buildEdges (T5/T6).
+//
+// Fase D (UC-04): o custo por nó (CostResponse.nodes) é consumido com a MESMA
+// queryKey ['run-cost', runId] do CostBar — TanStack Query deduplica, sem fetch
+// duplicado. O custo é injetado no data do nó (DagNodeData.cost) e o AgentNode
+// renderiza o chip (~$0.12 quando estimated).
 export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
   const mode = useCanvasStore(useShallow((s) => s.mode))
   const nodeStatus = useCanvasStore(useShallow((s) => s.nodeStatus))
@@ -32,13 +42,38 @@ export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
   const selectedNodeId = useCanvasStore(useShallow((s) => s.selectedNodeId))
   const selectNode = useCanvasStore((s) => s.selectNode)
 
+  const activeRunId = useRunsStore((s) => s.activeRunId)
+  const runs = useRunsStore((s) => s.runs)
+  const run = runs.find((r) => r.id === activeRunId) ?? null
+
+  // Mesma key do CostBar (dedupe) — mesma condição de enable (sem custo p/
+  // run ausente/queued/paused).
+  const { data: cost } = useQuery<CostResponse>({
+    queryKey: ['run-cost', activeRunId],
+    queryFn: () => getRunCost(activeRunId as string),
+    enabled: !!activeRunId && run !== null && run.status !== 'queued' && run.status !== 'paused',
+  })
+
   const [nodes, setNodes, onNodesChange] = useNodesState<DagNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<DagEdge>([])
 
   // Re-deriva a geometria + status quando o canvasStore muda (WS → stores → aqui).
   useEffect(() => {
+    // Custo por nó: mapa {NodeType → CostNode} — nome do backend normalizado
+    // (developer/qa/…) para o id canônico do canvas (dev → developer alias).
+    const costByNode = new Map<string, CostNode>()
+    for (const entry of cost?.nodes ?? []) {
+      const node = normalizeNodeName(entry.node)
+      if (node) costByNode.set(node, entry)
+    }
     const dagNodes = buildNodes(nodeStatus, mode, ghostToStep)
-    setNodes(dagNodes.map((n) => ({ ...n, selected: selectedNodeId === n.id })))
+    setNodes(
+      dagNodes.map((n) => ({
+        ...n,
+        data: { ...n.data, cost: costByNode.get(n.id) },
+        selected: selectedNodeId === n.id,
+      })),
+    )
     setEdges(
       buildEdges(dagNodes).map((e) => ({
         ...e,
@@ -46,7 +81,7 @@ export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
         animated: e.id === 'retry->developer',
       })),
     )
-  }, [mode, nodeStatus, ghostToStep, selectedNodeId, setNodes, setEdges])
+  }, [mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
 
   return (
     <div className="h-full w-full" style={{ background: 'var(--bg)' }}>

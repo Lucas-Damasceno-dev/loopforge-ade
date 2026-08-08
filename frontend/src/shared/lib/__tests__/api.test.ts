@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun } from '../api'
+import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool } from '../api'
 
 describe('api client', () => {
   beforeEach(() => {
@@ -120,5 +120,27 @@ describe('api client', () => {
   it('fork throws ApiError with PT detail on 404', async () => {
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Run run-r1 não encontrada (sem trajetória)' }), { status: 404 }))
     await expect(forkTrajectory('run-r1')).rejects.toMatchObject({ status: 404, detail: 'Run run-r1 não encontrada (sem trajetória)' })
+  })
+
+  it('callMcpTool POSTs {arguments} to /mcp/servers/{name}/tools/{tool} (Fase D)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ content: 'ok' }), { status: 200 }))
+    const res = await callMcpTool('fs', 'read', { path: '/tmp/x' })
+    expect(res).toEqual({ content: 'ok' })
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/mcp/servers/fs/tools/read')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ arguments: { path: '/tmp/x' } })
+  })
+
+  it('callMcpTool defaults arguments to {}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }))
+    await callMcpTool('fs', 'read')
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(String(init?.body))).toEqual({ arguments: {} })
+  })
+
+  it('callMcpTool throws ApiError with backend detail on 403', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Tool read não permitida (allowlist do ade.yaml)' }), { status: 403 }))
+    await expect(callMcpTool('fs', 'read', {})).rejects.toMatchObject({ status: 403, detail: 'Tool read não permitida (allowlist do ade.yaml)' })
   })
 })

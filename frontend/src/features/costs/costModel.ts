@@ -1,10 +1,20 @@
-// Modelo puro de custos (testável). costForNode é placeholder — a telemetria
-// por nó ainda não chega ao frontend (V2); o custo REAL por run vem do
-// backend via GET /api/v1/runs/{id}/cost (CostResponse).
-export function costForNode(_statuses: unknown): number {
-  // Parâmetro mantido p/ a assinatura futura (telemetria V2) — V1 retorna 0.
-  void _statuses
-  return 0
+import type { CostNode } from '../../shared/lib/types'
+
+// Modelo puro de custos (testável). O custo REAL por nó vem do backend via
+// GET /api/v1/runs/{id}/cost → CostResponse.nodes (Fase D/UC-04, aditivo
+// default []) — agrupado pelo nome canônico do nó (developer, qa, …).
+
+// Custo do nó: spent_usd do CostNode com node === nome (0 se ausente).
+// Comparação por nome canônico (mesmo vocabulário do backend/ws NODE_MAP).
+export function costForNode(nodes: CostNode[] | undefined, node: string): number {
+  if (!Array.isArray(nodes)) return 0
+  return nodes.find((n) => n.node === node)?.spent_usd ?? 0
+}
+
+// Formata USD p/ exibição compacta no chip ($0.12, $1.5 → $1.50? mantém 2
+// casas como o backend reporta — custo por nó é fracionário).
+export function formatUsd(value: number): string {
+  return `$${value.toFixed(2)}`
 }
 
 export function budgetPercent(spentUsd: number, maxUsd: number): number {

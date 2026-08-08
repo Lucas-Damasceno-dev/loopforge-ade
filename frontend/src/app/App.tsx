@@ -9,6 +9,7 @@ import { TimelineBar } from '../features/timeline/TimelineBar'
 import { CostBar } from '../features/costs/CostBar'
 import { McpPlayground } from '../features/mcp/McpPlayground'
 import { TrajectoriesPanel } from '../features/trajectories/TrajectoriesPanel'
+import { SettingsPanel } from '../features/settings/SettingsPanel'
 import { ApiKeyGate } from '../features/auth/ApiKeyGate'
 import { Drawer } from '../shared/ui/Drawer'
 import { Topbar } from '../shared/ui/Topbar'
@@ -22,6 +23,7 @@ export function App() {
   const connected = useRef(false)
   const [mcpOpen, setMcpOpen] = useState(false)
   const [trajectoriesOpen, setTrajectoriesOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // Fullscreen do canvas (01b §6.1): F11 alterna; oculta topbar + chrome das
   // runs — restam canvas e console. Indicador discreto no canto do canvas.
   const [fullscreen, setFullscreen] = useState(false)
@@ -67,6 +69,14 @@ export function App() {
                 >
                   MCP playground
                 </button>
+                {/* Fase D (E9): configuração da engine (budget/HITL/providers/MCP). */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-dim)] transition-colors duration-100 hover:bg-[var(--bg-elev)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  Settings
+                </button>
               </>
             }
           />
@@ -95,6 +105,8 @@ export function App() {
         <Drawer open={mcpOpen} title="MCP Playground" onClose={() => setMcpOpen(false)}>
           <McpPlayground />
         </Drawer>
+        {/* Settings (Fase D/E9): budget/HITL/providers/toggles MCP. */}
+        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         {/* Gate de API key (B2/M-20): overlay em 401/sem key; dispensável p/ demo. */}
         <ApiKeyGate />
       </main>

@@ -112,6 +112,15 @@ export const getConfig = () => apiFetch<AdeConfig>('/config')
 export const patchConfig = (partial: DeepPartial<AdeConfig>) => apiFetch<AdeConfig>('/config', { method: 'PATCH', body: JSON.stringify(partial) })
 export const listMcpServers = () => apiFetch<McpServer[]>('/mcp/servers')
 export const listMcpTools = (name: string) => apiFetch<McpTool[]>(`/mcp/servers/${encodeURIComponent(name)}/tools`)
+
+// Execução de tool MCP (Fase D/UC-05): POST /mcp/servers/{name}/tools/{tool}
+// body {arguments: {...}} → 200 dict resultado; 403 tool não permitida
+// (allowlist do ade.yaml); 503 server não conectado; 404 server inexistente.
+export const callMcpTool = (name: string, tool: string, args: Record<string, unknown> = {}) =>
+  apiFetch<Record<string, unknown>>(`/mcp/servers/${encodeURIComponent(name)}/tools/${encodeURIComponent(tool)}`, {
+    method: 'POST',
+    body: JSON.stringify({ arguments: args }),
+  })
 // O backend retorna [{thread_id}] para a listagem de checkpoints de uma thread.
 export const getCheckpoints = (threadId: string) => apiFetch<Array<{ thread_id: string }>>(`/trajectories/${encodeURIComponent(threadId)}/checkpoints`)
 export const getCheckpoint = (threadId: string, checkpointId: string) => apiFetch<Checkpoint>(`/trajectories/${encodeURIComponent(threadId)}/checkpoints/${encodeURIComponent(checkpointId)}`)

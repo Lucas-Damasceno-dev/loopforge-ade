@@ -1,4 +1,4 @@
-import type { NodeType } from '../../shared/lib/types'
+import type { NodeType, CostNode } from '../../shared/lib/types'
 import type { NodeStatus } from '../../stores/canvasStore'
 
 // ─── Modelo do DAG (puro/testável) ──────────────────────────────────────────
@@ -57,6 +57,9 @@ export type DagNodeData = {
   status: NodeStatus
   attemptCount: number
   ghosted: boolean
+  /** Custo do nó (Fase D/UC-04) — injetado pelo FlowCanvas via cost query;
+   *  o buildNodes puro não o conhece (cost é dado de servidor, não de store). */
+  cost?: CostNode
 }
 
 export interface DagNode {
