@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../RunsWorkspace'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useCanvasStore } from '../../../stores/canvasStore'
+import { listRuns } from '../../../shared/lib/api'
+
+vi.mock('../../../shared/lib/api', () => ({
+  listRuns: vi.fn(),
+  createRun: vi.fn(),
+}))
 
 // Stubs jsdom para o React Flow (só necessários se FlowCanvas renderizar).
 class RO {
@@ -38,15 +44,58 @@ beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
 })
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => {
+  vi.useRealTimers()
+  vi.mocked(listRuns).mockReset()
+})
 
 describe('RunsWorkspace', () => {
   it('shows empty state and run demo creates a tab', () => {
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
     renderWorkspace()
     expect(screen.getByRole('button', { name: /run demo/i })).toBeInTheDocument()
     expect(screen.getByText('No active run')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /run demo/i }))
     // addRun é síncrono — a aba aparece sem avançar timers.
     expect(screen.getAllByRole('tab')).toHaveLength(1)
+  })
+
+  it('boot: busca runs existentes e auto-seleciona a que está running', async () => {
+    vi.useRealTimers() // boot usa promises reais (listRuns) — sem fake timers aqui
+    vi.mocked(listRuns).mockResolvedValue({
+      total: 3,
+      items: [
+        { id: 'r1', idea: 'feita', status: 'completed', stack: 'python', created_at: '2026-01-01T00:00:00', updated_at: '2026-01-01T00:00:00' },
+        { id: 'r2', idea: 'em execução', status: 'running', stack: 'python', created_at: '2026-01-01T00:00:01', updated_at: '2026-01-01T00:00:01' },
+        { id: 'r3', idea: 'na fila', status: 'queued', stack: 'python', created_at: '2026-01-01T00:00:02', updated_at: '2026-01-01T00:00:02' },
+      ],
+    } as never)
+    renderWorkspace()
+    await waitFor(() => expect(listRuns).toHaveBeenCalled())
+    // Todas as runs existentes viraram abas; a running foi auto-selecionada.
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+    expect(useRunsStore.getState().activeRunId).toBe('r2')
+    expect(useRunsStore.getState().runs.map((r) => r.id)).toEqual(['r1', 'r2', 'r3'])
+    expect(screen.queryByText('No active run')).not.toBeInTheDocument()
+  })
+
+  it('boot: sem runs ativas mantém empty state e não seleciona completed', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns).mockResolvedValue({
+      total: 1,
+      items: [{ id: 'r9', idea: 'só concluída', status: 'completed', stack: 'python', created_at: '2026-01-01T00:00:00', updated_at: '2026-01-01T00:00:00' }],
+    } as never)
+    renderWorkspace()
+    await waitFor(() => expect(listRuns).toHaveBeenCalled())
+    expect(useRunsStore.getState().activeRunId).toBeNull()
+    expect(screen.getByText('No active run')).toBeInTheDocument()
+  })
+
+  it('boot: falha do listRuns não quebra o workspace (demo/sem backend)', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns).mockRejectedValue(new Error('network'))
+    renderWorkspace()
+    await waitFor(() => expect(listRuns).toHaveBeenCalled())
+    expect(screen.getByText('No active run')).toBeInTheDocument()
   })
 })

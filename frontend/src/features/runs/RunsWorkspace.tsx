@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useRunsStore } from '../../stores/runsStore'
 import { Button } from '../../shared/ui/Button'
 import { EmptyState } from '../../shared/ui/EmptyState'
@@ -5,6 +6,7 @@ import { FlowCanvas } from '../dag/FlowCanvas'
 import { RunTabs } from './RunTabs'
 import { NewRunForm } from './NewRunForm'
 import { runDemo } from './demoMock'
+import { listRuns } from '../../shared/lib/api'
 import type { Run } from '../../shared/lib/types'
 
 // Workspace de runs: barra de abas (UX11) + toolbar (demo/form) + painel
@@ -17,6 +19,28 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
   const queue = useRunsStore((s) => s.queue)
   const selectRun = useRunsStore((s) => s.selectRun)
   const removeRun = useRunsStore((s) => s.removeRun)
+
+  // Boot: busca runs existentes no backend (após reload a run que segue
+  // rodando no server precisa voltar a aparecer — sem isso o store só sabe de
+  // runs criadas nesta sessão e a UI fica em "No active run" mesmo com o
+  // pipeline em execução no terminal).
+  const bootFetched = useRef(false)
+  useEffect(() => {
+    if (bootFetched.current) return
+    bootFetched.current = true
+    listRuns()
+      .then(({ items }) => {
+        const store = useRunsStore.getState()
+        for (const run of items) store.upsertRun(run)
+        // Auto-seleciona a primeira run ainda ativa (running/queued/paused) —
+        // completed/failed não são re-abertas no boot.
+        if (store.activeRunId === null) {
+          const active = items.find((r) => r.status === 'running' || r.status === 'queued' || r.status === 'paused')
+          if (active) store.selectRun(active.id)
+        }
+      })
+      .catch(() => { /* demo/sem backend: segue no empty state */ })
+  }, [])
 
   const activeRun = runs.find((r) => r.id === activeRunId) ?? null
 

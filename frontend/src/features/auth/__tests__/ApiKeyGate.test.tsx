@@ -4,12 +4,16 @@ import { ApiKeyGate } from '../ApiKeyGate'
 import { apiFetch, getApiKey, setApiKey } from '../../../shared/lib/api'
 
 describe('ApiKeyGate', () => {
+  // O .env local (dev) injeta VITE_API_KEY via Vite — os cenários abaixo
+  // exercitam o gate SEM key salva, então neutraliza o env durante os testes.
   beforeEach(() => {
     localStorage.clear()
     vi.stubGlobal('fetch', vi.fn())
+    vi.stubEnv('VITE_API_KEY', undefined)
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('shows the key screen on entry when no key is saved', () => {

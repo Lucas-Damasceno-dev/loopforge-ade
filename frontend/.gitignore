@@ -9,3 +9,6 @@ playwright-report/
 # Logs e misc
 *.log
 .DS_Store
+
+# Segredos locais (dev)
+.env
