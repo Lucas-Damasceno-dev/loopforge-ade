@@ -1,32 +1,15 @@
 import { memo } from 'react'
 import { Handle, Position, type Node as FlowNode, type NodeProps } from '@xyflow/react'
-import type { NodeStatus } from '../../stores/canvasStore'
 import { useCanvasStore } from '../../stores/canvasStore'
 import { Badge } from '../../shared/ui/Badge'
 import { formatUsd } from '../costs/costModel'
 import { NODE_LABELS, type DagNodeData } from './dagModel'
 import { nodeAccentTextVar, nodeAccentVar } from './nodeAccent'
+import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
 
 // v12: NodeProps é genérico sobre um NODE. Usamos Node<DagNodeData,'agent'>
 // (id: string) — o tipo do componente; o DagNode do model (id: NodeType) é o
 // que o FlowCanvas alimenta em runtime.
-
-// status → tone do Badge (zinc/azul/verde/vermelho/âmbar).
-const STATUS_TONE: Record<NodeStatus, 'neutral' | 'accent' | 'ok' | 'err' | 'warn'> = {
-  pending: 'neutral',
-  running: 'accent',
-  approved: 'ok',
-  rejected: 'err',
-  paused: 'warn',
-}
-
-const STATUS_LABEL: Record<NodeStatus, string> = {
-  pending: 'Pending',
-  running: 'Running',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  paused: 'Paused',
-}
 
 function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'agent'>>) {
   const { node, status, attemptCount, ghosted } = data
@@ -45,7 +28,7 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
       role="button"
       tabIndex={ghosted ? -1 : 0}
       aria-disabled={ghosted || undefined}
-      aria-label={`${label} (${STATUS_LABEL[status]})`}
+      aria-label={`${label} (${NODE_STATUS_LABEL[status]})`}
       onClick={select}
       onKeyDown={(e) => {
         // a11y: Enter ou Espaço → mesmo comportamento do clique (seleção).
@@ -76,7 +59,7 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
         )}
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2">
-        <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+        <Badge tone={NODE_STATUS_TONE[status]}>{NODE_STATUS_LABEL[status]}</Badge>
         <span className="flex min-w-0 items-center gap-1.5">
           {/* Chip de custo por nó (Fase D/UC-04): discreto (text-dim + border),
               ausente quando o nó não tem custo (nunca mostra $0.00). O `~`

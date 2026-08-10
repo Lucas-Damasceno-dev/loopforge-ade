@@ -1,28 +1,11 @@
 import { useCanvasStore } from '../../stores/canvasStore'
-import type { NodeStatus, NodeStatusEntry } from '../../stores/canvasStore'
+import type { NodeStatusEntry } from '../../stores/canvasStore'
 import { useConsoleStore } from '../../stores/consoleStore'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Badge } from '../../shared/ui/Badge'
 import { NODE_LABELS } from './dagModel'
 import { nodeAccentTextVar } from './nodeAccent'
-
-// Mapeamentos duplicados do AgentNode (não exportados lá) — mesma semântica
-// de cor/rótulo para status do nó.
-const STATUS_TONE: Record<NodeStatus, 'neutral' | 'accent' | 'ok' | 'err' | 'warn'> = {
-  pending: 'neutral',
-  running: 'accent',
-  approved: 'ok',
-  rejected: 'err',
-  paused: 'warn',
-}
-
-const STATUS_LABEL: Record<NodeStatus, string> = {
-  pending: 'Pending',
-  running: 'Running',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  paused: 'Paused',
-}
+import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
 
 const DEFAULT_ENTRY: NodeStatusEntry = { status: 'pending', attemptCount: 0 }
 
@@ -49,7 +32,7 @@ export function InspectDrawer() {
   return (
     <Drawer open={open} title={label} onClose={() => selectNode(null)} titleStyle={titleStyle}>
       <div className="mb-4 flex items-center gap-2">
-        <Badge tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Badge>
+        <Badge tone={NODE_STATUS_TONE[entry.status]}>{NODE_STATUS_LABEL[entry.status]}</Badge>
         {entry.attemptCount > 1 && (
           <span
             title={`retry ×${entry.attemptCount}`}
