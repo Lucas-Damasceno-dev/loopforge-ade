@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useWsStore } from '../../stores/wsStore'
 import { useRunsStore } from '../../stores/runsStore'
 import { Button } from './Button'
+import { shortId } from '../../features/trajectories/shortId'
 
 export interface TopbarProps {
   /** Ação do menu global (<1280px abre o rail como drawer — extensão). */
@@ -23,11 +24,6 @@ const DOT: Record<'ok' | 'warn' | 'err', string> = {
   ok: 'bg-[var(--ok)]',
   warn: 'bg-[var(--warn)]',
   err: 'bg-[var(--err)]',
-}
-
-function shortId(id: string): string {
-  if (id.startsWith('demo-')) return `demo-${id.slice(-4)}`
-  return id.length > 10 ? `#${id.slice(-6)}` : id
 }
 
 // Topbar (01b §3.11): 44px, bg --bg + border-b. Identidade (workspace + id

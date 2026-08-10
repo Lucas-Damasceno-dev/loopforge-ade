@@ -44,10 +44,12 @@ it('selects the demo run as active when no run is active (finish)', () => {
   expect(useRunsStore.getState().activeRunId).toBe(demoId)
 })
 
-it('repeated runDemo cancels previous demo timers, leaving the first run stuck (edge case)', () => {
-  // Bug documentado (UX16): clearDemoTimers() cancela os eventos da demo
-  // anterior em cliques repetidos → a 1ª demo nunca recebe pipeline_finished
-  // e permanece 'running' para sempre. O teste pin o comportamento atual.
+it('repeated runDemo cancels previous demo timers and completes the stale run (edge case)', () => {
+  // Bug corrigido (UX16): clearDemoTimers() cancela os eventos da demo anterior
+  // em cliques repetidos → a 1ª demo nunca receberia pipeline_finished e
+  // ficaria 'running' para sempre. Agora, ao iniciar um novo demo, todas as
+  // runs demo-* existentes com status 'running' são marcadas como 'completed'
+  // ANTES da nova run ser adicionada.
   // Avança 1ms entre as chamadas p/ os ids demo-<ts> não colidirem (fake timers).
   runDemo()
   const first = useRunsStore.getState().runs[0].id
@@ -57,5 +59,6 @@ it('repeated runDemo cancels previous demo timers, leaving the first run stuck (
   expect(second).not.toBe(first)
   vi.advanceTimersByTime(30_000)
   expect(useRunsStore.getState().runs.find(r => r.id === second)?.status).toBe('completed')
-  expect(useRunsStore.getState().runs.find(r => r.id === first)?.status).toBe('running')
+  // A run cancelada não fica mais presa em 'running' — vira completed.
+  expect(useRunsStore.getState().runs.find(r => r.id === first)?.status).toBe('completed')
 })

@@ -25,9 +25,12 @@ describe('trajectoryErrorMessage', () => {
     expect(trajectoryErrorMessage({ status: 500, detail: 'internal' })).toBe('internal')
     expect(trajectoryErrorMessage({ status: 503, detail: null })).toBe('Erro 503 na API')
   })
-  it('error without detail key is treated as non-API and falls back (shape check)', () => {
-    // isApiError exige a chave `detail` — objeto só com status cai no fallback.
-    expect(trajectoryErrorMessage({ status: 409 })).toBe('Falha na operação')
+  it('error without detail key is still recognized as API error (detail optional)', () => {
+    // isApiError não exige mais a chave `detail` — objeto só com status usa o
+    // fallback por status.
+    expect(trajectoryErrorMessage({ status: 409 })).toBe('Já existe uma trajetória com este id')
+    expect(trajectoryErrorMessage({ status: 503 })).toBe('Erro 503 na API')
+    expect(trajectoryErrorMessage({ status: 404 })).toBe('Run não encontrada (sem trajetória)')
   })
   it('non-string detail (object) falls back per status', () => {
     expect(trajectoryErrorMessage({ status: 422, detail: { field: 'x' } })).toBe('Payload de import inválido (schema 1.1)')

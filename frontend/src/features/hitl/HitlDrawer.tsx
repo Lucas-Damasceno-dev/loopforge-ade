@@ -110,7 +110,7 @@ export function HitlDrawer() {
 
   // Histórico de decisões (trilha auditável — dados reais do backend).
   useEffect(() => {
-    if (!run) return
+    if (!run?.id) return
     let cancelled = false
     setDecisionsLoading(true)
     getDecisions(run.id)

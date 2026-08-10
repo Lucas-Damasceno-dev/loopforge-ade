@@ -18,10 +18,12 @@ describe('shortId', () => {
   it('handles empty string', () => {
     expect(shortId('')).toBe('')
   })
-  it('demo- always keeps the last 4 chars, even for absurdly short ids', () => {
-    // Comportamento atual: slice(-4) incondicional — ids demo reais são
-    // sempre demo-<epoch> (longos), então o caso abaixo não ocorre em produção.
-    expect(shortId('demo-1')).toBe('demo-mo-1')
+  it('demo- ids short enough stay intact; long demo ids keep last 4 chars', () => {
+    // Ids demo-* curtos (não-epoch) NÃO são truncados — slice(-4) incondicional
+    // gerava lixo (demo-1 → demo-mo-1). O slice só vale para ids demo-* com
+    // mais de 10 chars (ex.: demo-<epoch>).
+    expect(shortId('demo-1')).toBe('demo-1')
     expect(shortId('demo-1234')).toBe('demo-1234')
+    expect(shortId('demo-abcdefghij')).toBe('demo-ghij')
   })
 })

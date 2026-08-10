@@ -9,15 +9,14 @@
 // shape {status, detail} — a checagem por shape é imune a isso.
 interface ApiLikeError {
   status: number
-  detail: unknown
+  detail?: unknown
 }
 
 function isApiError(e: unknown): e is ApiLikeError {
   return (
     typeof e === 'object' &&
     e !== null &&
-    typeof (e as { status?: unknown }).status === 'number' &&
-    'detail' in e
+    typeof (e as { status?: unknown }).status === 'number'
   )
 }
 

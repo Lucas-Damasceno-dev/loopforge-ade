@@ -15,7 +15,10 @@ describe('downloadJson', () => {
   })
 
   it('creates a blob with pretty-printed JSON and clicks a download anchor', () => {
-    const createUrl = vi.fn((_blob: Blob) => 'blob:mock')
+    const createUrl = vi.fn((blob: Blob) => {
+      void blob // blob é validado pelo caller (mock.calls[0])
+      return 'blob:mock'
+    })
     const revokeUrl = vi.fn()
     URL.createObjectURL = createUrl
     URL.revokeObjectURL = revokeUrl
@@ -39,7 +42,10 @@ describe('downloadJson', () => {
   })
 
   it('serializes nested data with 2-space indentation', async () => {
-    const createUrl = vi.fn((_blob: Blob) => 'blob:m')
+    const createUrl = vi.fn((blob: Blob) => {
+      void blob // blob é validado pelo caller (mock.calls[0])
+      return 'blob:m'
+    })
     URL.createObjectURL = createUrl
     URL.revokeObjectURL = vi.fn()
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})

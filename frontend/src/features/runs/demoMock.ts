@@ -21,6 +21,13 @@ function clearDemoTimers() {
 
 export function runDemo(): void {
   clearDemoTimers() // evita demos sobrepostos em cliques repetidos
+  // Demos anteriores cancelados ficam presos em 'running' (pipeline_finished
+  // nunca dispara) — marca como completed ANTES de criar a nova run, para não
+  // afetar a run que está sendo criada.
+  const store = useRunsStore.getState()
+  for (const r of store.runs) {
+    if (r.id.startsWith('demo-') && r.status === 'running') store.updateStatus(r.id, 'completed')
+  }
   const id = `demo-${Date.now()}`
   useRunsStore.getState().addRun({
     id,

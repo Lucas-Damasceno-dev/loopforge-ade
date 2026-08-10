@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { Badge, type BadgeProps } from '../../shared/ui/Badge'
 import type { Run, RunStatus } from '../../shared/lib/types'
+import { shortId } from '../trajectories/shortId'
 
 // status da run → tone do badge na aba (zinc/azul/verde/vermelho/âmbar).
 // queued/paused (novos, contrato v1): info (--info) e warn (--warn).
@@ -19,11 +20,6 @@ function statusLabel(s: RunStatus): string {
   if (s === 'queued') return 'Na fila'
   if (s === 'paused') return 'Pausada'
   return s
-}
-
-function shortId(id: string): string {
-  if (id.startsWith('demo-')) return `demo-${id.slice(-4)}`
-  return id.length > 10 ? `#${id.slice(-6)}` : id
 }
 
 export interface RunTabsProps {
