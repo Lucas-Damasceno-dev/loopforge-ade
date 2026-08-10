@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HitlDrawer } from '../HitlDrawer'
 import { useCanvasStore } from '../../../stores/canvasStore'
@@ -37,18 +37,19 @@ it('opens when a node is paused and shows actions', async () => {
   // Wire real: action 'approve' + gate_node.
   expect(decideRun).toHaveBeenCalledWith('r1', expect.objectContaining({ action: 'approve', gate_node: 'qa' }))
 })
-it('does not render without paused node', () => {
+it('does not render without paused node', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'approved', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [runningRun], activeRunId: 'r1' })
   const { container } = render(<HitlDrawer />)
-  expect(container).toBeEmptyDOMElement()
+  // Drena as promises do getDecisions (setState assíncrono) antes de assertar.
+  await waitFor(() => expect(container).toBeEmptyDOMElement())
 })
-it('shows expired timeout banner', () => {
+it('shows expired timeout banner', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
   useConsoleStore.setState({ entries: [{ id: '1', ts: 0, node: 'qa', level: 'warn', message: 'HITL decision expired (300s)' }], filters: { node: 'all', level: 'all', query: '' }, autoScroll: true })
   render(<HitlDrawer />)
-  expect(screen.getByText(/decision expired/i)).toBeInTheDocument()
+  expect(await screen.findByText(/decision expired/i)).toBeInTheDocument()
 })
 it('adjust state (C3) sends adjust_state with state_patch from guided fields', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
@@ -56,9 +57,9 @@ it('adjust state (C3) sends adjust_state with state_patch from guided fields', a
   render(<HitlDrawer />)
   await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
   // Form guiado: canais reais do GraphState → state_patch.
-  await userEvent.type(screen.getByLabelText('Ideia'), 'Nova direção')
-  await userEvent.selectOptions(screen.getByLabelText('Modo de roteamento'), 'fast')
-  await userEvent.click(screen.getByRole('button', { name: /aplicar/i }))
+  await userEvent.type(screen.getByLabelText('Idea'), 'Nova direção')
+  await userEvent.selectOptions(screen.getByLabelText('Routing mode'), 'fast')
+  await userEvent.click(screen.getByRole('button', { name: /apply/i }))
   expect(decideRun).toHaveBeenCalledWith(
     'r1',
     expect.objectContaining({
@@ -68,25 +69,25 @@ it('adjust state (C3) sends adjust_state with state_patch from guided fields', a
     }),
   )
 })
-it('adjust state advanced JSON validates and shows PT error on invalid syntax', async () => {
+it('adjust state advanced JSON validates and shows error on invalid syntax', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
   render(<HitlDrawer />)
   await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
-  await userEvent.click(screen.getByRole('switch', { name: 'JSON avançado' }))
-  fireEvent.change(screen.getByLabelText('JSON do estado'), { target: { value: '{invalid' } })
-  expect(screen.getByRole('alert')).toHaveTextContent('JSON inválido')
+  await userEvent.click(screen.getByRole('switch', { name: 'Advanced JSON' }))
+  fireEvent.change(screen.getByLabelText('State JSON'), { target: { value: '{invalid' } })
+  expect(screen.getByRole('alert')).toHaveTextContent('Invalid JSON')
   // Estado inválido bloqueia o Apply (o alert continua, nada é enviado).
-  await userEvent.click(screen.getByRole('button', { name: /aplicar/i }))
+  await userEvent.click(screen.getByRole('button', { name: /apply/i }))
   expect(decideRun).not.toHaveBeenCalled()
 })
-it('adjust state with no edited fields shows PT error before sending', async () => {
+it('adjust state with no edited fields shows error before sending', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
   render(<HitlDrawer />)
   await userEvent.click(screen.getByRole('button', { name: /adjust state/i }))
-  await userEvent.click(screen.getByRole('button', { name: /aplicar/i }))
-  expect(screen.getByRole('alert')).toHaveTextContent('Nenhum campo alterado')
+  await userEvent.click(screen.getByRole('button', { name: /apply/i }))
+  expect(screen.getByRole('alert')).toHaveTextContent('No fields changed')
   expect(decideRun).not.toHaveBeenCalled()
 })
 it('abort requires destructive confirmation before sending', async () => {

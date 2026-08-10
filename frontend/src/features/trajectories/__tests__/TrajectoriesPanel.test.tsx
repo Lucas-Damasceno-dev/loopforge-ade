@@ -15,7 +15,8 @@ vi.mock('../../../shared/lib/api', () => ({
   threadIdForRun: (id: string) => `run-${id}`,
 }))
 
-// jsdom não implementa object URLs — stub p/ o download do export.
+// jsdom não implementa object URLs nem a navegação do anchor de download
+// (blob) — stub p/ o download do export (mesmo padrão do download.test.ts).
 beforeAll(() => {
   URL.createObjectURL = vi.fn(() => 'blob:mock')
   URL.revokeObjectURL = vi.fn()
@@ -26,6 +27,9 @@ const run: Run = { id: 'r1', idea: 'Página de login', stack: 'python', status: 
 beforeEach(() => {
   useRunsStore.setState({ runs: [run], activeRunId: null, queue: [], past: [], future: [] })
   vi.clearAllMocks()
+  // Recriado a cada teste: vi.restoreAllMocks() do afterEach de outros mocks
+  // restauraria o prototype caso fosse criado só no beforeAll.
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 })
 
 function renderPanel() {
@@ -33,25 +37,25 @@ function renderPanel() {
 }
 
 // Ações do painel: o botão da linha e o botão primário do diálogo têm o
-// mesmo rótulo ("Fork"/"Exportar") — os testes de diálogo SEMPRE escopam a
+// mesmo rótulo ("Fork"/"Export") — os testes de diálogo SEMPRE escopam a
 // query com within(dialog) para não pegar o botão da linha.
 async function openForkDialog() {
   await userEvent.click(screen.getByRole('button', { name: 'Fork' }))
-  return screen.getByRole('dialog', { name: 'Fork da trajetória' })
+  return screen.getByRole('dialog', { name: 'Fork trajectory' })
 }
 
 async function openExportDialog() {
-  await userEvent.click(screen.getByRole('button', { name: 'Exportar' }))
-  return screen.getByRole('dialog', { name: 'Exportar trajetória' })
+  await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+  return screen.getByRole('dialog', { name: 'Export trajectory' })
 }
 
 describe('TrajectoriesPanel (Fase C)', () => {
-  it('lists runs with Fork/Exportar/Timeline actions', () => {
+  it('lists runs with Fork/Export/Timeline actions', () => {
     renderPanel()
     const row = screen.getByTestId('trajectory-row')
     expect(within(row).getByText('r1')).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: 'Fork' })).toBeInTheDocument()
-    expect(within(row).getByRole('button', { name: 'Exportar' })).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Export' })).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: 'Timeline' })).toBeInTheDocument()
   })
 
@@ -62,7 +66,7 @@ describe('TrajectoriesPanel (Fase C)', () => {
     expect(forkTrajectory).not.toHaveBeenCalled() // só dispara no confirm do modal
     await userEvent.click(within(dialog).getByRole('button', { name: /^fork$/i }))
     await waitFor(() => expect(forkTrajectory).toHaveBeenCalledWith('run-r1'))
-    // Sucesso: mensagem PT + nova run na lista do store (queued).
+    // Sucesso: mensagem EN + nova run na lista do store (queued).
     expect(screen.getByTestId('fork-run-id')).toHaveTextContent('f1')
     expect(useRunsStore.getState().runs.some((r) => r.id === 'f1' && r.status === 'queued' && r.thread_id === 'run-f1')).toBe(true)
   })
@@ -75,7 +79,7 @@ describe('TrajectoriesPanel (Fase C)', () => {
     const dialog = await openForkDialog()
     await userEvent.click(within(dialog).getByRole('button', { name: /^fork$/i }))
     await waitFor(() => {
-      expect(within(screen.getByRole('dialog', { name: 'Fork da trajetória' })).getByRole('alert')).toHaveTextContent(
+      expect(within(screen.getByRole('dialog', { name: 'Fork trajectory' })).getByRole('alert')).toHaveTextContent(
         'Nenhum checkpoint copiável na thread de origem',
       )
     })
@@ -86,7 +90,7 @@ describe('TrajectoriesPanel (Fase C)', () => {
     vi.mocked(forkTrajectory).mockResolvedValue({ fork_run_id: 'f1', thread_id: 'run-f1', checkpoint_id: 'cp-9' })
     renderPanel()
     const dialog = await openForkDialog()
-    await userEvent.type(screen.getByLabelText('Descrição da nova run'), 'Continuar com outro stack')
+    await userEvent.type(screen.getByLabelText('New run description'), 'Continuar com outro stack')
     await userEvent.click(within(dialog).getByRole('button', { name: /^fork$/i }))
     await waitFor(() => {
       const f1 = useRunsStore.getState().runs.find((r) => r.id === 'f1')
@@ -103,12 +107,12 @@ describe('TrajectoriesPanel (Fase C)', () => {
     } as never)
     renderPanel()
     const dialog = await openExportDialog()
-    await userEvent.click(within(dialog).getByRole('button', { name: /^exportar$/i }))
+    await userEvent.click(within(dialog).getByRole('button', { name: /^export$/i }))
     await waitFor(() => expect(exportTrajectory).toHaveBeenCalledWith('r1'))
-    await waitFor(() => expect(within(dialog).getByText(/prévia do json/i)).toBeInTheDocument())
-    expect(within(dialog).getByRole('button', { name: 'Baixar JSON' })).toBeInTheDocument()
+    await waitFor(() => expect(within(dialog).getByText(/json preview/i)).toBeInTheDocument())
+    expect(within(dialog).getByRole('button', { name: 'Download JSON' })).toBeInTheDocument()
     // Download dispara object URL (blob).
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Baixar JSON' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Download JSON' }))
     expect(URL.createObjectURL).toHaveBeenCalled()
   })
 
@@ -118,22 +122,22 @@ describe('TrajectoriesPanel (Fase C)', () => {
     )
     renderPanel()
     const dialog = await openExportDialog()
-    await userEvent.click(within(dialog).getByRole('button', { name: /^exportar$/i }))
+    await userEvent.click(within(dialog).getByRole('button', { name: /^export$/i }))
     await waitFor(() => {
-      expect(within(screen.getByRole('dialog', { name: 'Exportar trajetória' })).getByRole('alert')).toHaveTextContent(
+      expect(within(screen.getByRole('dialog', { name: 'Export trajectory' })).getByRole('alert')).toHaveTextContent(
         'não encontrada',
       )
     })
   })
 
-  it('import flow: file picker → POST /import → feedback PT + run registrada', async () => {
+  it('import flow: file picker → POST /import → feedback EN + run registrada', async () => {
     vi.mocked(importTrajectory).mockResolvedValue({ run_id: 'r9', thread_id: 'run-r9', checkpoints_imported: 3 })
     renderPanel()
     const payload = JSON.stringify({ schema_version: '1.1', run_id: 'r9', thread_id: 'run-r9', idea: 'Importada do backup', checkpoints: [{}] })
     const file = new File([payload], 'traj.json', { type: 'application/json' })
     fireEvent.change(screen.getByTestId('import-file-input'), { target: { files: [file] } })
     await waitFor(() => expect(importTrajectory).toHaveBeenCalledTimes(1))
-    expect(screen.getByTestId('trajectories-feedback')).toHaveTextContent('Trajetória importada — run r9 (3 checkpoints)')
+    expect(screen.getByTestId('trajectories-feedback')).toHaveTextContent('Trajectory imported — run r9 (3 checkpoints)')
     expect(useRunsStore.getState().runs.some((r) => r.id === 'r9' && r.status === 'queued')).toBe(true)
   })
 
@@ -151,14 +155,14 @@ describe('TrajectoriesPanel (Fase C)', () => {
     })
   })
 
-  it('import com JSON inválido mostra erro PT de arquivo', async () => {
+  it('import com JSON inválido mostra erro EN de arquivo', async () => {
     renderPanel()
     const file = new File(['{não é json'], 'traj.json', { type: 'application/json' })
     fireEvent.change(screen.getByTestId('import-file-input'), { target: { files: [file] } })
-    await waitFor(() => expect(screen.getByTestId('trajectories-feedback')).toHaveTextContent('JSON esperado'))
+    await waitFor(() => expect(screen.getByTestId('trajectories-feedback')).toHaveTextContent('JSON expected'))
   })
 
-  it('timeline flow: carrega página 1 e "carregar mais" busca com after_seq', async () => {
+  it('timeline flow: carrega página 1 e "load more" busca com after_seq', async () => {
     vi.mocked(getRunTimeline)
       .mockResolvedValueOnce({
         run_id: 'r1',
@@ -177,11 +181,11 @@ describe('TrajectoriesPanel (Fase C)', () => {
     renderPanel()
     await userEvent.click(screen.getByRole('button', { name: 'Timeline' }))
     await waitFor(() => expect(getRunTimeline).toHaveBeenCalledWith('r1', 0, 50))
-    const dialog = screen.getByRole('dialog', { name: 'Timeline da run' })
+    const dialog = screen.getByRole('dialog', { name: 'Run timeline' })
     await waitFor(() => expect(within(dialog).getByTestId('timeline-entry')).toBeInTheDocument())
     // describeEvent infere do payload: {status} sem node → "Status: completed".
     expect(within(dialog).getByText('Status: completed')).toBeInTheDocument()
-    await userEvent.click(within(dialog).getByRole('button', { name: /carregar mais/i }))
+    await userEvent.click(within(dialog).getByRole('button', { name: /load more/i }))
     await waitFor(() => expect(getRunTimeline).toHaveBeenCalledWith('r1', 1, 50))
     await waitFor(() => expect(within(dialog).getAllByTestId('timeline-entry')).toHaveLength(2))
   })

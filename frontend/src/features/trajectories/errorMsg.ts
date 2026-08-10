@@ -1,8 +1,8 @@
-// Mensagens PT-BR para erros da API de trajetórias (Fase C). O backend já
-// responde `detail` em português na maioria dos casos (ex.: fork 404/409,
-// import 422) — usa o detail quando string; senão, um texto genérico por
-// status. Exceção: GET timeline 404 responde "Run not found" (inglês) — o
-// mapa cobre o caso conhecido.
+// Fallbacks EN para erros da API de trajetórias (Fase C). O backend responde
+// `detail` em português na maioria dos casos (ex.: fork 404/409, import 422) —
+// usa o detail quando string (mantém o texto do backend como veio); senão, um
+// texto genérico EN por status. Exceção: GET timeline 404 responde "Run not
+// found" (inglês) — o mapa cobre o caso conhecido.
 //
 // Duck-typing em vez de `instanceof ApiError`: os testes mockam o módulo de
 // api inteiro (ApiError vira undefined) e os erros de fetch são rejeições com
@@ -20,18 +20,18 @@ function isApiError(e: unknown): e is ApiLikeError {
   )
 }
 
-export function trajectoryErrorMessage(e: unknown, fallback = 'Falha na operação'): string {
+export function trajectoryErrorMessage(e: unknown, fallback = 'Operation failed'): string {
   if (isApiError(e)) {
     const detail = typeof e.detail === 'string' && e.detail.trim().length > 0 ? e.detail : null
     switch (e.status) {
       case 404:
-        return detail && detail !== 'Run not found' ? detail : 'Run não encontrada (sem trajetória)'
+        return detail && detail !== 'Run not found' ? detail : 'Run not found (no trajectory)'
       case 409:
-        return detail ?? 'Já existe uma trajetória com este id'
+        return detail ?? 'A trajectory with this id already exists'
       case 422:
-        return detail ?? 'Payload de import inválido (schema 1.1)'
+        return detail ?? 'Invalid import payload (schema 1.1)'
       default:
-        return detail ?? `Erro ${e.status} na API`
+        return detail ?? `API error ${e.status}`
     }
   }
   return e instanceof Error && e.message ? e.message : fallback

@@ -23,11 +23,11 @@ type Action = 'approve' | 'retry' | 'abort' | 'adjust_prompt' | 'adjust_state'
 // (src/lf/pipeline/state.py — idea, stack, routing_mode, next_agent, code).
 // O backend descarta canais fora do TypedDict — "requirements" NÃO é canal.
 const GUIDED_FIELDS: Array<{ key: string; label: string; kind: 'text' | 'select' | 'textarea'; options?: string[] }> = [
-  { key: 'idea', label: 'Ideia', kind: 'text' },
+  { key: 'idea', label: 'Idea', kind: 'text' },
   { key: 'stack', label: 'Stack', kind: 'text' },
-  { key: 'routing_mode', label: 'Modo de roteamento', kind: 'select', options: ['full', 'fast', 'patch', 'review-only', 'explore'] },
-  { key: 'next_agent', label: 'Próximo agente', kind: 'text' },
-  { key: 'code', label: 'Código', kind: 'textarea' },
+  { key: 'routing_mode', label: 'Routing mode', kind: 'select', options: ['full', 'fast', 'patch', 'review-only', 'explore'] },
+  { key: 'next_agent', label: 'Next agent', kind: 'text' },
+  { key: 'code', label: 'Code', kind: 'textarea' },
 ]
 
 // Valor curto para o diff (antes → depois); undefined = desconhecido.
@@ -45,7 +45,7 @@ function fmt(v: unknown): string {
 //
 // C3 (M-12): "Adjust State" agora usa action=adjust_state com state_patch
 // (aplicado ao checkpoint pelo backend) — form guiado com os canais do
-// GraphState + modo JSON avançado (validação com erro PT) + diff leve
+// GraphState + modo JSON avançado (validação com erro EN) + diff leve
 // antes→depois dos campos editados (best-effort: valores atuais vêm do último
 // checkpoint da thread quando disponível; senão, só o resumo dos campos).
 export function HitlDrawer() {
@@ -165,26 +165,26 @@ export function HitlDrawer() {
     })
   }
 
-  // Edição livre do JSON avançado: parse em tempo real, erro PT se inválido.
+  // Edição livre do JSON avançado: parse em tempo real, erro EN se inválido.
   const onJsonChange = (text: string) => {
     setJsonText(text)
     try {
       const parsed = JSON.parse(text)
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        setJsonError('O estado deve ser um objeto JSON (dict) válido')
+        setJsonError('State must be a valid JSON object (dict)')
         return
       }
       setPatch(parsed as Record<string, unknown>)
       setJsonError(null)
     } catch {
-      setJsonError('JSON inválido — confira a sintaxe antes de aplicar')
+      setJsonError('Invalid JSON — check the syntax before applying')
     }
   }
 
   const submitAdjustState = async () => {
     if (jsonError) return // erro inline já visível abaixo do JSON
     if (Object.keys(patch).length === 0) {
-      setError('Nenhum campo alterado — edite ao menos um campo do estado')
+      setError('No fields changed — edit at least one state field')
       return
     }
     await runAction('adjust_state', { state_patch: patch })
@@ -235,14 +235,14 @@ export function HitlDrawer() {
         {showAdjust && (
           <div className="mb-4 rounded-md border border-[var(--border)] bg-[var(--bg)] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Ajustar estado</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Adjust state</span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-xs text-[var(--text-dim)]">JSON avançado</span>
-                <Toggle checked={showAdvanced} onChange={setShowAdvanced} label="JSON avançado" />
+                <span className="text-xs text-[var(--text-dim)]">Advanced JSON</span>
+                <Toggle checked={showAdvanced} onChange={setShowAdvanced} label="Advanced JSON" />
               </span>
             </div>
             <p className="mb-3 text-xs text-[var(--text-dim)]">
-              Edite campos do estado do pipeline — a run continua após aplicar (action{' '}
+              Edit pipeline state fields — the run continues after applying (action{' '}
               <span className="font-mono">adjust_state</span> + <span className="font-mono">state_patch</span>).
             </p>
 
@@ -280,15 +280,15 @@ export function HitlDrawer() {
             {showAdvanced && (
               <div className="mt-3">
                 <Textarea
-                  aria-label="JSON do estado"
+                  aria-label="State JSON"
                   value={jsonText}
                   invalid={jsonError !== null}
                   onChange={(e) => onJsonChange(e.target.value)}
                   className="h-28 font-mono text-xs"
                 />
                 <p className="mt-1 text-[11px] text-[var(--text-dim)]">
-                  Patch completo enviado como <span className="font-mono">state_patch</span>. Canais fora do
-                  GraphState são descartados pelo backend.
+                  Full patch sent as <span className="font-mono">state_patch</span>. Channels outside the GraphState
+                  are discarded by the backend.
                 </p>
                 {jsonError && (
                   <p role="alert" className="mt-1 text-xs text-[var(--err-text)]">{jsonError}</p>
@@ -300,7 +300,7 @@ export function HitlDrawer() {
             {editedKeys.length > 0 && (
               <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--bg)] p-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                  Campos alterados ({editedKeys.length})
+                  Changed fields ({editedKeys.length})
                 </p>
                 <ul className="mt-1 space-y-0.5 font-mono text-[11px]">
                   {editedKeys.map((k) => (
@@ -318,7 +318,7 @@ export function HitlDrawer() {
 
             <div className="mt-3 flex justify-end">
               <Button size="sm" variant="primary" disabled={pendingAction !== null} onClick={submitAdjustState}>
-                Aplicar
+                Apply
               </Button>
             </div>
           </div>

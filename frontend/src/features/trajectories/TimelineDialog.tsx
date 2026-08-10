@@ -20,13 +20,13 @@ function formatTs(ts: number | string): string {
 }
 
 // Rótulo curto do evento (best-effort: a timeline só carrega o payload, não o
-// nome do evento — inferimos dos campos presentes; senão, "Evento").
+// nome do evento — inferimos dos campos presentes; senão, "Event").
 function describeEvent(data: Record<string, unknown>): string {
   if (typeof data.node === 'string' && typeof data.status === 'string') return `${data.node} (${data.status})`
-  if (typeof data.idea === 'string' && data.idea.length > 0) return 'Pipeline iniciado'
+  if (typeof data.idea === 'string' && data.idea.length > 0) return 'Pipeline started'
   if (typeof data.status === 'string') return `Status: ${data.status}`
-  if (typeof data.action === 'string') return `Decisão: ${data.action}`
-  return 'Evento'
+  if (typeof data.action === 'string') return `Decision: ${data.action}`
+  return 'Event'
 }
 
 function TimelineRow({ entry }: { entry: TimelineEntry }) {
@@ -42,7 +42,7 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
         aria-hidden="true"
         className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
         style={{ background: color }}
-        title={isCheckpoint ? 'checkpoint' : 'evento'}
+        title={isCheckpoint ? 'checkpoint' : 'event'}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-xs">
@@ -61,7 +61,7 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
         {(isCheckpoint || Object.keys(entry.data).length > 0) && (
           <details className="mt-0.5">
             <summary className="cursor-pointer text-[11px] text-[var(--text-dim)] transition-colors duration-100 hover:text-[var(--text)]">
-              {isCheckpoint ? `checkpoint ${checkpointId ? shortId(checkpointId) : ''} — detalhes` : 'detalhes'}
+              {isCheckpoint ? `checkpoint ${checkpointId ? shortId(checkpointId) : ''} — details` : 'details'}
             </summary>
             <pre className="mt-1 max-h-40 overflow-auto rounded border border-[var(--border)] bg-[var(--bg)] p-2 font-mono text-[10px] leading-4 text-[var(--text-dim)]">
               {JSON.stringify(entry.data, null, 2)}
@@ -97,7 +97,7 @@ export function TimelineDialog({ run, onClose }: { run: Run; onClose: () => void
       setTotal(res.total_count)
       setError(null)
     } catch (e) {
-      if (!cancelled.current) setError(trajectoryErrorMessage(e, 'Falha ao carregar a timeline'))
+      if (!cancelled.current) setError(trajectoryErrorMessage(e, 'Failed to load timeline'))
     }
   }
 
@@ -121,12 +121,12 @@ export function TimelineDialog({ run, onClose }: { run: Run; onClose: () => void
   }
 
   return (
-    <Modal open title="Timeline da run" onClose={onClose} maxWidth={560}>
+    <Modal open title="Run timeline" onClose={onClose} maxWidth={560}>
       <div className="flex max-h-[70vh] flex-col p-4">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Timeline da run</h2>
+        <h2 className="text-lg font-semibold text-[var(--text)]">Run timeline</h2>
         <p className="mt-1 text-sm text-[var(--text-dim)]">
-          <span className="font-mono text-[var(--text)]">{shortId(run.id)}</span> — eventos do journal e checkpoints
-          intercalados{total > 0 ? ` (${total} no total)` : ''}.
+          <span className="font-mono text-[var(--text)]">{shortId(run.id)}</span> — journal events and checkpoints
+          interleaved{total > 0 ? ` (${total} total)` : ''}.
         </p>
 
         {error && (
@@ -140,9 +140,9 @@ export function TimelineDialog({ run, onClose }: { run: Run; onClose: () => void
 
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
           {loading ? (
-            <p className="py-6 text-center text-sm text-[var(--text-dim)]">Carregando timeline…</p>
+            <p className="py-6 text-center text-sm text-[var(--text-dim)]">Loading timeline…</p>
           ) : entries.length === 0 ? (
-            <EmptyState title="Sem eventos" description="Esta run ainda não tem timeline registrada." />
+            <EmptyState title="No events" description="This run has no timeline recorded yet." />
           ) : (
             <ul className="divide-y divide-[var(--border)]">
               {entries.map((entry) => (
@@ -155,14 +155,14 @@ export function TimelineDialog({ run, onClose }: { run: Run; onClose: () => void
         {hasMore && !loading && (
           <div className="mt-3 flex justify-center">
             <Button size="sm" variant="subtle" disabled={loadingMore} onClick={loadMore}>
-              {loadingMore ? 'Carregando…' : `Carregar mais (${total - entries.length} restantes)`}
+              {loadingMore ? 'Loading…' : `Load more (${total - entries.length} remaining)`}
             </Button>
           </div>
         )}
 
         <div className="mt-4 flex justify-end">
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Fechar
+            Close
           </Button>
         </div>
       </div>

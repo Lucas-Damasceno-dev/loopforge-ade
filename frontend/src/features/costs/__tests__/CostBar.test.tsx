@@ -82,7 +82,7 @@ describe('CostBar', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^override$/i }))
     fireEvent.change(screen.getByLabelText(/max usd/i), { target: { value: 'abc' } })
     fireEvent.click(screen.getByRole('button', { name: /^apply$/i }))
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/maior que zero/i))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/greater than zero/i))
   })
 
   it('shows compact empty state for queued/paused runs (no cost data)', () => {

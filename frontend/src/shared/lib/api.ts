@@ -64,7 +64,7 @@ export function retryUnauthorizedRequests(): void {
 export function rejectPendingUnauthorized(): void {
   const pending = retryQueue
   retryQueue = []
-  for (const req of pending) req.reject(new ApiError(401, 'Unauthorized — API key não fornecida'))
+  for (const req of pending) req.reject(new ApiError(401, 'Unauthorized — API key not provided'))
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {

@@ -22,7 +22,7 @@ export function ExportDialog({ run, onClose }: { run: Run; onClose: () => void }
       const res = await exportTrajectory(run.id)
       setData(res)
     } catch (e) {
-      setError(trajectoryErrorMessage(e, 'Falha ao exportar a trajetória'))
+      setError(trajectoryErrorMessage(e, 'Failed to export trajectory'))
     } finally {
       setLoading(false)
     }
@@ -31,12 +31,12 @@ export function ExportDialog({ run, onClose }: { run: Run; onClose: () => void }
   const checkpointCount = Array.isArray(data?.checkpoints) ? data.checkpoints.length : 0
 
   return (
-    <Modal open title="Exportar trajetória" onClose={onClose} maxWidth={560}>
+    <Modal open title="Export trajectory" onClose={onClose} maxWidth={560}>
       <div className="p-4">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Exportar trajetória</h2>
+        <h2 className="text-lg font-semibold text-[var(--text)]">Export trajectory</h2>
         <p className="mt-1 text-sm text-[var(--text-dim)]">
-          Run <span className="font-mono text-[var(--text)]">{shortId(run.id)}</span> — JSON enriquecido (schema
-          1.1) com checkpoints, steps por nó, eventos do journal e custos.
+          Run <span className="font-mono text-[var(--text)]">{shortId(run.id)}</span> — enriched JSON (schema 1.1)
+          with checkpoints, steps per node, journal events and costs.
         </p>
 
         {error && (
@@ -50,11 +50,11 @@ export function ExportDialog({ run, onClose }: { run: Run; onClose: () => void }
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Button size="sm" variant="primary" disabled={loading} onClick={load}>
-            {loading ? 'Exportando…' : data ? 'Atualizar' : 'Exportar'}
+            {loading ? 'Exporting…' : data ? 'Update' : 'Export'}
           </Button>
           {data && (
             <Button size="sm" variant="subtle" onClick={() => downloadJson(`trajectory-${run.id}.json`, data)}>
-              Baixar JSON
+              Download JSON
             </Button>
           )}
         </div>
@@ -62,7 +62,7 @@ export function ExportDialog({ run, onClose }: { run: Run; onClose: () => void }
         {data && (
           <details className="mt-3">
             <summary className="cursor-pointer text-xs text-[var(--text-dim)] transition-colors duration-100 hover:text-[var(--text)]">
-              Prévia do JSON ({checkpointCount} checkpoints)
+              JSON preview ({checkpointCount} checkpoints)
             </summary>
             <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-[var(--border)] bg-[var(--bg)] p-2 font-mono text-[11px] leading-5 text-[var(--text-dim)] [scrollbar-gutter:stable]">
               {JSON.stringify(data, null, 2)}
@@ -72,7 +72,7 @@ export function ExportDialog({ run, onClose }: { run: Run; onClose: () => void }
 
         <div className="mt-4 flex justify-end">
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Fechar
+            Close
           </Button>
         </div>
       </div>

@@ -60,7 +60,7 @@ export function App() {
                   onClick={() => setTrajectoriesOpen(true)}
                   className="rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-dim)] transition-colors duration-100 hover:bg-[var(--bg-elev)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
-                  Trajetórias
+                  Trajectories
                 </button>
                 <button
                   type="button"

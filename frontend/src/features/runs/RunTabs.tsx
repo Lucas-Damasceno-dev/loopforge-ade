@@ -14,11 +14,11 @@ const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
   failed: 'err',
 }
 
-// Rótulo curto da aba: os dois estados novos em PT; demais mantêm o texto
+// Rótulo curto da aba: os dois estados novos em EN; demais mantêm o texto
 // cru do status (sem redesenho — compatível com o mapeamento existente).
 function statusLabel(s: RunStatus): string {
-  if (s === 'queued') return 'Na fila'
-  if (s === 'paused') return 'Pausada'
+  if (s === 'queued') return 'Queued'
+  if (s === 'paused') return 'Paused'
   return s
 }
 

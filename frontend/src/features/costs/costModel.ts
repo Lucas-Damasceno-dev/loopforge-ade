@@ -32,8 +32,8 @@ export function hardStopLevel(percent: number): 'ok' | 'warn' | 'blocked' {
 // Retorna o valor numérico ou um erro de validação (exibido em --err-text).
 export function parseMaxUsd(input: string): { value: number } | { error: string } {
   const trimmed = input.trim()
-  if (!trimmed) return { error: 'Informe um valor' }
+  if (!trimmed) return { error: 'Enter a value' }
   const value = Number(trimmed)
-  if (!Number.isFinite(value) || value <= 0) return { error: 'Valor deve ser numérico e maior que zero' }
+  if (!Number.isFinite(value) || value <= 0) return { error: 'Value must be numeric and greater than zero' }
   return { value }
 }

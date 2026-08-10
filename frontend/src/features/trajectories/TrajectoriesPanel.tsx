@@ -25,8 +25,8 @@ const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
 }
 
 function statusLabel(s: RunStatus): string {
-  if (s === 'queued') return 'Na fila'
-  if (s === 'paused') return 'Pausada'
+  if (s === 'queued') return 'Queued'
+  if (s === 'paused') return 'Paused'
   return s
 }
 
@@ -36,9 +36,10 @@ export interface TrajectoriesPanelProps {
 }
 
 // Tela de trajetórias (Fase C): drawer listando as runs com ações por linha —
-// Fork (M-13), Exportar (M-14), Timeline (C5) — e Importar no topo (M-14).
-// Sucesso/erro das operações em PT-BR inline. Fork/import registram a nova
-// run no runsStore (status queued) — ela aparece como aba no workspace.
+// Fork (M-13), Export (M-14), Timeline (C5) — e Import no topo (M-14).
+// Sucesso/erro das operações em EN inline (detail do backend mantido como
+// veio). Fork/import registram a nova run no runsStore (status queued) — ela
+// aparece como aba no workspace.
 export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
   const runs = useRunsStore((s) => s.runs)
   const [forkRun, setForkRun] = useState<Run | null>(null)
@@ -57,7 +58,7 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
       status: 'queued',
       thread_id: result.thread_id,
     })
-    setFeedback({ tone: 'ok', text: `Fork criado — nova run ${shortId(result.fork_run_id)}` })
+    setFeedback({ tone: 'ok', text: `Fork created — new run ${shortId(result.fork_run_id)}` })
   }
 
   const openForkedRun = (result: ForkResult) => {
@@ -76,14 +77,14 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
       const res: ImportResult = await importTrajectory(payload)
       useRunsStore.getState().upsertRun({
         id: res.run_id,
-        idea: typeof payload.idea === 'string' && payload.idea.length > 0 ? payload.idea : 'Importada',
+        idea: typeof payload.idea === 'string' && payload.idea.length > 0 ? payload.idea : 'Imported',
         stack: 'python',
         status: 'queued',
         thread_id: res.thread_id,
       })
-      setFeedback({ tone: 'ok', text: `Trajetória importada — run ${shortId(res.run_id)} (${res.checkpoints_imported} checkpoints)` })
+      setFeedback({ tone: 'ok', text: `Trajectory imported — run ${shortId(res.run_id)} (${res.checkpoints_imported} checkpoints)` })
     } catch (err) {
-      const message = err instanceof SyntaxError ? 'Arquivo inválido — JSON esperado' : trajectoryErrorMessage(err, 'Falha ao importar a trajetória')
+      const message = err instanceof SyntaxError ? 'Invalid file — JSON expected' : trajectoryErrorMessage(err, 'Failed to import trajectory')
       setFeedback({ tone: 'err', text: message })
     } finally {
       setImporting(false)
@@ -92,13 +93,13 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
 
   return (
     <>
-      <Drawer open={open} title="Trajetórias" onClose={onClose}>
+      <Drawer open={open} title="Trajectories" onClose={onClose}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <span className="text-xs text-[var(--text-dim)]">
             {runs.length} {runs.length === 1 ? 'run' : 'runs'}
           </span>
           <Button size="sm" variant="primary" disabled={importing} onClick={() => fileRef.current?.click()}>
-            {importing ? 'Importando…' : 'Importar'}
+            {importing ? 'Importing…' : 'Import'}
           </Button>
           <input
             ref={fileRef}
@@ -126,8 +127,8 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
 
         {runs.length === 0 ? (
           <EmptyState
-            title="Nenhuma run ainda"
-            description="Rode uma run ou importe um JSON de trajetória para começar."
+            title="No runs yet"
+            description="Run a run or import a trajectory JSON to get started."
           />
         ) : (
           <ul className="divide-y divide-[var(--border)]">
@@ -149,7 +150,7 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
                     Fork
                   </Button>
                   <Button size="sm" variant="subtle" onClick={() => setExportRun(run)}>
-                    Exportar
+                    Export
                   </Button>
                   <Button size="sm" variant="subtle" onClick={() => setTimelineRun(run)}>
                     Timeline
