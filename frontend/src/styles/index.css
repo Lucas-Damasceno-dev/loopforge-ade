@@ -1,2 +1,19 @@
 @import "tailwindcss";
 @import "./tokens.css";
+
+/* V1.1 (ADR-0007): cursor de streaming token a token no console da ADE.
+   Bloco piscante ancorado ao final do chunk mais recente — sem overhaul de
+   design, mantém a linguagem visual existente (accent + mono). */
+.console-stream-cursor {
+  display: inline-block;
+  width: 0.5em;
+  margin-left: 0.15em;
+  background: var(--accent);
+  animation: console-blink 1s steps(1) infinite;
+}
+
+@keyframes console-blink {
+  50% {
+    opacity: 0;
+  }
+}

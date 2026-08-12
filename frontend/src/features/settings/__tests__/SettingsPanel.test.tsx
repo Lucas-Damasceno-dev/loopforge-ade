@@ -73,8 +73,8 @@ describe('SettingsPanel (Fase D/E9)', () => {
     await waitFor(() => expect(patchConfig).toHaveBeenCalledTimes(1))
     expect(patchConfig).toHaveBeenCalledWith({
       mcp_servers: [
-        { name: 'fs', enabled: true },
-        { name: 'git', enabled: true },
+        { name: 'fs', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem'], tools_allowlist: ['read'], enabled: true },
+        { name: 'git', command: 'npx', args: [], tools_allowlist: [], enabled: true },
       ],
     })
   })

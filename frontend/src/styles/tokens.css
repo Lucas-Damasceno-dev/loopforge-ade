@@ -2,14 +2,26 @@
 
 /* Design tokens — fonte de verdade visual (01b-design-system.md §2).
  * Paleta dark zinc + índigo único acento; cor semântica só para estado.
+ *
+ * CONVENÇÕES (auditoria fundação visual):
+ * - Superfícies em camadas: --bg (zinc-950) < --surface-1/--bg-elev (zinc-900)
+ *   < --surface-2/--bg-elev-2 (zinc-800). Elevação = clarear a superfície,
+ *   nunca sombra pesada. --surface-* são ALIASES dos tokens --bg-elev*
+ *   (nomes legados mantidos p/ compat entre lanes).
+ * - Raio: 6px interativo (--radius, alias --radius-md); 4px p/ chips/tags
+ *   (--radius-sm); 12px p/ cards grandes/modais (--radius-lg).
+ * - Escala tipográfica: --text-2xs 10px / --text-xs 12px / --text-sm 14px
+ *   (base do body) / --text-base 16px. Usar sempre via token, nunca px solto.
  */
 :root {
   color-scheme: dark;
 
   /* §2.1 — paleta */
-  --bg: #09090b;          /* zinc-950 */
-  --bg-elev: #18181b;     /* zinc-900 */
-  --bg-elev-2: #27272a;   /* zinc-800 */
+  --bg: #09090b;          /* zinc-950 — fundo mais profundo (auditoria) */
+  --bg-elev: #18181b;     /* zinc-900 — painéis/cards */
+  --bg-elev-2: #27272a;   /* zinc-800 — superfícies elevadas/hover */
+  --surface-1: var(--bg-elev);   /* alias — painéis/cards */
+  --surface-2: var(--bg-elev-2); /* alias — superfícies elevadas/hover */
   --border: #3f3f46;      /* zinc-700 */
   --text: #fafafa;        /* zinc-50 */
   --text-dim: #a1a1aa;    /* zinc-400 */
@@ -25,6 +37,8 @@
   --accent-text: #818cf8; /* indigo-400 — 5.9:1 sobre --bg-elev (AA) */
   --ok-text: #22c55e;     /* green-500 — 6.4:1 sobre ok/15 (AA) */
   --err-text: #f87171;    /* red-400 — 5.8:1 sobre err/15 (AA) */
+  --info-text: #60a5fa;   /* blue-400 — ~6.9:1 sobre --bg-elev (AA) — faltava! */
+  --warn-text: #fbbf24;   /* amber-400 — ~10.6:1 sobre --bg-elev (AAA) — faltava! */
 
   /* §2.2 — acentos por tipo de nó. Base = border/chip (decorativo);
    * rótulo do nó usa a variante -text quando base <4.5:1 (obrigatório). */
@@ -43,22 +57,32 @@
   --overlay: rgb(0 0 0 / 0.40);
   --overlay-strong: rgb(0 0 0 / 0.60);
 
-  /* §2.7 — sombras com tinta única (sem coloração de acento) */
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-node: 0 4px 6px -1px rgb(0 0 0 / 0.45);
-  --shadow-drawer: -16px 0 32px rgb(0 0 0 / 0.40);
-  --shadow-modal: 0 24px 48px -12px rgb(0 0 0 / 0.60);
+  /* §2.7 — sombras com tinta única (sem coloração de acento).
+   * Fundo mais profundo (--bg zinc-950) engole sombra preta — opacidades
+   * re-derivadas p/ manter elevação legível (auditoria). */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-node: 0 4px 6px -1px rgb(0 0 0 / 0.50);
+  --shadow-drawer: -16px 0 32px rgb(0 0 0 / 0.45);
+  --shadow-modal: 0 24px 48px -12px rgb(0 0 0 / 0.65);
 
-  /* §2.6 — raios */
+  /* §2.6 — raios. --radius = 6px canônico p/ interativo (--radius-md é alias);
+   * --radius-sm 4px p/ chips/tags; --radius-lg 12px p/ cards grandes/modais. */
+  --radius: 6px;
   --radius-sm: 4px;
-  --radius-md: 6px;
+  --radius-md: var(--radius);
   --radius-lg: 12px;
   --radius-full: 999px;
 
-  /* §2.4 — tipografia (fallbacks de sistema; carregar Inter/JetBrains Mono
-   * via font-face/CDN quando a infra permitir) */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* §2.4 — tipografia. Inter Variable / JetBrains Mono Variable via
+   * @fontsource-variable (import em main.tsx); fallbacks de sistema. */
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Escala tipográfica explícita — usar sempre via token, nunca px solto */
+  --text-2xs: 10px;
+  --text-xs: 12px;
+  --text-sm: 14px;   /* base do body */
+  --text-base: 16px;
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────── */
@@ -72,8 +96,16 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Base p/ código: mono variável + escala token (console, blocos, kbd) */
+code,
+pre,
+kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 /* ─── Scrollbar (01b §2.8) — console, drawers, abas, painéis ──────────── */

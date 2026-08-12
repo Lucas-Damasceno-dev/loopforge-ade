@@ -23,6 +23,10 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
     useCanvasStore.getState().selectNode(node)
   }
 
+  // Glow no estado running (01b §4): sombra accent suave substitui a shadow
+  // padrão do nó — sombra estática (sem pulse p/ não piscar o texto do nó).
+  const glow = status === 'running' && !ghosted
+
   return (
     <div
       role="button"
@@ -38,9 +42,10 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
         }
       }}
       className={[
-        'w-44 cursor-pointer rounded-xl border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 shadow-[var(--shadow-node)] outline-none',
+        'w-44 cursor-pointer rounded-xl border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
+        glow ? 'shadow-[0_0_0_1px_var(--accent),0_0_14px_rgb(79_70_229_/_0.35)]' : 'shadow-[var(--shadow-node)]',
         'transition-[opacity,border-color,box-shadow,color] duration-150 ease-out',
-        'hover:border-[#52525b] focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+        'hover:border-[var(--border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
         ghosted ? 'pointer-events-none opacity-40' : '',
         selected ? 'ring-2 ring-[var(--accent)]' : '',
       ].join(' ')}
@@ -74,7 +79,6 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
               {formatUsd(data.cost.spent_usd)}
             </span>
           )}
-          <span className="truncate text-[10px] font-medium lowercase tracking-wide text-[var(--text-dim)]">{status}</span>
         </span>
       </div>
       <Handle type="source" position={Position.Right} style={{ background: 'var(--border)' }} />

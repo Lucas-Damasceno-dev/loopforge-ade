@@ -3,7 +3,6 @@ import type { ChangeEvent } from 'react'
 import { useCanvasStore } from '../../stores/canvasStore'
 import type { NodeStatusEntry } from '../../stores/canvasStore'
 import { useRunsStore } from '../../stores/runsStore'
-import { Banner } from '../../shared/ui/Banner'
 import { Button } from '../../shared/ui/Button'
 import { PIPELINE_ORDER } from '../dag/dagModel'
 import { deriveSteps, ghostState, type TimelineStep } from './timelineModel'
@@ -12,12 +11,12 @@ import type { NodeType } from '../../shared/lib/types'
 
 type StatusMap = Partial<Record<NodeType, NodeStatusEntry>>
 
-// Timeline (UX5/UX6): barra horizontal entre canvas e console com slider de
+// Timeline (UX5/UX6): barra flutuante ancorada na base do canvas com slider de
 // time-travel derivado do canvasStore.nodeStatus (steps = nós não-pending).
-// ghostToStep ≠ null → DAG futuro ghosted (buildNodes da T6) + banner fixo de
-// inspeção. Checkpoints via API são best-effort: com thread real tenta usar o
-// último estado gravado; V1 o backend devolve [{thread_id}] sem checkpoint_id
-// (branch dormente) — demo/local segue 100% do nodeStatus.
+// ghostToStep ≠ null → DAG futuro ghosted (buildNodes da T6) + estado de
+// inspeção na própria barra. Checkpoints via API são best-effort: com thread
+// real tenta usar o último estado gravado; V1 o backend devolve [{thread_id}]
+// sem checkpoint_id (branch dormente) — demo/local segue 100% do nodeStatus.
 export function TimelineBar({ runId }: { runId?: string }) {
   const nodeStatus = useCanvasStore((s) => s.nodeStatus)
   const ghostToStep = useCanvasStore((s) => s.ghostToStep)
@@ -64,37 +63,39 @@ export function TimelineBar({ runId }: { runId?: string }) {
     setGhostToStep(ghostState(Number(e.target.value), steps).ghostToStep)
   }
 
-  return (
-    <>
-      {/* UX6: banner fixo no topo quando em modo inspeção (acima das abas). */}
+// Barra flutuante (Gemini/P0.10): o TimelineBar vive em fluxo normal no App
+// (logo após a área flex-1 do workspace) — o wrapper `relative h-0` ancora a
+// barra na base do canvas, sem roubar espaço do layout. Decisões:
+// - Banner fixo de inspeção REMOVIDO: status e ações concentrados na barra
+//   (elimina o "Back to live" duplicado — resta só o da barra).
+// - "Resume from here" só renderiza em inspeção (nunca disabled permanente);
+//   V1 sem resume no server: retorna à visualização live (ghost limpo).
+// - Toda a lógica (steps, ghosting, onSeek, checkpoints) permanece intacta —
+//   mudou só apresentação/posicionamento.
+return (
+  <div data-testid="timeline-bar" className="relative h-0">
+    <div className="absolute bottom-2 left-1/2 z-20 flex w-[28rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1.5 shadow-[var(--shadow-node)]">
+      <span className="whitespace-nowrap text-xs text-[var(--text-dim)]">
+        {inspecting ? 'Inspection — ' : 'Live — '}step {current}/{stepCount}
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={stepCount}
+        value={current}
+        aria-label="Inspection step"
+        className="ade-slider min-w-0 flex-1"
+        onChange={handleChange}
+      />
       {inspecting && (
-        <Banner tone="info">
-          <span className="font-medium">Inspection — step {current}/{stepCount}</span>
-          <Button size="sm" variant="ghost" className="ml-2" onClick={() => setGhostToStep(null)}>
-            Back to live
-          </Button>
-        </Banner>
-      )}
-      <div data-testid="timeline-bar" className="flex h-10 items-center gap-3 border-t border-[var(--border)] bg-[var(--bg-elev)] px-3">
-        <span className="whitespace-nowrap text-xs text-[var(--text-dim)]">
-          {inspecting ? 'Inspection — ' : 'Live — '}step {current}/{stepCount}
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={stepCount}
-          value={current}
-          aria-label="Inspection step"
-          className="ade-slider min-w-0 flex-1"
-          onChange={handleChange}
-        />
-        <Button size="sm" variant="subtle" disabled title="Available in V2">
+        <Button size="sm" variant="subtle" onClick={() => setGhostToStep(null)}>
           Resume from here
         </Button>
-        <Button size="sm" variant="ghost" disabled={!inspecting} onClick={() => setGhostToStep(null)}>
-          Back to live
-        </Button>
-      </div>
-    </>
-  )
+      )}
+      <Button size="sm" variant="ghost" disabled={!inspecting} onClick={() => setGhostToStep(null)}>
+        Back to live
+      </Button>
+    </div>
+  </div>
+)
 }

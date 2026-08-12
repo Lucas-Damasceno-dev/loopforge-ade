@@ -49,6 +49,19 @@ export interface WsEventHitlGate extends WsEventBase {
   }
 }
 
+// V1.1 (ADR-0007): streaming token a token do LLM → console. `content` é um
+// chunk INCREMENTAL (não cumulativo); o frontend acumula por nó até o
+// node_execution correspondente (flush). Mesmas regras de seq/run_id dos
+// demais eventos (envelope v1).
+export interface WsEventTokenDelta extends WsEventBase {
+  event: 'token_delta'
+  payload: {
+    node: NodeType
+    content: string
+    task_id?: string
+  }
+}
+
 export interface WsEventGeneric extends WsEventBase {
   event:
     | 'run_created'
@@ -63,7 +76,12 @@ export interface WsEventGeneric extends WsEventBase {
     | 'fork_created'
 }
 
-export type WsEvent = WsEventNodeExecution | WsEventPipelineStarted | WsEventHitlGate | WsEventGeneric
+export type WsEvent =
+  | WsEventNodeExecution
+  | WsEventPipelineStarted
+  | WsEventHitlGate
+  | WsEventTokenDelta
+  | WsEventGeneric
 
 const KNOWN = new Set([
   'pipeline_started',
@@ -79,6 +97,7 @@ const KNOWN = new Set([
   'run_paused',
   'hitl_gate_reached',
   'fork_created',
+  'token_delta',
 ])
 
 function str(v: unknown): string | undefined {
@@ -199,6 +218,20 @@ export function normalizeWsEvent(raw: unknown): WsEvent | null {
     if (ts !== undefined) p.ts = ts
     if (taskId !== undefined) p.task_id = taskId
     return { event: 'hitl_gate_reached', seq, run_id, timestamp, payload: p }
+  }
+
+  // V1.1 (ADR-0007): token_delta — streaming incremental do LLM. Nó válido via
+  // NODE_MAP (sem restrição EXECUTION_NODES: deltas podem vir de qualquer nó
+  // que chama LLM), content obrigatório string. Inválido → envelope nulo.
+  if (r.event === 'token_delta') {
+    const rawNode = str(payload.node)
+    const node = rawNode ? normalizeNodeName(rawNode) : null
+    if (!node) return null
+    const content = str(payload.content)
+    if (content === undefined) return null
+    const p: WsEventTokenDelta['payload'] = { node, content }
+    if (taskId !== undefined) p.task_id = taskId
+    return { event: 'token_delta', seq, run_id, timestamp, payload: p }
   }
 
   // Eventos genéricos: payload = dados do evento (status, idea, current_node,

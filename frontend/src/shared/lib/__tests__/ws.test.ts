@@ -142,6 +142,37 @@ describe('normalizeWsEvent', () => {
       payload: { gate_node: '' },
     })
   })
+  it('normalizes token_delta v1 envelope (ADR-0007)', () => {
+    const raw = {
+      seq: 9,
+      event: 'token_delta',
+      run_id: 'r1',
+      timestamp: 123,
+      payload: { node: 'developer', content: 'Ola' },
+    }
+    expect(normalizeWsEvent(raw)).toMatchObject({
+      seq: 9,
+      event: 'token_delta',
+      run_id: 'r1',
+      timestamp: 123,
+      payload: { node: 'developer', content: 'Ola' },
+    })
+  })
+  it('token_delta maps legacy alias dev to developer and keeps task_id', () => {
+    expect(
+      normalizeWsEvent({ event: 'token_delta', run_id: 'r1', task_id: 't-1', node: 'dev', content: 'x' }),
+    ).toMatchObject({
+      event: 'token_delta',
+      run_id: 'r1',
+      payload: { node: 'developer', content: 'x', task_id: 't-1' },
+    })
+  })
+  it('token_delta rejects unknown node / non-string or missing content', () => {
+    expect(normalizeWsEvent({ event: 'token_delta', payload: { node: 'mystery', content: 'x' } })).toBeNull()
+    expect(normalizeWsEvent({ event: 'token_delta', payload: { node: 'developer', content: 42 } })).toBeNull()
+    expect(normalizeWsEvent({ event: 'token_delta', payload: { node: 'developer' } })).toBeNull()
+    expect(normalizeWsEvent({ event: 'token_delta', payload: { content: 'x' } })).toBeNull()
+  })
 })
 
 describe('createWsClient', () => {

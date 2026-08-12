@@ -8,7 +8,12 @@ import { dispatchWsEvent } from '../wsBridge'
 beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
-  useConsoleStore.setState({ entries: [], filters: { node: 'all', level: 'all', query: '' }, autoScroll: true })
+  useConsoleStore.setState({
+    entries: [],
+    streams: {},
+    filters: { node: 'all', level: 'all', query: '' },
+    autoScroll: true,
+  })
   useHitlGateStore.setState({ gates: [] })
 })
 
@@ -140,6 +145,33 @@ describe('runsStore', () => {
     expect(run?.status).toBe('paused')
     expect(run?.current_node).toBe('qa')
   })
+  it('E3: queued status is reflected in the derived queue', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
+    useRunsStore.getState().addRun({ id: 'r2', idea: 'b', status: 'queued' })
+    useRunsStore.getState().addRun({ id: 'r3', idea: 'c', status: 'queued' })
+    expect(useRunsStore.getState().queue).toEqual(['r2', 'r3'])
+  })
+  it('E3: leaving queued (running/completed) removes the run from the derived queue', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
+    useRunsStore.getState().addRun({ id: 'r2', idea: 'b', status: 'queued' })
+    useRunsStore.getState().updateStatus('r2', 'running')
+    expect(useRunsStore.getState().queue).toEqual([])
+    expect(useRunsStore.getState().runs.find((r) => r.id === 'r2')?.status).toBe('running')
+  })
+  it('E3: two running runs coexist — empty queue, both runs present', () => {
+    useRunsStore.getState().upsertRun({ id: 'r1', idea: 'a', status: 'running' })
+    useRunsStore.getState().upsertRun({ id: 'r2', idea: 'b', status: 'running' })
+    expect(useRunsStore.getState().runs).toHaveLength(2)
+    expect(useRunsStore.getState().queue).toEqual([])
+  })
+  it('E3: WS queued -> running transition moves the run out of the queue', () => {
+    useRunsStore.getState().upsertRun({ id: 'r1', idea: 'a', status: 'running' })
+    useRunsStore.getState().upsertRun({ id: 'r2', idea: 'b', status: 'queued' })
+    expect(useRunsStore.getState().queue).toEqual(['r2'])
+    dispatchWsEvent({ event: 'run_updated', run_id: 'r2', payload: { status: 'running' } })
+    expect(useRunsStore.getState().queue).toEqual([])
+    expect(useRunsStore.getState().runs.find((r) => r.id === 'r2')?.status).toBe('running')
+  })
   it('run_paused updates run status to paused', () => {
     useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
     dispatchWsEvent({ event: 'run_paused', run_id: 'r1', payload: { status: 'paused' } })
@@ -188,5 +220,20 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().entries).toHaveLength(2) // entradas intactas; filtro é na seleção
     const visible = useConsoleStore.getState().entries.filter(e => e.level === 'error')
     expect(visible).toHaveLength(1)
+  })
+  it('appendStream accumulates chunks keyed by node; finishStream flushes (ADR-0007)', () => {
+    useConsoleStore.getState().appendStream('developer', 'Ola', 'r1')
+    useConsoleStore.getState().appendStream('developer', ' mundo')
+    expect(useConsoleStore.getState().streams.developer?.content).toBe('Ola mundo')
+    expect(useConsoleStore.getState().streams.developer?.runId).toBe('r1')
+    useConsoleStore.getState().finishStream('developer')
+    expect(useConsoleStore.getState().streams.developer).toBeUndefined()
+    const entry = useConsoleStore.getState().entries.find((e) => e.message === 'Ola mundo')
+    expect(entry?.level).toBe('info')
+  })
+  it('finishStream without active buffer is a no-op', () => {
+    useConsoleStore.getState().finishStream('qa')
+    expect(useConsoleStore.getState().streams).toEqual({})
+    expect(useConsoleStore.getState().entries).toHaveLength(0)
   })
 })

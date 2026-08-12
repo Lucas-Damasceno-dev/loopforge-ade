@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getConfig, patchConfig } from '../../shared/lib/api'
-import type { AdeConfig, DeepPartial } from '../../shared/lib/types'
+import type { AdeConfig, AdeMcpServer, DeepPartial } from '../../shared/lib/types'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Button } from '../../shared/ui/Button'
 import { Input } from '../../shared/ui/Input'
 import { Toggle } from '../../shared/ui/Toggle'
+import { SectionTitle } from '../../shared/ui/SectionTitle'
+import { Alert } from '../../shared/ui/Alert'
+import { Select } from '../../shared/ui/Select'
 
 // Settings (Fase D/E9): GET /config → form local → PATCH /config com SOMENTE
 // os campos alterados (PATCH parcial). O backend RECONSTRÓI sub-modelos
@@ -20,7 +23,7 @@ interface FormState {
   hitlOnTimeout: string
   providerPrimary: string
   ollamaBaseUrl: string
-  servers: Array<{ name: string; enabled: boolean }>
+  servers: AdeMcpServer[]
 }
 
 function toForm(c: AdeConfig): FormState {
@@ -30,7 +33,7 @@ function toForm(c: AdeConfig): FormState {
     hitlOnTimeout: c.hitl?.on_timeout ?? 'continue',
     providerPrimary: c.providers?.primary ?? '',
     ollamaBaseUrl: c.providers?.ollama_base_url ?? '',
-    servers: (c.mcp_servers ?? []).map((s) => ({ name: s.name, enabled: s.enabled })),
+    servers: (c.mcp_servers ?? []).map((s) => ({ ...s })),
   }
 }
 
@@ -63,7 +66,10 @@ function buildPatch(config: AdeConfig, form: FormState): DeepPartial<AdeConfig> 
   }
   const origServers = config.mcp_servers ?? []
   if (form.servers.some((s, i) => s.enabled !== origServers[i]?.enabled)) {
-    patch.mcp_servers = form.servers.map((s) => ({ name: s.name, enabled: s.enabled }))
+    // G1: envia os objetos AdeMcpServer COMPLETOS (command/args/tools_allowlist
+    // preservados) — o backend valida TypeAdapter(list[AdeMcpServer]) e exige
+    // `command`; enviar só {name, enabled} → 422.
+    patch.mcp_servers = form.servers
   }
   return patch
 }
@@ -144,24 +150,14 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       ) : form ? (
         <div className="space-y-5">
           {error && (
-            <div
-              role="alert"
-              className="rounded-md border border-[var(--err)]/30 bg-[var(--err)]/15 px-3 py-2 text-sm text-[var(--err-text)]"
-            >
-              {error}
-            </div>
+            <Alert tone="err">{error}</Alert>
           )}
           {saved && (
-            <div
-              role="status"
-              className="rounded-md border border-[var(--ok)]/30 bg-[var(--ok)]/15 px-3 py-2 text-sm text-[var(--ok-text)]"
-            >
-              Saved
-            </div>
+            <Alert tone="ok">Saved</Alert>
           )}
 
           <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Budget</h3>
+            <SectionTitle className="mb-1">Budget</SectionTitle>
             <label htmlFor="settings-budget" className="mb-0.5 block text-xs text-[var(--text-dim)]">
               Max USD per run
             </label>
@@ -175,7 +171,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </section>
 
           <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Human in the loop</h3>
+            <SectionTitle className="mb-1">Human in the loop</SectionTitle>
             <label htmlFor="settings-hitl-timeout" className="mb-0.5 block text-xs text-[var(--text-dim)]">
               Gate timeout (seconds)
             </label>
@@ -189,21 +185,21 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <label htmlFor="settings-hitl-timeout-mode" className="mb-0.5 mt-2 block text-xs text-[var(--text-dim)]">
               On timeout
             </label>
-            <select
+            <Select
               id="settings-hitl-timeout-mode"
               aria-label="HITL on timeout"
               value={form.hitlOnTimeout}
               onChange={(e) => setField({ hitlOnTimeout: e.target.value })}
-              className="h-8 w-full rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-2 text-sm text-[var(--text)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="w-full"
             >
               {ON_TIMEOUT_OPTIONS.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
-            </select>
+            </Select>
           </section>
 
           <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Providers</h3>
+            <SectionTitle className="mb-1">Providers</SectionTitle>
             <label htmlFor="settings-provider" className="mb-0.5 block text-xs text-[var(--text-dim)]">
               Primary provider
             </label>
@@ -227,7 +223,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </section>
 
           <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">MCP servers</h3>
+            <SectionTitle className="mb-1">MCP servers</SectionTitle>
             {form.servers.length === 0 ? (
               <p className="text-sm text-[var(--text-dim)]">No MCP servers configured</p>
             ) : (

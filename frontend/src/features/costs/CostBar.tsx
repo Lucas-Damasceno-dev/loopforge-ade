@@ -7,17 +7,17 @@ import { Banner } from '../../shared/ui/Banner'
 import { Button } from '../../shared/ui/Button'
 import { Modal } from '../../shared/ui/Modal'
 import { Input } from '../../shared/ui/Input'
-import { budgetPercent, hardStopLevel, parseMaxUsd } from './costModel'
+import { budgetPercent, formatUsd, hardStopLevel, parseMaxUsd } from './costModel'
 
-// Barra de orçamento da run ATIVA (UX12, M-08/M-10): dados REAIS de
+// Badge de orçamento da run ATIVA (UX12, M-08/M-10): dados REAIS de
 // GET /api/v1/runs/{id}/cost (total_cost_usd + budget efetivo). Estados sem
 // dados de custo (run ausente, queued, paused ou erro → ex.: run demo local)
 // mostram um empty state COMPACTO (vocabulário do design system — a topbar
 // h-11 não comporta o EmptyState centralizado com py-12).
 //
 // Cores (01b §3.4): <80% --info (estado informativo — preserva §1.2);
-// 80–99% --warn; ≥100% --err. Marcador de 80% (linha 1px). Override (M-10):
-// visível quando percent >= 80 — abre modal para POST cost/override.
+// 80–99% --warn; ≥100% --err. Override (M-10): visível quando percent >= 80
+// — abre modal para POST cost/override. Tooltip (title) traz o breakdown.
 export function CostBar({
   runId,
   maxUsd: maxUsdProp,
@@ -107,15 +107,12 @@ export function CostBar({
   return (
     <>
       {toast && level === 'warn' && <Banner tone="warn">Budget at {percent}% — approaching the limit</Banner>}
-      <div data-testid="cost-bar" className={`flex items-center gap-2 ${className}`} title={`Budget ${percent}%`}>
-        <span className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">Budget</span>
-        <div className="relative h-2 flex-1 overflow-hidden rounded bg-[var(--bg-elev-2)]">
-          {/* Marcador de 80% (linha 1px --border, §3.4). */}
-          {maxUsd > 0 && (
-            <div aria-hidden="true" className="absolute inset-y-0 w-px bg-[var(--border)]" style={{ left: '80%' }} />
-          )}
-          <div className={`h-full transition-[width] duration-200 ease-out ${barColor}`} style={{ width: `${Math.min(percent, 100)}%` }} />
-        </div>
+      <div
+        data-testid="cost-bar"
+        title={maxUsd > 0 ? `Budget ${percent}% — ${formatUsd(spentUsd)} of ${formatUsd(maxUsd)}` : 'Budget — no limit set'}
+        className={`inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-0.5 ${className}`}
+      >
+        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${barColor}`} />
         {isLoading && maxUsd === 0 ? (
           <span data-testid="cost-label" className="text-xs text-[var(--text-dim)]">$…</span>
         ) : (

@@ -10,6 +10,9 @@ import { Banner } from '../../shared/ui/Banner'
 import { Input } from '../../shared/ui/Input'
 import { Textarea } from '../../shared/ui/Textarea'
 import { Toggle } from '../../shared/ui/Toggle'
+import { Select } from '../../shared/ui/Select'
+import { SectionTitle } from '../../shared/ui/SectionTitle'
+import { Alert } from '../../shared/ui/Alert'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 import { decideRun, getDecisions, getCheckpoints, getCheckpoint } from '../../shared/lib/api'
 import type { DecisionRecord } from '../../shared/lib/types'
@@ -209,12 +212,7 @@ export function HitlDrawer() {
         </div>
 
         {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-md border border-[var(--err)]/30 bg-[var(--err)]/15 px-3 py-2 text-sm text-[var(--err-text)]"
-          >
-            {error}
-          </div>
+          <Alert tone="err" className="mb-4">{error}</Alert>
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-2">
@@ -253,23 +251,24 @@ export function HitlDrawer() {
                 const common = { 'aria-label': f.label }
                 return (
                   <div key={f.key}>
-                    <span className="mb-0.5 block text-[11px] text-[var(--text-dim)]">{f.label}</span>
+                    <label htmlFor={`hitl-${f.key}`} className="mb-0.5 block text-[11px] text-[var(--text-dim)]">{f.label}</label>
                     {f.kind === 'select' ? (
-                      <select
+                      <Select
+                        id={`hitl-${f.key}`}
                         {...common}
                         value={value}
                         onChange={(e) => updatePatch(f.key, e.target.value)}
-                        className="h-8 w-full rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-2 text-sm text-[var(--text)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        className="w-full"
                       >
                         <option value="">—</option>
                         {(f.options ?? []).map((o) => (
                           <option key={o} value={o}>{o}</option>
                         ))}
-                      </select>
+                      </Select>
                     ) : f.kind === 'textarea' ? (
-                      <Textarea {...common} value={value} onChange={(e) => updatePatch(f.key, e.target.value)} className="h-20 font-mono text-xs" />
+                      <Textarea id={`hitl-${f.key}`} {...common} value={value} onChange={(e) => updatePatch(f.key, e.target.value)} className="h-20 font-mono text-xs" />
                     ) : (
-                      <Input {...common} value={value} onChange={(e) => updatePatch(f.key, e.target.value)} />
+                      <Input id={`hitl-${f.key}`} {...common} value={value} onChange={(e) => updatePatch(f.key, e.target.value)} />
                     )}
                   </div>
                 )
@@ -325,7 +324,7 @@ export function HitlDrawer() {
         )}
 
         <section>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Decision history</h3>
+          <SectionTitle className="mb-1">Decision history</SectionTitle>
           {decisionsLoading ? (
             <p className="text-sm text-[var(--text-dim)]">Loading decisions…</p>
           ) : decisions.length === 0 ? (

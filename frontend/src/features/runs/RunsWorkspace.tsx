@@ -49,12 +49,12 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
     if (id === activeRunId) selectRun(null)
   }
 
-  // E3: sem run ativa → a nova vira ativa; com ativa → vai para a fila.
+  // E3 (paralelismo real): o server executa N runs simultâneas e publica o
+  // status `queued` via WS — a fila é derivada dos status no store. A nova run
+  // é sempre selecionada (view focus); a gestão de execução é do server.
   const handleCreated = (run: Run) => {
     useRunsStore.getState().upsertRun(run)
-    const state = useRunsStore.getState()
-    if (state.activeRunId === null) state.selectRun(run.id)
-    else if (state.activeRunId !== run.id) state.enqueue(run.id)
+    useRunsStore.getState().selectRun(run.id)
   }
 
   return (
@@ -63,7 +63,9 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
         <>
           <RunTabs runs={runs} activeRunId={activeRunId} queue={queue} onSelect={selectRun} onClose={handleClose} />
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-            <Button variant="primary" size="sm" onClick={() => runDemo()}>Run demo</Button>
+            {/* Demo rebaixado (Gemini): secundário — a ação principal é o
+                prompt customizado (grupo do NewRunForm). */}
+            <Button variant="ghost" size="sm" onClick={() => runDemo()}>Run demo</Button>
             <NewRunForm onCreated={handleCreated} />
           </div>
         </>
@@ -72,9 +74,30 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
         {activeRun ? (
           <FlowCanvas />
         ) : (
+          /* Empty state interativo (Gemini/P0.7/P0.12): cards de início rápido
+             em vez de tela parada — demo dispara pipeline de exemplo; o outro
+             foca o campo de ideia do NewRunForm (id fixo definido lá). */
           <EmptyState
             title="No active run"
             description="Start a run to see the pipeline in action"
+            action={
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => runDemo()}
+                  className="rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-4 py-2.5 text-sm font-medium text-[var(--text)] transition-colors duration-100 hover:border-[var(--border-hover)] hover:bg-[var(--bg-elev-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  Run example pipeline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('new-run-idea')?.focus()}
+                  className="rounded-md border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm font-medium text-[var(--text-dim)] transition-colors duration-100 hover:border-[var(--border-hover)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  Create new run
+                </button>
+              </div>
+            }
           />
         )}
       </div>

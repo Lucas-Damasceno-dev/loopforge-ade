@@ -11,9 +11,10 @@ export interface DrawerProps {
   titleStyle?: CSSProperties
 }
 
-// Drawer não-modal (01b §3.2/§3.8): 380px à direita, overlay --overlay
-// clicável, Esc fecha, aria-modal="false" (o canvas continua visível),
-// shadow-drawer, entrada com slide 200ms. z-[50] (escala §2.7).
+// Drawer não-modal (01b §3.2/§3.8): 380px à direita (full-width <sm),
+// overlay --overlay clicável, Esc fecha, aria-modal="false" (o canvas
+// continua visível), shadow-drawer, entrada com slide 200ms. z-[50] (escala
+// §2.7).
 export function Drawer({ open, title, onClose, children, titleStyle }: DrawerProps) {
   // Listener global de Esc — limpo ao desmontar.
   useEffect(() => {
@@ -35,7 +36,7 @@ export function Drawer({ open, title, onClose, children, titleStyle }: DrawerPro
         role="dialog"
         aria-modal="false"
         aria-label={title}
-        className="ade-drawer-in absolute right-0 top-0 flex h-full w-[380px] flex-col border-l border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-drawer)]"
+        className="ade-drawer-in absolute right-0 top-0 flex h-full w-full max-w-[380px] flex-col border-l border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-drawer)] sm:w-[380px]"
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h2 className="text-sm font-semibold text-[var(--text)]" style={titleStyle}>{title}</h2>

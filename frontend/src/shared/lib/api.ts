@@ -1,4 +1,4 @@
-import type { AdeConfig, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, ForkResult, ImportResult, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
+import type { AdeConfig, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, LessonUpdate, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
 
 // Base da API v1: VITE_API_BASE opcional (ex.: http://127.0.0.1:8787) —
 // default '/api/v1' (no dev, o Vite faz proxy de /api → backend real).
@@ -146,3 +146,46 @@ export const importTrajectory = (payload: TrajectoryExport) =>
 // Timeline unificada (C5/M-02): GET /runs/{run_id}/timeline?after_seq=&limit=.
 export const getRunTimeline = (runId: string, afterSeq = 0, limit = 50) =>
   apiFetch<TimelineResponse>(`/runs/${encodeURIComponent(runId)}/timeline?after_seq=${afterSeq}&limit=${limit}`)
+
+// ─── Evals (pilar 5 — EvalsPanel) ────────────────────────────────────────────
+// Telemetria de benchmarks/ELO da engine (lf/api/evals.py). Telemetria nunca
+// 500: backend responde zeros + status empty/error quando não há dados.
+export const getEvalsSummary = () => apiFetch<EvalsSummary>('/evals/summary')
+export const getEvalsLeaderboard = () => apiFetch<EvalsLeaderboard>('/evals/leaderboard')
+
+// ─── Memória (MemoryPanel) — lições aprendidas ───────────────────────────────
+// CRUD de lições em /api/v1/memory/lessons (src/lf/api/memory.py). GET lista
+// com filtros opcionais stack/query/limit (default 50); busca com query reusa
+// o ranqueamento por relevância do backend e retorna ordenada por created_at.
+export const listLessons = (params: { stack?: string; query?: string; limit?: number } = {}) => {
+  const search = new URLSearchParams()
+  if (params.stack) search.set('stack', params.stack)
+  if (params.query) search.set('query', params.query)
+  if (params.limit !== undefined) search.set('limit', String(params.limit))
+  const qs = search.toString()
+  return apiFetch<Lesson[]>(`/memory/lessons${qs ? `?${qs}` : ''}`)
+}
+export const createLesson = (input: LessonCreate) =>
+  apiFetch<Lesson>('/memory/lessons', { method: 'POST', body: JSON.stringify(input) })
+export const updateLesson = (id: number, input: LessonUpdate) =>
+  apiFetch<Lesson>(`/memory/lessons/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+export const deleteLesson = (id: number) =>
+  apiFetch<LessonDeleteResult>(`/memory/lessons/${id}`, { method: 'DELETE' })
+
+// ─── Git (GitPanel) — estado do repositório da run ──────────────────────────
+// GET /api/v1/git/{run_id} (src/lf/api/git.py): branch, HEAD, status curto e
+// log de commits do workdir da run (/tmp/loopforge/run_{run_id} no backend).
+// 404 quando a run não tem diretório/repo git — tratado como estado vazio.
+export const getGitInfo = (runId: string) => apiFetch<GitInfo>(`/git/${encodeURIComponent(runId)}`)
+
+// ─── Health (HealthPanel) — heartbeat do engine ─────────────────────────────
+// GET /health (raiz, SEM auth — fora do prefixo /api/v1): {status, version}.
+// Usado no polling do HealthPanel (10s); falha → panel mostra unreachable.
+// fetch direto (não apiFetch): endpoint não exige X-API-Key nem prefixo v1.
+export async function getHealth(): Promise<HealthStatus> {
+  const res = await fetch('/health', { headers: { Accept: 'application/json' } })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'Health check failed')
+  }
+  return (await res.json()) as HealthStatus
+}

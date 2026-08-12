@@ -59,7 +59,16 @@ export function handleWsEvent(e: WsEvent): void {
     case 'node_execution': {
       const { node, next_agent, attempt_count } = e.payload
       useCanvasStore.getState().setNodeStatus(node, 'approved', attempt_count)
+      // V1.1 (ADR-0007): nó concluído → promove buffer de streaming a log.
+      useConsoleStore.getState().finishStream(node)
       log('info', `node completed → ${next_agent ?? ''}`, node, str(e.run_id))
+      break
+    }
+    case 'token_delta': {
+      // V1.1 (ADR-0007): streaming incremental do LLM → buffer do console
+      // (acumula por nó; o flush acontece no node_execution correspondente).
+      const { node, content } = e.payload
+      useConsoleStore.getState().appendStream(node, content, str(e.run_id))
       break
     }
     case 'pipeline_started':

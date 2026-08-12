@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool } from '../api'
+import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, updateLesson, deleteLesson, getGitInfo, getHealth } from '../api'
 
 describe('api client', () => {
   beforeEach(() => {
@@ -196,5 +196,103 @@ describe('api client', () => {
     await apiFetch('/runs', { method: 'POST', body: '{}' })
     const [, init2] = vi.mocked(fetch).mock.calls[1]
     expect((init2?.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+
+  it('listLessons GETs /memory/lessons with no params by default', async () => {
+    const body = [{ id: 1, run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'y', created_at: 1700000000 }]
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+    const res = await listLessons()
+    expect(res).toHaveLength(1)
+    expect(res[0].id).toBe(1)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/memory/lessons'), expect.anything())
+  })
+
+  it('listLessons serializes stack/query/limit query params', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }))
+    await listLessons({ stack: 'python', query: 'pydantic v2', limit: 10 })
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/memory/lessons?stack=python&query=pydantic+v2&limit=10'),
+      expect.anything(),
+    )
+  })
+
+  it('createLesson POSTs the lesson payload to /memory/lessons', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ id: 1, run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'y', created_at: 1 }), { status: 201 }),
+    )
+    const lesson = await createLesson({ run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'y' })
+    expect(lesson.id).toBe(1)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/memory/lessons')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'y' })
+  })
+
+  it('updateLesson PATCHes only the provided fields', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ id: 1, run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'novo', created_at: 1 }), { status: 200 }),
+    )
+    await updateLesson(1, { lesson_text: 'novo' })
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/memory/lessons/1')
+    expect(init?.method).toBe('PATCH')
+    expect(JSON.parse(String(init?.body))).toEqual({ lesson_text: 'novo' })
+  })
+
+  it('deleteLesson DELETEs /memory/lessons/{id} and resolves the confirmation', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ deleted: true }), { status: 200 }))
+    const res = await deleteLesson(3)
+    expect(res).toEqual({ deleted: true })
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/memory/lessons/3')
+    expect(init?.method).toBe('DELETE')
+  })
+
+  it('deleteLesson throws ApiError with PT detail on 404', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Lição não encontrada.' }), { status: 404 }))
+    await expect(deleteLesson(99)).rejects.toMatchObject({ status: 404, detail: 'Lição não encontrada.' })
+  })
+
+  it('getGitInfo GETs /git/{runId} and parses branch/head/status/log', async () => {
+    const body = {
+      branch: 'main',
+      head: 'abc1234',
+      status: [{ path: 'src/app.py', status: 'M' }],
+      log: [{ hash: 'abc1234', subject: 'feat: app', author: 'Bot', when: '2026-08-12T10:00:00+00:00' }],
+    }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+    const res = await getGitInfo('run-1')
+    expect(res.branch).toBe('main')
+    expect(res.status[0]).toEqual({ path: 'src/app.py', status: 'M' })
+    expect(res.log[0].subject).toBe('feat: app')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/git/run-1'), expect.anything())
+  })
+
+  it('getGitInfo URL-encodes the runId', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ branch: null, head: null, status: [], log: [] }), { status: 200 }))
+    await getGitInfo('run abc/1')
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/git/run%20abc%2F1')
+  })
+
+  it('getGitInfo throws ApiError with backend detail on 404', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Diretório da run run-9 não é um repositório git' }), { status: 404 }))
+    await expect(getGitInfo('run-9')).rejects.toMatchObject({ status: 404, detail: 'Diretório da run run-9 não é um repositório git' })
+  })
+
+  it('getHealth fetches /health at the root (no /api/v1 prefix, no API key)', async () => {
+    setApiKey('secret')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ status: 'ok', version: '6.0.0' }), { status: 200 }))
+    const res = await getHealth()
+    expect(res).toEqual({ status: 'ok', version: '6.0.0' })
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toBe('/health')
+    const headers = (init?.headers ?? {}) as Record<string, string>
+    expect(headers['X-API-Key']).toBeUndefined()
+  })
+
+  it('getHealth throws ApiError when the engine is unreachable', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ detail: 'down' }), { status: 503 }))
+    await expect(getHealth()).rejects.toMatchObject({ status: 503 })
   })
 })

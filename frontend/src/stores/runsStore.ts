@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import type { Run, RunStatus } from '../shared/lib/types'
 
 // Store de runs + fila (E3) + undo/redo (Ctrl+Z / Ctrl+Shift+Z).
+// E3 (paralelismo real): o server executa N runs simultâneas e publica o status
+// `queued` via WS — a fila aqui é DERIVADA dos status (fonte da verdade = server),
+// não mantida manualmente. enqueue/dequeue permanecem para compat (demo mock) e
+// para a UX legada, mas a re-derivação em cada mutação se auto-corrige.
 // Undo/Redo opera sobre snapshots de `runs` (past/future, limite 50);
 // snapshots são criados em addRun/upsertRun/removeRun (não em setRuns).
 const UNDO_LIMIT = 50
@@ -31,7 +35,7 @@ export const useRunsStore = create<RunsState>((set) => ({
   past: [],
   future: [],
 
-  setRuns: (runs) => set({ runs, future: [] }),
+  setRuns: (runs) => set({ runs, queue: syncQueue(runs), future: [] }),
 
   upsertRun: (run: Partial<Run> & { id: string }) =>
     set((s) => {
@@ -57,12 +61,17 @@ export const useRunsStore = create<RunsState>((set) => ({
   selectRun: (id) => set({ activeRunId: id }),
 
   updateStatus: (id, status, current_node) =>
-    set((s) => ({
-      runs: s.runs.map((r) => (r.id === id ? { ...r, status, current_node: current_node ?? r.current_node } : r)),
-    })),
+    set((s) => {
+      const runs = s.runs.map((r) =>
+        r.id === id ? { ...r, status, current_node: current_node ?? r.current_node } : r,
+      )
+      return { runs, queue: syncQueue(runs) }
+    }),
 
-  // Fila (E3): mantém 1 run ativa. Sem ativa → o primeiro enfileirado vira
-  // ativo; com ativa → id vai para o fim da fila (sem duplicar).
+  // Fila (E3) — mecanismo legado/UX: no paralelismo real o server publica o
+  // status `queued` via WS e a fila é re-derivada. Estas ações seguem para o
+  // demo mock e compatibilidade: sem ativa → o id vira ativo; com ativa →
+  // vai para o fim da fila (sem duplicar).
   enqueue: (id) =>
     set((s) => {
       if (s.activeRunId === id) return s
@@ -84,6 +93,7 @@ export const useRunsStore = create<RunsState>((set) => ({
       const previous = s.past[s.past.length - 1]
       return {
         runs: previous,
+        queue: syncQueue(previous),
         past: s.past.slice(0, -1),
         future: [...s.future, s.runs],
       }
@@ -95,6 +105,7 @@ export const useRunsStore = create<RunsState>((set) => ({
       const next = s.future[s.future.length - 1]
       return {
         runs: next,
+        queue: syncQueue(next),
         future: s.future.slice(0, -1),
         past: pushSnapshotList(s.past, s.runs),
       }
@@ -105,6 +116,7 @@ export const useRunsStore = create<RunsState>((set) => ({
 function pushSnapshot(s: RunsState, runs: Run[]) {
   return {
     runs,
+    queue: syncQueue(runs),
     past: pushSnapshotList(s.past, s.runs),
     future: [],
   }
@@ -114,6 +126,11 @@ function pushSnapshotList(past: Run[][], runs: Run[]): Run[][] {
   const next = [...past, runs]
   if (next.length > UNDO_LIMIT) next.shift()
   return next
+}
+
+// E3: fila derivada do status `queued` (fonte da verdade = server via WS).
+function syncQueue(runs: Run[]): string[] {
+  return runs.filter((r) => r.status === 'queued').map((r) => r.id)
 }
 
 // Descarta campos com valor undefined (para merge preservar o existente).

@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -8,6 +9,7 @@ import {
   BackgroundVariant,
   useNodesState,
   useEdgesState,
+  useReactFlow,
 } from '@xyflow/react'
 import { useQuery } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
@@ -35,7 +37,21 @@ export interface FlowCanvasProps {
 // queryKey ['run-cost', runId] do CostBar — TanStack Query deduplica, sem fetch
 // duplicado. O custo é injetado no data do nó (DagNodeData.cost) e o AgentNode
 // renderiza o chip (~$0.12 quando estimated).
+//
+// P0.9: auto-fit (fitView) quando o layout carrega (0 nós → N) ou quando a run
+// ativa troca — evita nós cortados (Retry/Parallel Audit). Depois disso o
+// pan/zoom fica manual; o fit só dispara nas transições acima.
 export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <CanvasContent onNodeClick={onNodeClick} />
+    </ReactFlowProvider>
+  )
+}
+
+// Conteúdo interno sob o ReactFlowProvider — necessário para usar useReactFlow
+// (a instância do React Flow só existe dentro do provider).
+function CanvasContent({ onNodeClick }: FlowCanvasProps) {
   const mode = useCanvasStore(useShallow((s) => s.mode))
   const nodeStatus = useCanvasStore(useShallow((s) => s.nodeStatus))
   const ghostToStep = useCanvasStore(useShallow((s) => s.ghostToStep))
@@ -56,6 +72,25 @@ export function FlowCanvas({ onNodeClick }: FlowCanvasProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<DagNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<DagEdge>([])
+  const { fitView } = useReactFlow()
+
+  // P0.9: fit na transição vazio → layout (primeiro carregamento) e na troca
+  // de run ativa. hadNodes/prevRunId refs distinguem essas transições do
+  // crescimento normal (cada nó completado re-deriva nodes — sem re-fit).
+  const prevRunId = useRef<string | null>(null)
+  const hadNodes = useRef(false)
+  useEffect(() => {
+    if (nodes.length === 0) {
+      hadNodes.current = false
+      return
+    }
+    const runChanged = prevRunId.current !== activeRunId
+    if (!hadNodes.current || runChanged) {
+      void fitView({ padding: 0.25, duration: 350 })
+    }
+    prevRunId.current = activeRunId
+    hadNodes.current = true
+  }, [nodes.length, activeRunId, fitView])
 
   // Re-deriva a geometria + status quando o canvasStore muda (WS → stores → aqui).
   useEffect(() => {

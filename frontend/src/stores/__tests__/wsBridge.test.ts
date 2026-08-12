@@ -12,7 +12,12 @@ import { useHitlGateStore } from '../hitlGateStore'
 beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
-  useConsoleStore.setState({ entries: [], filters: { node: 'all', level: 'all', query: '' }, autoScroll: true })
+  useConsoleStore.setState({
+    entries: [],
+    streams: {},
+    filters: { node: 'all', level: 'all', query: '' },
+    autoScroll: true,
+  })
   useHitlGateStore.setState({ gates: [] })
 })
 
@@ -102,6 +107,24 @@ describe('handleWsEvent edge cases', () => {
     dispatchWsEvent({ event: 'hitl_gate_reached', run_id: 'r1', payload: { gate_node: 'qa', timeout_seconds: 30 } })
     expect(useHitlGateStore.getState().gates).toHaveLength(1)
     expect(useHitlGateStore.getState().gates[0].timeoutSeconds).toBe(30)
+  })
+
+  it('token_delta appends to stream buffer keyed by node (ADR-0007)', () => {
+    dispatchWsEvent({ event: 'token_delta', run_id: 'r1', payload: { node: 'developer', content: 'Ola' } })
+    dispatchWsEvent({ event: 'token_delta', run_id: 'r1', payload: { node: 'developer', content: ' mundo' } })
+    const streams = useConsoleStore.getState().streams
+    expect(streams.developer).toMatchObject({ node: 'developer', content: 'Ola mundo', runId: 'r1' })
+    // Buffer não vira entry: fica acumulando até o flush.
+    expect(useConsoleStore.getState().entries).toHaveLength(0)
+  })
+
+  it('node_execution flushes the stream buffer into a console entry', () => {
+    dispatchWsEvent({ event: 'token_delta', run_id: 'r1', payload: { node: 'developer', content: 'print("x")' } })
+    dispatchWsEvent({ event: 'node_execution', run_id: 'r1', payload: { node: 'developer', status: 'completed' } })
+    expect(useConsoleStore.getState().streams.developer).toBeUndefined()
+    const entry = useConsoleStore.getState().entries.find((e) => e.node === 'developer')
+    expect(entry?.message).toBe('print("x")')
+    expect(entry?.level).toBe('info')
   })
 })
 

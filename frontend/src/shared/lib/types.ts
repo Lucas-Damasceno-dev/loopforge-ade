@@ -217,3 +217,115 @@ export interface TimelineResponse {
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K]
 }
+
+// ─── Evals (pilar 5 — EvalsPanel) ────────────────────────────────────────────
+// Espelha src/lf/api/evals.py (schemas locais do router). Telemetria nunca
+// 500: backend retorna zeros/listas vazias com status ok|empty|error.
+
+/** GET /api/v1/evals/summary — métricas agregadas de evals (runs + benchmark + ELO). */
+export interface EvalsSummary {
+  total_runs: number
+  /** Taxa de sucesso (0.0–1.0) entre runs concluídas (completed/done vs failed). */
+  pass_rate: number
+  /** Duração média (s) das runs concluídas com sucesso. */
+  avg_duration_seconds: number
+  /** Custo total (USD) acumulado no ledger llm_costs. */
+  total_cost_usd: number
+  /** Total de arquivos run_*.json em .loopforge/benchmarks/. */
+  benchmark_runs: number
+  /** Taxa de sucesso média (0.0–1.0) das runs de benchmark. */
+  avg_pass_rate: number
+  /** Rating ELO atual do LoopForge (1200.0 default). */
+  current_elo: number
+  status: 'ok' | 'empty' | 'error'
+  message?: string
+}
+
+/** Item do ranking de benchmarks (fonte: run_*.json — RunBenchmark.asdict). */
+export interface EvalsLeaderboardEntry {
+  run_id: string
+  stack: string
+  success: boolean
+  duration_seconds: number
+  estimated_cost_usd: number
+  timestamp: string
+}
+
+/** GET /api/v1/evals/leaderboard — ranking (sucesso primeiro, mais rápido antes). */
+export interface EvalsLeaderboard {
+  entries: EvalsLeaderboardEntry[]
+  status: 'ok' | 'empty' | 'error'
+  message?: string
+}
+
+// ─── Memória (MemoryPanel) — lições aprendidas ────────────────────────────
+// Espelha src/lf/api/memory.py (schemas LessonCreate/LessonUpdate/LessonResponse)
+// e o MemoryManager (tabela `lessons` no telemetry.sqlite).
+
+/** Lição aprendida devolvida pela API (GET/POST/PATCH /memory/lessons). */
+export interface Lesson {
+  id: number
+  run_id: string
+  stack: string
+  idea: string
+  lesson_text: string
+  /** Epoch seconds (coluna REAL no SQLite). */
+  created_at: number
+}
+
+/** Payload de POST /memory/lessons. */
+export interface LessonCreate {
+  run_id: string
+  stack: string
+  idea: string
+  lesson_text: string
+}
+
+/** Payload de PATCH /memory/lessons/{id} — todos os campos opcionais. */
+export interface LessonUpdate {
+  stack?: string
+  idea?: string
+  lesson_text?: string
+}
+
+/** Resposta de DELETE /memory/lessons/{id}. */
+export interface LessonDeleteResult {
+  deleted: boolean
+}
+
+// ─── Git (GitPanel) — espelha src/lf/api/git.py ───────────────────────────
+// GET /api/v1/git/{run_id}: branch, HEAD, status curto (git status --short)
+// e log de commits (máx. 20) do repositório da run. 404 quando o diretório
+// da run não existe ou não é repositório git.
+
+/** Arquivo alterado no working tree (estilo git status --short). */
+export interface GitStatusEntry {
+  path: string
+  status: string
+}
+
+/** Um commit do histórico (máx. 20). */
+export interface GitLogEntry {
+  hash: string
+  subject: string
+  author: string
+  /** Data do commit em ISO 8601. */
+  when: string
+}
+
+/** GET /api/v1/git/{run_id} — estado do repositório git da run. */
+export interface GitInfo {
+  branch: string | null
+  head: string | null
+  status: GitStatusEntry[]
+  log: GitLogEntry[]
+}
+
+// ─── Health (HealthPanel) — espelha schemas.py HealthResponse ──────────────
+// GET /health (sem auth): {status, version} — usado no polling do HealthPanel.
+
+/** GET /health — status do engine (ok) + versão. */
+export interface HealthStatus {
+  status: string
+  version: string
+}

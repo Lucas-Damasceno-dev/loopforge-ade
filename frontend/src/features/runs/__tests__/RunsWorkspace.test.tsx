@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../RunsWorkspace'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useCanvasStore } from '../../../stores/canvasStore'
-import { listRuns } from '../../../shared/lib/api'
+import { listRuns, createRun } from '../../../shared/lib/api'
 
 vi.mock('../../../shared/lib/api', () => ({
   listRuns: vi.fn(),
@@ -60,6 +60,17 @@ describe('RunsWorkspace', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(1)
   })
 
+  it('empty state: quick-start cards run example pipeline and focus the idea field', () => {
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    renderWorkspace()
+    // "Create new run" foca o campo de ideia do NewRunForm (id fixo).
+    fireEvent.click(screen.getByRole('button', { name: /create new run/i }))
+    expect(screen.getByLabelText('Idea')).toHaveFocus()
+    // "Run example pipeline" dispara a demo (addRun síncrono → aba nova).
+    fireEvent.click(screen.getByRole('button', { name: /run example pipeline/i }))
+    expect(screen.getAllByRole('tab')).toHaveLength(1)
+  })
+
   it('boot: busca runs existentes e auto-seleciona a que está running', async () => {
     vi.useRealTimers() // boot usa promises reais (listRuns) — sem fake timers aqui
     vi.mocked(listRuns).mockResolvedValue({
@@ -97,5 +108,31 @@ describe('RunsWorkspace', () => {
     renderWorkspace()
     await waitFor(() => expect(listRuns).toHaveBeenCalled())
     expect(screen.getByText('No active run')).toBeInTheDocument()
+  })
+
+  it('E3: criar 2ª run com a 1ª ativa seleciona a nova (abas paralelas)', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    const mkRun = (id: string, idea: string) => ({
+      id, idea, status: 'queued', stack: 'python',
+      created_at: '2026-01-01T00:00:00', updated_at: '2026-01-01T00:00:00',
+    })
+    vi.mocked(createRun).mockResolvedValue(mkRun('r1', 'primeira') as never)
+
+    renderWorkspace()
+    const idea = screen.getByLabelText('Idea')
+    fireEvent.change(idea, { target: { value: 'primeira' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    // A nova run é selecionada na criação (foco de view; fila é do server).
+    await waitFor(() => expect(useRunsStore.getState().activeRunId).toBe('r1'))
+
+    // 2ª run com a 1ª ainda ativa → nova aba + nova selecionada.
+    vi.mocked(createRun).mockResolvedValue(mkRun('r2', 'segunda') as never)
+    fireEvent.change(idea, { target: { value: 'segunda' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(useRunsStore.getState().activeRunId).toBe('r2'))
+
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    expect(useRunsStore.getState().runs.map((r) => r.id)).toEqual(['r1', 'r2'])
   })
 })

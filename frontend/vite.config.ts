@@ -11,6 +11,8 @@ export default defineConfig({
     proxy: {
       '/api': { target: process.env.VITE_API_TARGET ?? 'http://127.0.0.1:8787', changeOrigin: false },
       '/ws': { target: process.env.VITE_API_TARGET ?? 'http://127.0.0.1:8787', ws: true },
+      // /health é raiz (sem prefixo /api/v1, sem auth) — HealthPanel faz polling.
+      '/health': { target: process.env.VITE_API_TARGET ?? 'http://127.0.0.1:8787', changeOrigin: false },
     },
   },
   build: { outDir: 'dist' },

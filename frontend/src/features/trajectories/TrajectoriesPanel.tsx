@@ -5,6 +5,7 @@ import { Button } from '../../shared/ui/Button'
 import { Badge } from '../../shared/ui/Badge'
 import type { BadgeProps } from '../../shared/ui/Badge'
 import { EmptyState } from '../../shared/ui/EmptyState'
+import { Alert } from '../../shared/ui/Alert'
 import { useRunsStore } from '../../stores/runsStore'
 import { importTrajectory } from '../../shared/lib/api'
 import type { ForkResult, ImportResult, Run, RunStatus, TrajectoryExport } from '../../shared/lib/types'
@@ -13,6 +14,7 @@ import { shortId } from './shortId'
 import { ForkDialog } from './ForkDialog'
 import { ExportDialog } from './ExportDialog'
 import { TimelineDialog } from './TimelineDialog'
+import { DiffPanel } from './DiffPanel'
 
 // status da run → tone do badge (mesmo mapeamento do RunTabs).
 const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
@@ -45,6 +47,7 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
   const [forkRun, setForkRun] = useState<Run | null>(null)
   const [exportRun, setExportRun] = useState<Run | null>(null)
   const [timelineRun, setTimelineRun] = useState<Run | null>(null)
+  const [diffRun, setDiffRun] = useState<Run | null>(null)
   const [feedback, setFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -112,17 +115,13 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
         </div>
 
         {feedback && (
-          <div
-            role={feedback.tone === 'ok' ? 'status' : 'alert'}
+          <Alert
+            tone={feedback.tone}
             data-testid="trajectories-feedback"
-            className={`mb-3 rounded-md border px-3 py-2 text-sm ${
-              feedback.tone === 'ok'
-                ? 'border-[var(--ok)]/30 bg-[var(--ok)]/15 text-[var(--ok-text)]'
-                : 'border-[var(--err)]/30 bg-[var(--err)]/15 text-[var(--err-text)]'
-            }`}
+            className="mb-3"
           >
             {feedback.text}
-          </div>
+          </Alert>
         )}
 
         {runs.length === 0 ? (
@@ -155,6 +154,9 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
                   <Button size="sm" variant="subtle" onClick={() => setTimelineRun(run)}>
                     Timeline
                   </Button>
+                  <Button size="sm" variant="subtle" onClick={() => setDiffRun(run)}>
+                    Diff
+                  </Button>
                 </div>
               </li>
             ))}
@@ -172,6 +174,7 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
       )}
       {exportRun && <ExportDialog run={exportRun} onClose={() => setExportRun(null)} />}
       {timelineRun && <TimelineDialog run={timelineRun} onClose={() => setTimelineRun(null)} />}
+      {diffRun && <DiffPanel run={diffRun} onClose={() => setDiffRun(null)} />}
     </>
   )
 }

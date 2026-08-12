@@ -3,6 +3,7 @@ import type { NodeStatusEntry } from '../../stores/canvasStore'
 import { useConsoleStore } from '../../stores/consoleStore'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Badge } from '../../shared/ui/Badge'
+import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { NODE_LABELS } from './dagModel'
 import { nodeAccentTextVar } from './nodeAccent'
 import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
@@ -31,57 +32,59 @@ export function InspectDrawer() {
 
   return (
     <Drawer open={open} title={label} onClose={() => selectNode(null)} titleStyle={titleStyle}>
-      <div className="mb-4 flex items-center gap-2">
-        <Badge tone={NODE_STATUS_TONE[entry.status]}>{NODE_STATUS_LABEL[entry.status]}</Badge>
-        {entry.attemptCount > 1 && (
-          <span
-            title={`retry ×${entry.attemptCount}`}
-            className="rounded bg-[var(--err)]/15 px-1 text-xs font-bold text-[var(--err-text)]"
-          >
-            ×{entry.attemptCount}
-          </span>
+      <div className="space-y-5">
+        <div className="flex items-center gap-2">
+          <Badge tone={NODE_STATUS_TONE[entry.status]}>{NODE_STATUS_LABEL[entry.status]}</Badge>
+          {entry.attemptCount > 1 && (
+            <span
+              title={`retry ×${entry.attemptCount}`}
+              className="rounded bg-[var(--err)]/15 px-1 text-xs font-bold text-[var(--err-text)]"
+            >
+              ×{entry.attemptCount}
+            </span>
+          )}
+        </div>
+
+        <section>
+          <SectionTitle className="mb-1">Inputs / Outputs</SectionTitle>
+          <p className="text-sm text-[var(--text-dim)]">No payload recorded (V1)</p>
+        </section>
+
+        <section>
+          <SectionTitle className="mb-1">Tokens / Context</SectionTitle>
+          <p className="text-sm text-[var(--text-dim)]">—</p>
+        </section>
+
+        <section>
+          <SectionTitle className="mb-1">Step logs</SectionTitle>
+          {nodeLogs.length === 0 ? (
+            <p className="text-sm text-[var(--text-dim)]">No logs for this node</p>
+          ) : (
+            <ul className="space-y-0.5 font-mono text-xs leading-5">
+              {nodeLogs.map((e) => (
+                <li key={e.id} className={e.level === 'error' ? 'text-[var(--err-text)]' : e.level === 'warn' ? 'text-[var(--warn)]' : 'text-[var(--text-dim)]'}>
+                  [{e.node}] [{e.level.toUpperCase()}] {e.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {node === 'parallel_audit' && (
+          <section>
+            <SectionTitle className="mb-1">Parallel Audit</SectionTitle>
+            {/* UX3: detail-on-demand — sub-cards colapsados por padrão. */}
+            <details className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium">AppSec</summary>
+              <p className="mt-1 text-xs text-[var(--text-dim)]">AppSec review details (V1 placeholder).</p>
+            </details>
+            <details className="mt-2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium">DevOps</summary>
+              <p className="mt-1 text-xs text-[var(--text-dim)]">DevOps review details (V1 placeholder).</p>
+            </details>
+          </section>
         )}
       </div>
-
-      <section className="mb-4">
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Inputs / Outputs</h3>
-        <p className="text-sm text-[var(--text-dim)]">No payload recorded (V1)</p>
-      </section>
-
-      <section className="mb-4">
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Tokens / Context</h3>
-        <p className="text-sm text-[var(--text-dim)]">—</p>
-      </section>
-
-      <section className="mb-4">
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Step logs</h3>
-        {nodeLogs.length === 0 ? (
-          <p className="text-sm text-[var(--text-dim)]">No logs for this node</p>
-        ) : (
-          <ul className="space-y-0.5 font-mono text-xs leading-5">
-            {nodeLogs.map((e) => (
-              <li key={e.id} className={e.level === 'error' ? 'text-[var(--err-text)]' : e.level === 'warn' ? 'text-[var(--warn)]' : 'text-[var(--text-dim)]'}>
-                [{e.node}] [{e.level.toUpperCase()}] {e.message}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {node === 'parallel_audit' && (
-        <section>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Parallel Audit</h3>
-          {/* UX3: detail-on-demand — sub-cards colapsados por padrão. */}
-          <details className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
-            <summary className="cursor-pointer text-sm font-medium">AppSec</summary>
-            <p className="mt-1 text-xs text-[var(--text-dim)]">AppSec review details (V1 placeholder).</p>
-          </details>
-          <details className="mt-2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
-            <summary className="cursor-pointer text-sm font-medium">DevOps</summary>
-            <p className="mt-1 text-xs text-[var(--text-dim)]">DevOps review details (V1 placeholder).</p>
-          </details>
-        </section>
-      )}
     </Drawer>
   )
 }
