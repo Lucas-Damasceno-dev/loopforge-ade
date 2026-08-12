@@ -3,6 +3,7 @@ dist/
 test-results/
 playwright-report/
 .superpowers/
+.opencode/
 __pycache__/
 *.pyc
 .venv/
