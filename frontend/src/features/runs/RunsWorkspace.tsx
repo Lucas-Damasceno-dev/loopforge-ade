@@ -15,8 +15,8 @@ import type { Run } from '../../shared/lib/types'
 
 // Workspace de runs: barra de abas (UX11) + toolbar (demo/form) + painel
 // principal (empty state OU FlowCanvas da run ativa). A fila (E3) aparece
-// como abas com rótulo "queued". hideChrome = fullscreen (F11, §6.1): restam
-// apenas canvas e console.
+// como badge de status "Queued" nas abas. hideChrome = fullscreen (F11, §6.1):
+// restam apenas canvas e console.
 export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) {
   const runs = useRunsStore((s) => s.runs)
   const activeRunId = useRunsStore((s) => s.activeRunId)
@@ -127,20 +127,12 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
             description="Start a run to see the pipeline in action"
             action={
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => runDemo()}
-                  className="rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-4 py-2.5 text-sm font-medium text-[var(--text)] transition-colors duration-100 hover:border-[var(--border-hover)] hover:bg-[var(--bg-elev-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                >
+                <Button variant="ghost" size="md" onClick={() => runDemo()}>
                   Run example pipeline
-                </button>
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('new-run-idea')?.focus()}
-                  className="rounded-md border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm font-medium text-[var(--text-dim)] transition-colors duration-100 hover:border-[var(--border-hover)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                >
+                </Button>
+                <Button variant="subtle" size="md" onClick={() => document.getElementById('new-run-idea')?.focus()}>
                   Create new run
-                </button>
+                </Button>
               </div>
             }
           />

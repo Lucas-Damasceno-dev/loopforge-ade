@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest'
 import { Button } from '../Button'
 import { Drawer } from '../Drawer'
 import { SplitPane } from '../SplitPane'
+import { EmptyState } from '../EmptyState'
 
 describe('ui-kit', () => {
   it('Button renders label and fires onClick', async () => {
@@ -37,5 +38,12 @@ describe('ui-kit', () => {
     fireEvent.pointerUp(window)
     // pane A é envolvido por um wrapper com o flexBasis → asserção no wrapper.
     expect(screen.getByText('pane a').parentElement).toHaveStyle({ flexBasis: '250px' })
+  })
+  it('EmptyState default usa py-12; compact usa py-6 e título sm', () => {
+    const { rerender } = render(<EmptyState title="vazio" />)
+    expect(screen.getByText('vazio').parentElement?.className).toContain('py-12')
+    rerender(<EmptyState title="vazio" compact />)
+    expect(screen.getByText('vazio').parentElement?.className).toContain('py-6')
+    expect(screen.getByText('vazio').className).toContain('text-sm')
   })
 })

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, ReactNode } from 'react'
+import { CloseIcon } from './icons'
 
 export interface DrawerProps {
   open: boolean
@@ -46,7 +47,7 @@ export function Drawer({ open, title, onClose, children, titleStyle }: DrawerPro
             onClick={onClose}
             className="rounded p-1 text-[var(--text-dim)] transition-colors duration-100 hover:bg-[var(--bg-elev-2)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 [scrollbar-gutter:stable]">{children}</div>

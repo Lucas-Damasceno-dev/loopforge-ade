@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { createRun } from '../../shared/lib/api'
 import { Button } from '../../shared/ui/Button'
+import { Select } from '../../shared/ui/Select'
 import type { Run } from '../../shared/lib/types'
 
 export interface NewRunFormProps {
@@ -13,11 +14,6 @@ export const STACK_OPTIONS = ['python', 'java', 'rust', 'go', 'js'] as const
 
 // RoutingMode do backend (schemas.py): full, fast, patch, review-only, explore.
 export const ROUTING_OPTIONS = ['full', 'fast', 'patch', 'review-only', 'explore'] as const
-
-// Select enxuto (Gemini): h-8, radius-sm, padding mínimo — mesmo padrão do
-// ConsolePanel. Nativos (contrato/testes), só o visual apertou.
-const selectCls =
-  'h-8 rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-1.5 text-sm text-[var(--text)] transition-colors duration-[var(--dur-base)] hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]'
 
 // Form de nova run (B2/M-20): idea + stack + routing_mode (POST /api/v1/runs).
 // mock_llm/interactive ficam nos defaults do client (false). TanStack Query
@@ -43,16 +39,16 @@ export function NewRunForm({ onCreated }: NewRunFormProps) {
 
   return (
     <form onSubmit={submit} className="flex flex-1 items-center gap-2">
-      <select aria-label="Stack" value={stack} onChange={(e) => setStack(e.target.value)} className={selectCls}>
+      <Select aria-label="Stack" value={stack} onChange={(e) => setStack(e.target.value)}>
         {STACK_OPTIONS.map((opt) => (
           <option key={opt} value={opt}>{opt}</option>
         ))}
-      </select>
-      <select aria-label="Routing mode" value={routingMode} onChange={(e) => setRoutingMode(e.target.value)} className={selectCls}>
+      </Select>
+      <Select aria-label="Routing mode" value={routingMode} onChange={(e) => setRoutingMode(e.target.value)}>
         {ROUTING_OPTIONS.map((opt) => (
           <option key={opt} value={opt}>{opt}</option>
         ))}
-      </select>
+      </Select>
       {/* Grupo input + ação (Gemini): container único com borda/ring; o botão
           Run cola na extremidade direita do campo, sem borda interna. Textarea
           cru (sem o Textarea compartilhado) porque o grupo pede fundo/borda

@@ -1,4 +1,5 @@
 import { useHitlGateStore } from '../../stores/hitlGateStore'
+import { CloseIcon } from '../../shared/ui/icons'
 
 // Banner informativo de gate HITL (C3/M-12): renderiza o gate mais recente
 // NÃO descartado, tom --warn, não-bloqueante (flui no layout, logo abaixo da
@@ -34,9 +35,9 @@ export function HitlGateBanner() {
         type="button"
         aria-label="Dispensar aviso de gate HITL"
         onClick={() => dismiss(gate.id)}
-        className="shrink-0 rounded p-0.5 text-[var(--warn)] transition-colors duration-100 hover:bg-[var(--warn)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--warn)]"
+        className="shrink-0 rounded p-1 text-[var(--warn)] transition-colors duration-100 hover:bg-[var(--warn)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--warn)]"
       >
-        ✕
+        <CloseIcon />
       </button>
     </div>
   )

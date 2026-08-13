@@ -190,7 +190,7 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
           className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 font-mono text-xs leading-5 [scrollbar-gutter:stable]"
         >
           {entries.length === 0 && streamList.length === 0 ? (
-            <EmptyState title="No console output yet" />
+            <EmptyState compact title="No console output yet" />
           ) : visible.length === 0 && visibleStreams.length === 0 ? (
             <p className="mt-1 text-[var(--text-dim)]">No matching logs</p>
           ) : (

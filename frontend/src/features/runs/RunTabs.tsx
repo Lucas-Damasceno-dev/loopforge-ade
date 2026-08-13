@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from 'react'
 import { Badge, type BadgeProps } from '../../shared/ui/Badge'
+import { CloseIcon } from '../../shared/ui/icons'
 import type { Run, RunStatus } from '../../shared/lib/types'
 import { shortId } from '../trajectories/shortId'
 import type { CbSnapshot } from '../../stores/runsStore'
@@ -26,6 +27,7 @@ function statusLabel(s: RunStatus): string {
 export interface RunTabsProps {
   runs: Run[]
   activeRunId: string | null
+  /** queue mantido no contrato p/ compat; UI usa o Badge de status. */
   queue: string[]
   /** Snapshot do CircuitBreaker por run (badge C/O/H + meta no tooltip). */
   cbByRun: Record<string, CbSnapshot>
@@ -40,9 +42,9 @@ function cbLabel(state: string): string {
   return 'C'
 }
 
-// Abas das runs (UX11): 1 visível por vez, badge de status, indicador de fila.
+// Abas das runs (UX11): 1 visível por vez, badge de status por run.
 // a11y (UX20): role=tablist/tab, aria-selected, roving tabindex + setas.
-export function RunTabs({ runs, activeRunId, queue, cbByRun, onSelect, onClose }: RunTabsProps) {
+export function RunTabs({ runs, activeRunId, queue: _queue, cbByRun, onSelect, onClose }: RunTabsProps) {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const idx = runs.findIndex((r) => r.id === activeRunId)
     if (idx === -1) return
@@ -65,7 +67,6 @@ export function RunTabs({ runs, activeRunId, queue, cbByRun, onSelect, onClose }
     >
       {runs.map((run) => {
         const active = run.id === activeRunId
-        const queued = queue.includes(run.id)
         const cbState = cbByRun[run.id]
         return (
           <div key={run.id} role="presentation" className="flex items-center">
@@ -94,9 +95,6 @@ export function RunTabs({ runs, activeRunId, queue, cbByRun, onSelect, onClose }
               {cbState ? (
                 <Badge tone={cbState.state === 'open' ? 'err' : 'neutral'} title={`circuit breaker ${cbState.state} · iters ${cbState.total_iterations} · $${cbState.total_cost.toFixed(2)}`}>{cbLabel(cbState.state)}</Badge>
               ) : null}
-              {queued ? (
-                <span className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">queued</span>
-              ) : null}
             </button>
             <button
               type="button"
@@ -107,7 +105,7 @@ export function RunTabs({ runs, activeRunId, queue, cbByRun, onSelect, onClose }
               }}
               className="rounded px-1 text-[var(--text-dim)] transition-colors duration-100 hover:text-[var(--err)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              ×
+              <CloseIcon />
             </button>
           </div>
         )

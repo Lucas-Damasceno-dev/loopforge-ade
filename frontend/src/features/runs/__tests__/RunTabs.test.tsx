@@ -8,6 +8,16 @@ function run(status: Run['status'], id = 'r1'): Run {
   return { id, idea: 'x', stack: '', status }
 }
 
+const queuedRun: Run = {
+  id: 'q1',
+  idea: 'queued run',
+  stack: 'python',
+  status: 'queued',
+  duration_seconds: 0,
+  created_at: '2026-08-13T00:00:00Z',
+  updated_at: '2026-08-13T00:00:00Z',
+}
+
 function renderTabs(runs: Run[], cbByRun: Record<string, CbSnapshot> = {}) {
   render(<RunTabs runs={runs} activeRunId={runs[0]?.id ?? null} queue={[]} cbByRun={cbByRun} onSelect={vi.fn()} onClose={vi.fn()} />)
 }
@@ -41,5 +51,10 @@ describe('RunTabs status badge', () => {
   it('shows no CB badge when cbByRun lacks the run', () => {
     renderTabs([run('running', 'r1')], {})
     expect(screen.queryByTitle(/circuit breaker/)).not.toBeInTheDocument()
+  })
+  it('não renderiza o span "queued" redundante quando a run está na fila', () => {
+    render(<RunTabs runs={[queuedRun]} activeRunId="q1" queue={['q1']} cbByRun={{}} onSelect={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.queryByText('queued')).toBeNull()
+    expect(screen.getByText('Queued')).toBeInTheDocument()
   })
 })
