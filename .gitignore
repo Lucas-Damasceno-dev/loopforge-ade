@@ -7,3 +7,6 @@ playwright-report/
 __pycache__/
 *.pyc
 .venv/
+
+# Git worktrees
+.worktrees/
