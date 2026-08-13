@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
 // Tons do Badge (01b §2.1 Receita): tint /15 + border /30; TEXTO pela
 // variante -text em ok/err/accent (o token base sobre o próprio tint falha
@@ -12,14 +12,14 @@ const tones = {
   accent: 'bg-[var(--accent)]/15 text-[var(--accent-text)] border border-[var(--accent)]/30',
 } as const
 
-export interface BadgeProps {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   tone?: keyof typeof tones
   children: ReactNode
 }
 
-export function Badge({ tone = 'neutral', children }: BadgeProps) {
+export function Badge({ tone = 'neutral', children, ...rest }: BadgeProps) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`} {...rest}>
       {children}
     </span>
   )
