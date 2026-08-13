@@ -10,6 +10,7 @@ vi.mock('../../../shared/lib/api', () => ({
   listRuns: vi.fn(),
   createRun: vi.fn(),
   resumeRun: vi.fn(),
+  getRunQueue: vi.fn(),
 }))
 
 // Stubs jsdom para o React Flow (só necessários se FlowCanvas renderizar).

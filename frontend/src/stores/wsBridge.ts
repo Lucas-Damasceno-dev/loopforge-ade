@@ -87,6 +87,9 @@ export function handleWsEvent(e: WsEvent): void {
       const patch: Partial<Run> & { id: string } = { id, status }
       if (idea !== undefined) patch.idea = idea
       if (current_node !== undefined) patch.current_node = current_node
+      // RunResponse aditivo (P0 surfacing): degraded/degraded_reason no payload.
+      if (typeof p.degraded === 'boolean') patch.degraded = p.degraded
+      if (p.degraded_reason !== undefined) patch.degraded_reason = p.degraded_reason as string | null
       useRunsStore.getState().upsertRun(patch)
       log('info', e.event === 'run_created' ? `run created: ${idea || id}` : `run updated: ${status}`, undefined, id)
       break
@@ -165,6 +168,15 @@ export function handleWsEvent(e: WsEvent): void {
       // evento de broadcast apenas confirma; nada a fazer aqui no V1.
       log('info', 'fork created', undefined, str(e.run_id))
       break
+    case 'circuit_breaker_changed': {
+      // P0 surfacing: snapshot do CircuitBreaker (payload = dict do CB). Estado
+      // por run → badge na aba (runsStore.cbByRun); sem run_id → só loga.
+      const id = str(e.run_id)
+      const state = str(e.payload.state) ?? '?'
+      if (id) useRunsStore.getState().setCbState(id, state)
+      log('warn', `circuit breaker: ${state}`, undefined, id)
+      break
+    }
   }
 }
 

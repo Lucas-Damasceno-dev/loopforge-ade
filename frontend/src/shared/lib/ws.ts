@@ -74,6 +74,7 @@ export interface WsEventGeneric extends WsEventBase {
     | 'human_decision_expired'
     | 'human_decision_submitted'
     | 'fork_created'
+    | 'circuit_breaker_changed'
 }
 
 export type WsEvent =
@@ -98,6 +99,7 @@ const KNOWN = new Set([
   'hitl_gate_reached',
   'fork_created',
   'token_delta',
+  'circuit_breaker_changed',
 ])
 
 function str(v: unknown): string | undefined {

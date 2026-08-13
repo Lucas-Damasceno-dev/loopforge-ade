@@ -5,6 +5,7 @@ import { Button } from '../../shared/ui/Button'
 import { EmptyState } from '../../shared/ui/EmptyState'
 import { FlowCanvas } from '../dag/FlowCanvas'
 import { RunTabs } from './RunTabs'
+import { QueueBadge } from './QueueBadge'
 import { NewRunForm } from './NewRunForm'
 import { runDemo } from './demoMock'
 import { listRuns, resumeRun } from '../../shared/lib/api'
@@ -20,6 +21,7 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
   const runs = useRunsStore((s) => s.runs)
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const queue = useRunsStore((s) => s.queue)
+  const cbByRun = useRunsStore((s) => s.cbByRun)
   const selectRun = useRunsStore((s) => s.selectRun)
   const removeRun = useRunsStore((s) => s.removeRun)
 
@@ -84,8 +86,10 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
     <div className="flex h-full flex-col" data-testid="runs-workspace">
       {!hideChrome && (
         <>
-          <RunTabs runs={runs} activeRunId={activeRunId} queue={queue} onSelect={selectRun} onClose={handleClose} />
+          <RunTabs runs={runs} activeRunId={activeRunId} queue={queue} cbByRun={cbByRun} onSelect={selectRun} onClose={handleClose} />
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+            {/* P0 surfacing: badge da fila E3 (ativos/máx + espera) — polling 5s. */}
+            <QueueBadge />
             {/* Demo rebaixado (Gemini): secundário — a ação principal é o
                 prompt customizado (grupo do NewRunForm). */}
             {activeRunPaused && (

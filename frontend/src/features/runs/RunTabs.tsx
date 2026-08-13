@@ -26,13 +26,22 @@ export interface RunTabsProps {
   runs: Run[]
   activeRunId: string | null
   queue: string[]
+  /** Estado do CircuitBreaker por run (badge C/O/H na aba) — via wsBridge. */
+  cbByRun: Record<string, string>
   onSelect: (id: string) => void
   onClose: (id: string) => void
 }
 
+// Rótulo curto do estado do CircuitBreaker na aba (tooltip leva o detalhe).
+function cbLabel(state: string): string {
+  if (state === 'half-open') return 'H'
+  if (state === 'open') return 'O'
+  return 'C'
+}
+
 // Abas das runs (UX11): 1 visível por vez, badge de status, indicador de fila.
 // a11y (UX20): role=tablist/tab, aria-selected, roving tabindex + setas.
-export function RunTabs({ runs, activeRunId, queue, onSelect, onClose }: RunTabsProps) {
+export function RunTabs({ runs, activeRunId, queue, cbByRun, onSelect, onClose }: RunTabsProps) {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const idx = runs.findIndex((r) => r.id === activeRunId)
     if (idx === -1) return
@@ -56,6 +65,7 @@ export function RunTabs({ runs, activeRunId, queue, onSelect, onClose }: RunTabs
       {runs.map((run) => {
         const active = run.id === activeRunId
         const queued = queue.includes(run.id)
+        const cbState = cbByRun[run.id]
         return (
           <div key={run.id} role="presentation" className="flex items-center">
             <button
@@ -75,6 +85,14 @@ export function RunTabs({ runs, activeRunId, queue, onSelect, onClose }: RunTabs
             >
               <span>{shortId(run.id)}</span>
               <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
+              {/* P0 surfacing: run degradada (fallback sem LLM real) + estado do
+                  CircuitBreaker — badges inline, sem shift de layout. */}
+              {run.degraded ? (
+                <Badge tone="warn" title={run.degraded_reason ?? undefined}>degraded</Badge>
+              ) : null}
+              {cbState ? (
+                <Badge tone={cbState === 'open' ? 'err' : 'neutral'} title={`circuit breaker ${cbState}`}>{cbLabel(cbState)}</Badge>
+              ) : null}
               {queued ? (
                 <span className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">queued</span>
               ) : null}

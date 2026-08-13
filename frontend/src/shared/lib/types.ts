@@ -55,11 +55,35 @@ export interface Run {
   duration_seconds?: number
   created_at?: string
   updated_at?: string
+  /** Modo degradado (fallback sem LLM real) — badge warn na aba da run. */
+  degraded?: boolean
+  /** Motivo da degradação (ex.: "mock fallback", erro do provider). */
+  degraded_reason?: string | null
 }
 
 export interface RunListResponse {
   items: Run[]
   total: number
+}
+
+// ─── Fila E3 (QueueBadge) — GET /api/v1/runs/queue ──────────────────────────
+// Espelha o response do engine: {max_concurrent, active_count, active, queued}.
+
+/** Item enfileirado aguardando slot (E3 — max_concurrent). */
+export interface QueueItem {
+  id: string
+  idea: string
+  stack: string
+  status: string
+  created_at?: string
+}
+
+/** GET /api/v1/runs/queue — fila de execução E3. */
+export interface RunQueueResponse {
+  max_concurrent: number
+  active_count: number
+  active: string[]
+  queued: QueueItem[]
 }
 
 export interface AdeBudget {

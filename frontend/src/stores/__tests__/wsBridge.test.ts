@@ -10,7 +10,7 @@ import { useHitlGateStore } from '../hitlGateStore'
 // formados não podem derrubar as stores nem gerar entradas de console órfãs.
 
 beforeEach(() => {
-  useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
+  useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [], cbByRun: {} })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
   useConsoleStore.setState({
     entries: [],
@@ -131,6 +131,37 @@ describe('handleWsEvent edge cases', () => {
     const entry = useConsoleStore.getState().entries.find((e) => e.node === 'developer')
     expect(entry?.message).toBe('print("x")')
     expect(entry?.level).toBe('info')
+  })
+
+  it('circuit_breaker_changed grava estado por run e loga warn', () => {
+    dispatchWsEvent({ event: 'circuit_breaker_changed', run_id: 'r1', payload: { state: 'open', consecutive_failures: 5, total_iterations: 20, total_cost: 2.5 } })
+    expect(useRunsStore.getState().cbByRun.r1).toBe('open')
+    expect(useConsoleStore.getState().entries.some((e) => e.level === 'warn' && e.message === 'circuit breaker: open')).toBe(true)
+  })
+
+  it('circuit_breaker_changed com estado inválido é ignorado (sem crash)', () => {
+    dispatchWsEvent({ event: 'circuit_breaker_changed', run_id: 'r1', payload: { state: 'bogus' } })
+    expect(useRunsStore.getState().cbByRun.r1).toBeUndefined()
+  })
+
+  it('circuit_breaker_changed sem run_id só loga (sem tocar store)', () => {
+    dispatchWsEvent({ event: 'circuit_breaker_changed', payload: { state: 'closed' } })
+    expect(useRunsStore.getState().cbByRun).toEqual({})
+    expect(useConsoleStore.getState().entries.some((e) => e.level === 'warn' && e.message === 'circuit breaker: closed')).toBe(true)
+  })
+
+  it('run_updated propaga degraded/degraded_reason para a run', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'x', stack: 'python', status: 'running' })
+    dispatchWsEvent({ event: 'run_updated', run_id: 'r1', payload: { status: 'running', degraded: true, degraded_reason: 'mock fallback' } })
+    const run = useRunsStore.getState().runs.find((r) => r.id === 'r1')
+    expect(run?.degraded).toBe(true)
+    expect(run?.degraded_reason).toBe('mock fallback')
+  })
+
+  it('run_updated sem degraded preserva o campo existente', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'x', stack: 'python', status: 'running', degraded: true })
+    dispatchWsEvent({ event: 'run_updated', run_id: 'r1', payload: { status: 'running' } })
+    expect(useRunsStore.getState().runs.find((r) => r.id === 'r1')?.degraded).toBe(true)
   })
 })
 

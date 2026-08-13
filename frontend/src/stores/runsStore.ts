@@ -16,17 +16,24 @@ interface RunsState {
   queue: string[]
   past: Run[][]
   future: Run[][]
+  // Estado do CircuitBreaker por run (evento WS circuit_breaker_changed) —
+  // badge na aba (closed/open/half-open). Fuente: server; não entra no undo.
+  cbByRun: Record<string, string>
   setRuns: (runs: Run[]) => void
   upsertRun: (run: Partial<Run> & { id: string }) => void
   addRun: (run: Partial<Run> & { id: string }) => void
   removeRun: (id: string) => void
   selectRun: (id: string | null) => void
   updateStatus: (id: string, status: RunStatus, current_node?: string | null) => void
+  setCbState: (runId: string, state: string) => void
   enqueue: (id: string) => void
   dequeue: () => void
   undo: () => void
   redo: () => void
 }
+
+// Estados válidos do CircuitBreaker (contrato do evento circuit_breaker_changed).
+const CB_STATES = new Set(['closed', 'open', 'half-open'])
 
 export const useRunsStore = create<RunsState>((set) => ({
   runs: [],
@@ -34,6 +41,7 @@ export const useRunsStore = create<RunsState>((set) => ({
   queue: [],
   past: [],
   future: [],
+  cbByRun: {},
 
   setRuns: (runs) => set({ runs, queue: syncQueue(runs), future: [] }),
 
@@ -67,6 +75,12 @@ export const useRunsStore = create<RunsState>((set) => ({
       )
       return { runs, queue: syncQueue(runs) }
     }),
+
+  // CircuitBreaker por run: só aceita estados conhecidos; desconhecido → no-op.
+  setCbState: (runId, state) => {
+    if (!CB_STATES.has(state)) return
+    set((s) => ({ cbByRun: { ...s.cbByRun, [runId]: state } }))
+  },
 
   // Fila (E3) — mecanismo legado/UX: no paralelismo real o server publica o
   // status `queued` via WS e a fila é re-derivada. Estas ações seguem para o

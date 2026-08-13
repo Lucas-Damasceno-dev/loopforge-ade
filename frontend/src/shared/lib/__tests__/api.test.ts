@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, getRunArtifacts, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents } from '../api'
+import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents } from '../api'
 import type { ArtifactsResponse } from '../types'
 
 describe('api client', () => {
@@ -127,6 +127,22 @@ describe('api client', () => {
     expect(res.events[0].seq).toBe(5)
     expect(res.next_after_seq).toBe(5)
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs/r1/events?after_seq=3&limit=200'), expect.anything())
+  })
+
+  it('getRunQueue GETs /runs/queue and parses the E3 queue shape', async () => {
+    const body = {
+      max_concurrent: 2,
+      active_count: 1,
+      active: ['r1'],
+      queued: [{ id: 'r2', idea: 'x', stack: 'python', status: 'queued', created_at: '2026-01-01T00:00:00' }],
+    }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+    const res = await getRunQueue()
+    expect(res.max_concurrent).toBe(2)
+    expect(res.active_count).toBe(1)
+    expect(res.queued).toHaveLength(1)
+    expect(res.queued[0].id).toBe('r2')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs/queue'), expect.anything())
   })
 
   it('fork throws ApiError with PT detail on 404', async () => {

@@ -1,4 +1,4 @@
-import type { AdeConfig, ArtifactsResponse, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
+import type { AdeConfig, ArtifactsResponse, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, McpServer, McpTool, Run, RunListResponse, RunQueueResponse, TimelineResponse, TrajectoryExport } from './types'
 import type { WsEvent } from './ws'
 
 // Base da API v1: VITE_API_BASE opcional (ex.: http://127.0.0.1:8787) —
@@ -93,6 +93,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 // ─── Endpoints v1 ───────────────────────────────────────────────────────────
 export const listRuns = (skip = 0, limit = 50) => apiFetch<RunListResponse>(`/runs?skip=${skip}&limit=${limit}`)
+// Fila E3 (QueueBadge): GET /runs/queue → {max_concurrent, active_count, active, queued}.
+export const getRunQueue = () => apiFetch<RunQueueResponse>('/runs/queue')
 export const createRun = (input: CreateRunInput) =>
   apiFetch<Run>('/runs', {
     method: 'POST',
