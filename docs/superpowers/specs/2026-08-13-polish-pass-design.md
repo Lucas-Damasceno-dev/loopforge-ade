@@ -37,7 +37,7 @@ Problema: `--radius-lg` (12px) vs `rounded-lg` Tailwind (8px) em Modal/Timeline 
 
 Arquivos: `styles/tokens.css`, `ui/Modal.tsx`, `timeline/TimelineBar.tsx`, `dag/AgentNode.tsx`. Risco: low.
 
-### 3. Tokens de duração/easing + easing único (D2, D6)
+### 3. Tokens de duração/easing + easing único (D2)
 
 Problema: `duration-100`/`duration-150` soltos e 3 easings diferentes.
 
@@ -86,11 +86,11 @@ Arquivos: `ui/EmptyState.tsx`, `console/ConsolePanel.tsx`. Risco: low.
 
 Problema: `×` (RunTabs) vs `✕` (Drawer, HitlGateBanner); hit area do close do banner ~20px.
 
-- `Drawer.tsx:49`: trocar `✕` por SVG inline (stroke currentColor, 14px).
-- `RunTabs.tsx:110`, `HitlGateBanner.tsx:39`: reutilizar o mesmo SVG.
+- Novo arquivo `ui/icons.tsx`: export `CloseIcon` (SVG inline, stroke currentColor, 14px, aria-hidden).
+- `Drawer.tsx:49`, `RunTabs.tsx:110`, `HitlGateBanner.tsx:39`: substituir glifos `✕`/`×` por `<CloseIcon />`.
 - `HitlGateBanner.tsx:37`: `p-0.5` → `p-1` (24px).
 
-Arquivos: `ui/Drawer.tsx`, `runs/RunTabs.tsx`, `hitl/HitlGateBanner.tsx`. Risco: low.
+Arquivos: `ui/icons.tsx` (novo), `ui/Drawer.tsx`, `runs/RunTabs.tsx`, `hitl/HitlGateBanner.tsx`. Risco: low.
 
 ### 9. Scrollbar 8px + ::selection (D7, D8)
 
