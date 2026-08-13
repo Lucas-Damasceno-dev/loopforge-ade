@@ -27,11 +27,14 @@ let client: ReturnType<typeof createWsClient> | null = null
 // faz catch-up (nada a recuperar); opens subsequentes (reconnect) sim.
 let hadOpen = false
 
-// Watermark por reconnect (E4 fix round 2): MENOR seq despachado LIVE após o
-// último onopen. O guard do backfill pula eventos >= watermark (já entregues
-// via live, em ordem); eventos < watermark (perdidos no gap) SEMPRE despacham.
-// Reset a cada open — eventos live de um reconnect anterior não valem.
-let firstLiveSeqSinceReconnect: number | undefined = undefined
+// Watermark por run por reconnect (E4 fix round 3): MENOR seq despachado LIVE
+// após o último onopen, CHAVEADO POR run_id — seq é por run (tabela event_seq,
+// uma row por run_id), então o teto de "já visto" de uma run não pode vazar p/
+// outra (senão misses de uma run seriam false-skipped pelo live de outra).
+// O guard do backfill pula eventos >= watermark (já entregues via live, em
+// ordem); eventos < watermark (perdidos no gap) SEMPRE despacham.
+// Reset do MAP a cada open — eventos live de um reconnect anterior não valem.
+let firstLiveSeqByRun: Record<string, number> = {}
 
 const BACKFILL_LIMIT = 200
 
@@ -42,11 +45,12 @@ function backfillRun(runId: string, afterSeq: number): void {
   getRunEvents(runId, afterSeq, BACKFILL_LIMIT)
     .then(({ events, next_after_seq }) => {
       for (const ev of events) {
-        // Dedupe por WATERMARK, não high-water mark: o mapa pode ter avançado
-        // por eventos live durante o fetch; guardar por >= seq do mapa false-skip
-        // o batch inteiro (o cenário que o backfill existe para recuperar).
-        // Só pula o que chega live em ordem (seq >= primeiro live do reconnect).
-        if (ev.seq !== undefined && firstLiveSeqSinceReconnect !== undefined && (ev.seq as number) >= firstLiveSeqSinceReconnect) continue
+        // Dedupe por WATERMARK por run, não high-water mark: o mapa pode ter
+        // avançado por eventos live durante o fetch; guardar por >= seq do mapa
+        // false-skip o batch inteiro (o cenário que o backfill existe p/ recuperar).
+        // Só pula o que chega live em ordem (seq >= primeiro live deste reconnect
+        // NA MESMA RUN).
+        if (ev.seq !== undefined && firstLiveSeqByRun[runId] !== undefined && (ev.seq as number) >= firstLiveSeqByRun[runId]) continue
         if (ev.run_id !== undefined && ev.seq !== undefined) setLastSeq(ev.run_id as string, ev.seq as number)
         dispatchWsEvent(ev)
       }
@@ -83,9 +87,10 @@ export const useWsStore = create<WsState>((set) => ({
         // Rastreia o seq por run para o backfill do reconnect.
         if (e.run_id !== undefined && e.seq !== undefined) {
           setLastSeq(e.run_id as string, e.seq as number)
-          // Watermark: menor seq live desde o reconnect (dedupe sem false-skip).
-          if (firstLiveSeqSinceReconnect === undefined || (e.seq as number) < firstLiveSeqSinceReconnect) {
-            firstLiveSeqSinceReconnect = e.seq as number
+          // Watermark por run: menor seq live desta run desde o reconnect.
+          const runId = e.run_id as string
+          if (firstLiveSeqByRun[runId] === undefined || (e.seq as number) < firstLiveSeqByRun[runId]) {
+            firstLiveSeqByRun[runId] = e.seq as number
           }
         }
         dispatchWsEvent(e)
@@ -93,8 +98,9 @@ export const useWsStore = create<WsState>((set) => ({
       onStatus: (s) => {
         set({ status: s, connected: s === 'open' })
         if (s === 'open') {
-          // Novo reconnect → watermark reset (eventos live anteriores não valem).
-          firstLiveSeqSinceReconnect = undefined
+          // Novo reconnect → watermark por run reset (eventos live de um
+          // reconnect anterior não valem). lastSeqByRun persiste (after_seq).
+          firstLiveSeqByRun = {}
           if (hadOpen) {
             // Reconnect: busca o backlog de cada run ativa e re-despacha os
             // eventos perdidos (já normalizados v1). Falha silenciosa (offline).
@@ -119,7 +125,7 @@ export const useWsStore = create<WsState>((set) => ({
 // open (backfill espúrio). Produção nunca chama.
 export function __resetWsStoreForTest(): void {
   hadOpen = false
-  firstLiveSeqSinceReconnect = undefined
+  firstLiveSeqByRun = {}
   client = null
   useWsStore.setState({ lastSeqByRun: {}, connected: false, status: 'connecting', lastEventAt: null })
 }

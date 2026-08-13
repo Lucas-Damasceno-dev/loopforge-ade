@@ -194,6 +194,60 @@ describe('wsStore', () => {
     unsub()
   })
 
+  it('watermark é por run: live da run A não false-skip os misses da run B (cross-run)', async () => {
+    // Duas runs ativas — cada backfill tem seu próprio fetch (deferred por chamada).
+    useRunsStore.setState({
+      runs: [
+        { id: 'rA', idea: 'x', stack: 'python', status: 'running' },
+        { id: 'rB', idea: 'y', stack: 'python', status: 'running' },
+      ],
+      activeRunId: 'rA',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    const deferreds: Array<(r: Response) => void> = []
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => new Promise<Response>((res) => { deferreds.push(res) }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const spy = vi.fn()
+    const unsub = registerWsHandler(spy)
+
+    useWsStore.getState().connect()
+    const ws1 = FakeWebSocket.instances[0]
+    ws1.open() // hadOpen → true
+
+    useWsStore.getState().connect()
+    const ws2 = FakeWebSocket.instances[1]
+    ws2.open() // reconnect → backfill rA + rB (dois fetches pendentes)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/runs/rA/events')
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/runs/rB/events')
+
+    // Evento live da run A (seq 10) durante o fetch → watermark só da rA.
+    ws2.emit({ seq: 10, event: 'pipeline_started', run_id: 'rA', payload: { idea: 'x', node: 'cpo' } })
+    spy.mockClear()
+
+    // Backfill da rA responde com miss 8 (< 10 → despacha) + sobreposto 10 (pula).
+    deferreds[0](jsonResponse({ run_id: 'rA', events: [
+      { seq: 8, event: 'pipeline_started', run_id: 'rA', payload: { idea: 'x', node: 'cpo' } },
+      { seq: 10, event: 'pipeline_started', run_id: 'rA', payload: { idea: 'x', node: 'cpo' } },
+    ], next_after_seq: 10 }))
+    // Backfill da rB responde com seqs 601, 602 — NADA a ver com o watermark da rA.
+    deferreds[1](jsonResponse({ run_id: 'rB', events: [
+      { seq: 601, event: 'pipeline_started', run_id: 'rB', payload: { idea: 'y', node: 'qa' } },
+      { seq: 602, event: 'pipeline_started', run_id: 'rB', payload: { idea: 'y', node: 'qa' } },
+    ], next_after_seq: 602 }))
+
+    // rA: miss 8 despachado, sobreposto 10 NÃO re-despachado.
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 8, run_id: 'rA' })))
+    expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ seq: 10, run_id: 'rA' }))
+    // rB: misses 601/602 despachados (guard global antigo os false-skipparia).
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 601, run_id: 'rB' }))
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 602, run_id: 'rB' }))
+    unsub()
+  })
+
   it('backfill pagina enquanto a resposta vier cheia (next_after_seq)', async () => {
     const fullPage = Array.from({ length: 200 }, (_, i) => pipelineEvent(i + 1))
     const fetchMock = vi.fn()
