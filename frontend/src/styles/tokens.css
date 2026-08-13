@@ -44,14 +44,14 @@
    * rótulo do nó usa a variante -text quando base <4.5:1 (obrigatório). */
   --node-entry: #64748b;  --node-entry-text: #94a3b8;       /* slate-500/400 */
   --node-cpo: #4f46e5;                                       /* = --accent; rótulo usa --accent-text */
-  --node-pm: #0ea5e9;                                        /* sky-500 */
+  --node-pm: #0ea5e9;      --node-pm-text: #38bdf8;          /* sky-500/400 */
   --node-tech-lead: #8b5cf6; --node-tech-lead-text: #a78bfa; /* violet-500/400 */
-  --node-test-writer: #ec4899;                               /* pink-500 */
-  --node-developer: #10b981;                                 /* emerald-500 — id canônico (contrato 03 §7) */
+  --node-test-writer: #ec4899; --node-test-writer-text: #f9a8d4; /* pink-500/300 */
+  --node-developer: #10b981; --node-developer-text: #34d399; /* emerald-500/400 — id canônico (contrato 03 §7) */
   --node-dev: #10b981;                                       /* emerald-500 — alias legado (mantido p/ compat) */
-  --node-qa: #f59e0b;                                        /* amber-500 */
-  --node-retry: #f43f5e;                                     /* rose-500 */
-  --node-parallel-audit: #14b8a6;                            /* teal-500 */
+  --node-qa: #f59e0b;      --node-qa-text: #fbbf24;          /* amber-500/400 */
+  --node-retry: #f43f5e;   --node-retry-text: #fb7185;       /* rose-500/400 */
+  --node-parallel-audit: #14b8a6; --node-parallel-audit-text: #2dd4bf; /* teal-500/400 */
 
   /* §2.7 — overlays (substituem black/40 e black/60 hardcoded) */
   --overlay: rgb(0 0 0 / 0.40);
@@ -72,6 +72,16 @@
   --radius-md: var(--radius);
   --radius-lg: 12px;
   --radius-full: 999px;
+
+  /* Motion (auditoria P0): durações + easing único — consumir via
+   * duration-[var(--dur-*)]; nunca duration-* solto. */
+  --dur-fast: 100ms;
+  --dur-base: 150ms;
+  --dur-slow: 250ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Glow do nó running (auditoria P0): substitui rgb hardcoded no AgentNode. */
+  --glow-accent: 0 0 0 1px var(--accent), 0 0 14px rgb(79 70 229 / 0.35);
 
   /* §2.4 — tipografia. Inter Variable / JetBrains Mono Variable via
    * @fontsource-variable (import em main.tsx); fallbacks de sistema. */
@@ -111,25 +121,29 @@ kbd {
 /* ─── Scrollbar (01b §2.8) — console, drawers, abas, painéis ──────────── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: var(--border-hover) transparent;
 }
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--border-hover);
   border: 2px solid transparent;
   border-radius: var(--radius-full);
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #52525b; /* zinc-600 */
+  background: rgba(161, 161, 170, 0.6); /* --text-dim a 60% */
   border: 2px solid transparent;
   background-clip: padding-box;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 /* ─── Motion (01b §4) — ≤300ms, easing único, reduced-motion zera tudo ── */
@@ -168,7 +182,7 @@ kbd {
 }
 
 .ade-modal-card-in {
-  animation: ade-modal-in 200ms ease-out;
+  animation: ade-modal-in 200ms var(--ease-out);
 }
 @keyframes ade-modal-in {
   from { opacity: 0; transform: scale(0.98); }
