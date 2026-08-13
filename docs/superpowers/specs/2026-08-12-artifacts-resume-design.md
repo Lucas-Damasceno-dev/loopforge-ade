@@ -45,7 +45,10 @@ Router `APIRouter` incluído em `src/lf/api/app.py` (junto aos demais routers, ~
     "test_writer":  {"output": {"contract_tests": "…"}},
     "developer":    {"output": {"code": "…"}},
     "qa":           {"output": {"test_report": {}}},
-    "parallel_audit":{"output": {"security_report": {}, "devops_report": {}}}
+    "parallel_audit":{"output": {
+      "security_review": {}, "devops_manifest": {},
+      "security_report_md": "…", "devops_report_md": "…"
+    }}
   },
   "tokens": [
     {"node": "developer", "model": "…", "prompt_tokens": 1234,
@@ -65,7 +68,7 @@ Router `APIRouter` incluído em `src/lf/api/app.py` (junto aos demais routers, ~
 
 Observações:
 - `node_artifacts` só contém nós cujo artifact existe no checkpoint (dicionário esparso).
-- `security_report` usa a forma canônica `{vulnerabilities_found: [{severity, type, description}]}`; `devops_report` usa `{deployability_score, status, dockerfile_created, ci_workflow_created, recommendations}`. Ambos caem em `output` do nó `parallel_audit`.
+- Canais estruturados: `security_review: dict` ({vulnerabilities_found: [{severity, type, description}]}) e `devops_manifest: dict` ({deployability_score, status, dockerfile_created, ci_workflow_created, recommendations}) — usados nos cards AppSec/DevOps. Canais markdown: `security_report: NotRequired[str]` e `devops_report: NotRequired[str]` — expostos como `security_report_md`/`devops_report_md` no output (sufixo `_md` evita colisão com o nome canônico do canal estruturado na resposta).
 - `circuit_breaker` serializa o snapshot do canal (dataclass → dict; se ausente no checkpoint, `null`).
 - `degraded`/`degraded_reason` vêm dos canais homônimos (default `false`/`null`).
 
