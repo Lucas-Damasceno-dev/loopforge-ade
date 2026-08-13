@@ -170,10 +170,17 @@ export function handleWsEvent(e: WsEvent): void {
       break
     case 'circuit_breaker_changed': {
       // P0 surfacing: snapshot do CircuitBreaker (payload = dict do CB). Estado
-      // por run → badge na aba (runsStore.cbByRun); sem run_id → só loga.
+      // por run → badge na aba (runsStore.cbByRun, com meta de iters/custo);
+      // sem run_id → só loga.
       const id = str(e.run_id)
       const state = str(e.payload.state) ?? '?'
-      if (id) useRunsStore.getState().setCbState(id, state)
+      if (id) {
+        useRunsStore.getState().setCbState(id, {
+          state,
+          total_iterations: num(e.payload.total_iterations) ?? 0,
+          total_cost: num(e.payload.total_cost) ?? 0,
+        })
+      }
       log('warn', `circuit breaker: ${state}`, undefined, id)
       break
     }

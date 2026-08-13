@@ -133,14 +133,14 @@ describe('handleWsEvent edge cases', () => {
     expect(entry?.level).toBe('info')
   })
 
-  it('circuit_breaker_changed grava estado por run e loga warn', () => {
+  it('circuit_breaker_changed grava estado + meta por run e loga warn', () => {
     dispatchWsEvent({ event: 'circuit_breaker_changed', run_id: 'r1', payload: { state: 'open', consecutive_failures: 5, total_iterations: 20, total_cost: 2.5 } })
-    expect(useRunsStore.getState().cbByRun.r1).toBe('open')
+    expect(useRunsStore.getState().cbByRun.r1).toEqual({ state: 'open', total_iterations: 20, total_cost: 2.5 })
     expect(useConsoleStore.getState().entries.some((e) => e.level === 'warn' && e.message === 'circuit breaker: open')).toBe(true)
   })
 
   it('circuit_breaker_changed com estado inválido é ignorado (sem crash)', () => {
-    dispatchWsEvent({ event: 'circuit_breaker_changed', run_id: 'r1', payload: { state: 'bogus' } })
+    dispatchWsEvent({ event: 'circuit_breaker_changed', run_id: 'r1', payload: { state: 'bogus', total_iterations: 1, total_cost: 0.5 } })
     expect(useRunsStore.getState().cbByRun.r1).toBeUndefined()
   })
 
@@ -148,6 +148,11 @@ describe('handleWsEvent edge cases', () => {
     dispatchWsEvent({ event: 'circuit_breaker_changed', payload: { state: 'closed' } })
     expect(useRunsStore.getState().cbByRun).toEqual({})
     expect(useConsoleStore.getState().entries.some((e) => e.level === 'warn' && e.message === 'circuit breaker: closed')).toBe(true)
+  })
+
+  it('circuit_breaker_changed sem meta usa defaults 0', () => {
+    dispatchWsEvent({ event: 'circuit_breaker_changed', run_id: 'r2', payload: { state: 'half-open' } })
+    expect(useRunsStore.getState().cbByRun.r2).toEqual({ state: 'half-open', total_iterations: 0, total_cost: 0 })
   })
 
   it('run_updated propaga degraded/degraded_reason para a run', () => {

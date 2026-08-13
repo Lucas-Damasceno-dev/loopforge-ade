@@ -2,6 +2,7 @@ import type { KeyboardEvent } from 'react'
 import { Badge, type BadgeProps } from '../../shared/ui/Badge'
 import type { Run, RunStatus } from '../../shared/lib/types'
 import { shortId } from '../trajectories/shortId'
+import type { CbSnapshot } from '../../stores/runsStore'
 
 // status da run → tone do badge na aba (zinc/azul/verde/vermelho/âmbar).
 // queued/paused (novos, contrato v1): info (--info) e warn (--warn).
@@ -26,8 +27,8 @@ export interface RunTabsProps {
   runs: Run[]
   activeRunId: string | null
   queue: string[]
-  /** Estado do CircuitBreaker por run (badge C/O/H na aba) — via wsBridge. */
-  cbByRun: Record<string, string>
+  /** Snapshot do CircuitBreaker por run (badge C/O/H + meta no tooltip). */
+  cbByRun: Record<string, CbSnapshot>
   onSelect: (id: string) => void
   onClose: (id: string) => void
 }
@@ -91,7 +92,7 @@ export function RunTabs({ runs, activeRunId, queue, cbByRun, onSelect, onClose }
                 <Badge tone="warn" title={run.degraded_reason ?? undefined}>degraded</Badge>
               ) : null}
               {cbState ? (
-                <Badge tone={cbState === 'open' ? 'err' : 'neutral'} title={`circuit breaker ${cbState}`}>{cbLabel(cbState)}</Badge>
+                <Badge tone={cbState.state === 'open' ? 'err' : 'neutral'} title={`circuit breaker ${cbState.state} · iters ${cbState.total_iterations} · $${cbState.total_cost.toFixed(2)}`}>{cbLabel(cbState.state)}</Badge>
               ) : null}
               {queued ? (
                 <span className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">queued</span>

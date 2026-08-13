@@ -2,12 +2,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { RunTabs } from '../RunTabs'
 import type { Run } from '../../../shared/lib/types'
+import type { CbSnapshot } from '../../../stores/runsStore'
 
 function run(status: Run['status'], id = 'r1'): Run {
   return { id, idea: 'x', stack: '', status }
 }
 
-function renderTabs(runs: Run[], cbByRun: Record<string, string> = {}) {
+function renderTabs(runs: Run[], cbByRun: Record<string, CbSnapshot> = {}) {
   render(<RunTabs runs={runs} activeRunId={runs[0]?.id ?? null} queue={[]} cbByRun={cbByRun} onSelect={vi.fn()} onClose={vi.fn()} />)
 }
 
@@ -33,9 +34,9 @@ describe('RunTabs status badge', () => {
     expect(screen.queryByText('degraded')).not.toBeInTheDocument()
   })
   it('shows CB badge (open) when cbByRun has the run', () => {
-    renderTabs([run('running', 'r1')], { r1: 'open' })
+    renderTabs([run('running', 'r1')], { r1: { state: 'open', total_iterations: 20, total_cost: 2.5 } })
     expect(screen.getByText('O')).toBeInTheDocument()
-    expect(screen.getByTitle('circuit breaker open')).toBeInTheDocument()
+    expect(screen.getByTitle('circuit breaker open · iters 20 · $2.50')).toBeInTheDocument()
   })
   it('shows no CB badge when cbByRun lacks the run', () => {
     renderTabs([run('running', 'r1')], {})

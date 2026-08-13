@@ -16,20 +16,28 @@ interface RunsState {
   queue: string[]
   past: Run[][]
   future: Run[][]
-  // Estado do CircuitBreaker por run (evento WS circuit_breaker_changed) —
-  // badge na aba (closed/open/half-open). Fuente: server; não entra no undo.
-  cbByRun: Record<string, string>
+  // Snapshot do CircuitBreaker por run (evento WS circuit_breaker_changed) —
+  // badge na aba: state (closed/open/half-open) + meta (iters/custo) no title.
+  // Fonte: server; não entra no undo.
+  cbByRun: Record<string, CbSnapshot>
   setRuns: (runs: Run[]) => void
   upsertRun: (run: Partial<Run> & { id: string }) => void
   addRun: (run: Partial<Run> & { id: string }) => void
   removeRun: (id: string) => void
   selectRun: (id: string | null) => void
   updateStatus: (id: string, status: RunStatus, current_node?: string | null) => void
-  setCbState: (runId: string, state: string) => void
+  setCbState: (runId: string, snapshot: CbSnapshot) => void
   enqueue: (id: string) => void
   dequeue: () => void
   undo: () => void
   redo: () => void
+}
+
+/** Snapshot serializável do CircuitBreaker (payload do evento, campos usados). */
+export interface CbSnapshot {
+  state: string
+  total_iterations: number
+  total_cost: number
 }
 
 // Estados válidos do CircuitBreaker (contrato do evento circuit_breaker_changed).
@@ -77,9 +85,9 @@ export const useRunsStore = create<RunsState>((set) => ({
     }),
 
   // CircuitBreaker por run: só aceita estados conhecidos; desconhecido → no-op.
-  setCbState: (runId, state) => {
-    if (!CB_STATES.has(state)) return
-    set((s) => ({ cbByRun: { ...s.cbByRun, [runId]: state } }))
+  setCbState: (runId, snapshot) => {
+    if (!CB_STATES.has(snapshot.state)) return
+    set((s) => ({ cbByRun: { ...s.cbByRun, [runId]: snapshot } }))
   },
 
   // Fila (E3) — mecanismo legado/UX: no paralelismo real o server publica o
