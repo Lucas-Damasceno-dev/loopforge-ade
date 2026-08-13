@@ -172,6 +172,13 @@ kbd {
   50% { opacity: 0.55; }
 }
 
+/* Nó em execução (auditoria P0): fade-in de entrada + pulso de glow em uma
+ * animação composta — lista única evita o conflito de cascade layer entre
+ * classes unlayered (.ade-fade-in) e utilities do Tailwind (animate-*). */
+.ade-node-running {
+  animation: ade-fade-in 150ms ease-out, node-pulse 2s ease-in-out infinite;
+}
+
 .ade-drawer-in {
   animation: ade-drawer-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }

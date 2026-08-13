@@ -42,10 +42,8 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
         }
       }}
       className={[
-        'ade-fade-in w-44 cursor-pointer rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
-        glow
-          ? 'shadow-[var(--glow-accent)] animate-[node-pulse_2s_ease-in-out_infinite]'
-          : 'shadow-[var(--shadow-node)]',
+        'w-44 cursor-pointer rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
+        glow ? 'shadow-[var(--glow-accent)] ade-node-running' : 'ade-fade-in shadow-[var(--shadow-node)]',
         'transition-[opacity,border-color,box-shadow,color] duration-[var(--dur-base)] ease-out',
         'hover:border-[var(--border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
         ghosted ? 'pointer-events-none opacity-40' : '',
