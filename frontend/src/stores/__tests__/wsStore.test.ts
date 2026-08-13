@@ -18,7 +18,6 @@ class FakeWebSocket {
   emit(data: unknown) { this.onmessage?.({ data: JSON.stringify(data) }) }
   open() { this.onopen?.() }
 }
-vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket)
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -29,16 +28,32 @@ function setActiveRun(id: string) {
   useRunsStore.setState({ runs: [{ id, idea: 'x', stack: 'python', status: 'running' }], activeRunId: id, queue: [], past: [], future: [] })
 }
 
+// Fetch com resolução controlada (deferred): permite emitir evento live DURANTE
+// o fetch do backfill, simulando a corrida real dedupe-vs-missed.
+function deferredFetch() {
+  let resolve!: (r: Response) => void
+  const promise = new Promise<Response>((res) => { resolve = res })
+  const fn = vi.fn(() => promise)
+  return { fn, resolve }
+}
+
+function pipelineEvent(seq: number) {
+  return { seq, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' } }
+}
+
 describe('wsStore', () => {
   beforeEach(() => {
     FakeWebSocket.instances.length = 0
+    vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket)
+    vi.stubGlobal('fetch', vi.fn())
     useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
-    // Reset completo: hadOpen (flag module-level) + lastSeqByRun — senão o
-    // 1º open de cada teste faria backfill espúrio (estado persiste entre testes).
+    // Reset completo: hadOpen (flag module-level) + lastSeqByRun + watermark —
+    // senão o 1º open de cada teste faria backfill espúrio (estado persiste).
     __resetWsStoreForTest()
   })
   afterEach(() => {
     useWsStore.getState().disconnect()
+    vi.unstubAllGlobals()
   })
 
   it('connect derives default ws url from location and opens', () => {
@@ -115,15 +130,8 @@ describe('wsStore', () => {
     unsub()
   })
 
-  it('backfill não re-despacha evento já visto (dedupe no momento do dispatch)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
-      run_id: 'r1',
-      events: [
-        { seq: 5, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' } }, // já visto via live
-        { seq: 6, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' } }, // novo
-      ],
-      next_after_seq: 6,
-    }))
+  it('dedupe real: live durante o fetch → misses despachados, seq sobreposto NÃO re-despachado', async () => {
+    const { fn: fetchMock, resolve } = deferredFetch()
     vi.stubGlobal('fetch', fetchMock)
     setActiveRun('r1')
 
@@ -132,30 +140,65 @@ describe('wsStore', () => {
 
     useWsStore.getState().connect()
     const ws1 = FakeWebSocket.instances[0]
-    ws1.open()
-    ws1.emit({ seq: 5, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' } })
+    ws1.open() // hadOpen → true
+
+    useWsStore.getState().connect()
+    const ws2 = FakeWebSocket.instances[1]
+    ws2.open() // reconnect → backfill dispara, mas fetch fica PENDENTE (deferred)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+
+    // Evento live chega DURANTE o fetch: watermark vira 10 (e mapa vai a 10).
+    ws2.emit(pipelineEvent(10))
     spy.mockClear()
+
+    // Backfill responde com misses antigos (8, 9) + o sobreposto (10).
+    resolve(jsonResponse({ run_id: 'r1', events: [pipelineEvent(8), pipelineEvent(9), pipelineEvent(10)], next_after_seq: 10 }))
+
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 8 })))
+    // Misses despachados.
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 9 }))
+    // Sobreposto NÃO re-despachado (>= watermark 10).
+    expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ seq: 10 }))
+    // Mapa avança só até o watermark (10) — não regride.
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(10)
+    unsub()
+  })
+
+  it('missed recovery: mapa avançado por live (seq alto) NÃO bloqueia misses antigos', async () => {
+    const { fn: fetchMock, resolve } = deferredFetch()
+    vi.stubGlobal('fetch', fetchMock)
+    setActiveRun('r1')
+
+    const spy = vi.fn()
+    const unsub = registerWsHandler(spy)
+
+    useWsStore.getState().connect()
+    const ws1 = FakeWebSocket.instances[0]
+    ws1.open() // hadOpen → true
 
     useWsStore.getState().connect()
     const ws2 = FakeWebSocket.instances[1]
     ws2.open()
-    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 6 })))
-    // seq 5 não foi re-despachado pelo backfill — só o seq 6 novo.
-    expect(spy).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+
+    // Live com seq ALTO (100) durante o fetch → mapa pula p/ 100.
+    ws2.emit(pipelineEvent(100))
+
+    // Página do backfill traz só misses antigos (2, 3) — todos < watermark 100.
+    resolve(jsonResponse({ run_id: 'r1', events: [pipelineEvent(2), pipelineEvent(3)], next_after_seq: 3 }))
+
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 2 })))
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 3 }))
+    // Mapa permanece no high-water mark (100).
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(100)
     unsub()
   })
 
   it('backfill pagina enquanto a resposta vier cheia (next_after_seq)', async () => {
-    const fullPage = Array.from({ length: 200 }, (_, i) => ({
-      seq: i + 1, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' },
-    }))
+    const fullPage = Array.from({ length: 200 }, (_, i) => pipelineEvent(i + 1))
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ run_id: 'r1', events: fullPage, next_after_seq: 200 }))
-      .mockResolvedValueOnce(jsonResponse({
-        run_id: 'r1',
-        events: [{ seq: 201, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' } }],
-        next_after_seq: 201,
-      }))
+      .mockResolvedValueOnce(jsonResponse({ run_id: 'r1', events: [pipelineEvent(201)], next_after_seq: 201 }))
     vi.stubGlobal('fetch', fetchMock)
     setActiveRun('r1')
 
