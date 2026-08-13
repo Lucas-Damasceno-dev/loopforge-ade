@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: loopforge-ade
+Version: 0.1.0
+Summary: LoopForge ADE — frontend SPA servido pelo backend ADE
+Requires-Python: >=3.12
