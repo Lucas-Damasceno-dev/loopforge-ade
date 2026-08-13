@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, getRunArtifacts, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, updateLesson, deleteLesson, getGitInfo, getHealth } from '../api'
+import { createRun, listRuns, getRunCost, getRunArtifacts, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents } from '../api'
 import type { ArtifactsResponse } from '../types'
 
 describe('api client', () => {
@@ -118,6 +118,17 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs/r1/timeline?after_seq=10&limit=50'), expect.anything())
   })
 
+  it('getRunEvents GETs /runs/{id}/events with after_seq and returns normalized events', async () => {
+    const body = { run_id: 'r1', events: [{ seq: 5, event: 'pipeline_started', run_id: 'r1', payload: {} }], next_after_seq: 5 }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
+    const res = await getRunEvents('r1', 3, 200)
+    expect(res.run_id).toBe('r1')
+    expect(res.events).toHaveLength(1)
+    expect(res.events[0].seq).toBe(5)
+    expect(res.next_after_seq).toBe(5)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs/r1/events?after_seq=3&limit=200'), expect.anything())
+  })
+
   it('fork throws ApiError with PT detail on 404', async () => {
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'Run run-r1 não encontrada (sem trajetória)' }), { status: 404 }))
     await expect(forkTrajectory('run-r1')).rejects.toMatchObject({ status: 404, detail: 'Run run-r1 não encontrada (sem trajetória)' })
@@ -227,17 +238,6 @@ describe('api client', () => {
     expect(String(url)).toContain('/api/v1/memory/lessons')
     expect(init?.method).toBe('POST')
     expect(JSON.parse(String(init?.body))).toEqual({ run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'y' })
-  })
-
-  it('updateLesson PATCHes only the provided fields', async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ id: 1, run_id: 'r1', stack: 'python', idea: 'x', lesson_text: 'novo', created_at: 1 }), { status: 200 }),
-    )
-    await updateLesson(1, { lesson_text: 'novo' })
-    const [url, init] = vi.mocked(fetch).mock.calls[0]
-    expect(String(url)).toContain('/api/v1/memory/lessons/1')
-    expect(init?.method).toBe('PATCH')
-    expect(JSON.parse(String(init?.body))).toEqual({ lesson_text: 'novo' })
   })
 
   it('deleteLesson DELETEs /memory/lessons/{id} and resolves the confirmation', async () => {

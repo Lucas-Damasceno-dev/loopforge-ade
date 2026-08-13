@@ -1,4 +1,5 @@
-import type { AdeConfig, ArtifactsResponse, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, LessonUpdate, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
+import type { AdeConfig, ArtifactsResponse, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
+import type { WsEvent } from './ws'
 
 // Base da API v1: VITE_API_BASE opcional (ex.: http://127.0.0.1:8787) —
 // default '/api/v1' (no dev, o Vite faz proxy de /api → backend real).
@@ -92,7 +93,6 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 // ─── Endpoints v1 ───────────────────────────────────────────────────────────
 export const listRuns = (skip = 0, limit = 50) => apiFetch<RunListResponse>(`/runs?skip=${skip}&limit=${limit}`)
-export const getRun = (id: string) => apiFetch<Run>(`/runs/${id}`)
 export const createRun = (input: CreateRunInput) =>
   apiFetch<Run>('/runs', {
     method: 'POST',
@@ -151,6 +151,14 @@ export const importTrajectory = (payload: TrajectoryExport) =>
 export const getRunTimeline = (runId: string, afterSeq = 0, limit = 50) =>
   apiFetch<TimelineResponse>(`/runs/${encodeURIComponent(runId)}/timeline?after_seq=${afterSeq}&limit=${limit}`)
 
+// Backfill de eventos (E4): GET /runs/{run_id}/events?after_seq=&limit= —
+// eventos normalizados v1 (mesmo shape do WS) desde after_seq+1. Usado no
+// reconnect do WS para preencher o gap de eventos perdidos durante a queda.
+export const getRunEvents = (runId: string, afterSeq = 0, limit = 200) =>
+  apiFetch<{ run_id: string; events: WsEvent[]; next_after_seq: number | null }>(
+    `/runs/${encodeURIComponent(runId)}/events?after_seq=${afterSeq}&limit=${limit}`,
+  )
+
 // ─── Evals (pilar 5 — EvalsPanel) ────────────────────────────────────────────
 // Telemetria de benchmarks/ELO da engine (lf/api/evals.py). Telemetria nunca
 // 500: backend responde zeros + status empty/error quando não há dados.
@@ -171,8 +179,6 @@ export const listLessons = (params: { stack?: string; query?: string; limit?: nu
 }
 export const createLesson = (input: LessonCreate) =>
   apiFetch<Lesson>('/memory/lessons', { method: 'POST', body: JSON.stringify(input) })
-export const updateLesson = (id: number, input: LessonUpdate) =>
-  apiFetch<Lesson>(`/memory/lessons/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteLesson = (id: number) =>
   apiFetch<LessonDeleteResult>(`/memory/lessons/${id}`, { method: 'DELETE' })
 

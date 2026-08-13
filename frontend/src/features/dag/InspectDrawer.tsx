@@ -34,6 +34,8 @@ export function InspectDrawer() {
   const selectNode = useCanvasStore((s) => s.selectNode)
   const entries = useConsoleStore((s) => s.entries)
   const activeRunId = useRunsStore((s) => s.activeRunId)
+  const runs = useRunsStore((s) => s.runs)
+  const run = runs.find((r) => r.id === activeRunId) ?? null
 
   const open = selectedNodeId !== null
   const node = selectedNodeId as NonNullable<typeof selectedNodeId> | null
@@ -43,6 +45,9 @@ export function InspectDrawer() {
     queryFn: () => getRunArtifacts(activeRunId as string),
     enabled: open && !!activeRunId,
     staleTime: 5000,
+    // Polling só enquanto a run está viva (running/paused): o drawer espelha o
+    // progresso do pipeline; concluída/falha, os dados já estão no cache.
+    refetchInterval: run !== null && (run.status === 'running' || run.status === 'paused') ? 5000 : false,
   })
 
   const label = node ? NODE_LABELS[node as keyof typeof NODE_LABELS] ?? node : ''
