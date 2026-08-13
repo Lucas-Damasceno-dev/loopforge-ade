@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CostBar } from '../CostBar'
 import { useRunsStore } from '../../../stores/runsStore'
+import { useBudgetOverrideStore } from '../budgetOverrideStore'
 import type { CostResponse, Run, RunStatus } from '../../../shared/lib/types'
 
 function makeClient() {
@@ -41,6 +42,7 @@ describe('CostBar', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
     useRunsStore.setState({ runs: [], activeRunId: null })
+    useBudgetOverrideStore.setState({ open: false, runId: null })
   })
   afterEach(() => {
     vi.unstubAllGlobals()

@@ -8,6 +8,7 @@ import { Button } from '../../shared/ui/Button'
 import { Modal } from '../../shared/ui/Modal'
 import { Input } from '../../shared/ui/Input'
 import { budgetPercent, formatUsd, hardStopLevel, parseMaxUsd } from './costModel'
+import { useBudgetOverrideStore } from './budgetOverrideStore'
 
 // Badge de orçamento da run ATIVA (UX12, M-08/M-10): dados REAIS de
 // GET /api/v1/runs/{id}/cost (total_cost_usd + budget efetivo). Estados sem
@@ -49,12 +50,14 @@ export function CostBar({
   const level = hardStopLevel(percent)
 
   const [toast, setToast] = useState(false)
-  const [overrideOpen, setOverrideOpen] = useState(false)
   const [overrideDismissed, setOverrideDismissed] = useState(false) // bloqueio vencido (escaped)
   const [overrideValue, setOverrideValue] = useState('')
   const [overrideError, setOverrideError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const queryClient = useQueryClient()
+  const overrideOpen = useBudgetOverrideStore((s) => s.open)
+  const openOverride = useBudgetOverrideStore((s) => s.openOverride)
+  const closeOverride = useBudgetOverrideStore((s) => s.closeOverride)
 
   // Toast temporário (3s) quando entra no nível warn.
   useEffect(() => {
@@ -94,7 +97,7 @@ export function CostBar({
     setOverrideError(null)
     try {
       await overrideRunBudget(effectiveRunId, { max_usd: parsed.value })
-      setOverrideOpen(false)
+      closeOverride()
       setOverrideValue('')
       queryClient.invalidateQueries({ queryKey: ['run-cost', effectiveRunId] })
     } catch (err) {
@@ -121,7 +124,7 @@ export function CostBar({
           </span>
         )}
         {!controlled && data && level !== 'ok' && (
-          <Button size="sm" variant="subtle" onClick={() => setOverrideOpen(true)}>
+          <Button size="sm" variant="subtle" onClick={() => openOverride(effectiveRunId as string)}>
             Override
           </Button>
         )}
@@ -137,7 +140,7 @@ export function CostBar({
               Spent ${spentUsd} of ${maxUsd} ({percent}%). New runs are blocked.
             </p>
             <div className="mt-4 flex justify-end">
-              <Button variant="primary" size="sm" onClick={() => { setOverrideDismissed(true); setOverrideOpen(true) }}>
+              <Button variant="primary" size="sm" onClick={() => { setOverrideDismissed(true); openOverride(effectiveRunId as string) }}>
                 Give override
               </Button>
             </div>
@@ -146,7 +149,7 @@ export function CostBar({
       )}
 
       {/* Modal de override (M-10): POST /runs/{id}/cost/override {max_usd}. */}
-      <Modal open={overrideOpen} title="Budget override" onClose={() => setOverrideOpen(false)} maxWidth={400}>
+      <Modal open={overrideOpen} title="Budget override" onClose={closeOverride} maxWidth={400}>
         <div className="p-4">
           <h2 className="text-lg font-semibold text-[var(--text)]">Budget override</h2>
           <p className="mt-1 text-sm text-[var(--text-dim)]">
@@ -167,7 +170,7 @@ export function CostBar({
               <p role="alert" className="mt-1 text-xs text-[var(--err-text)]">{overrideError}</p>
             ) : null}
             <div className="mt-4 flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setOverrideOpen(false)}>
+              <Button size="sm" variant="ghost" onClick={closeOverride}>
                 Cancel
               </Button>
               <Button size="sm" variant="primary" type="submit" disabled={submitting || !overrideValue.trim()}>
