@@ -1,4 +1,4 @@
-import type { AdeConfig, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, LessonUpdate, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
+import type { AdeConfig, ArtifactsResponse, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, LessonUpdate, McpServer, McpTool, Run, RunListResponse, TimelineResponse, TrajectoryExport } from './types'
 
 // Base da API v1: VITE_API_BASE opcional (ex.: http://127.0.0.1:8787) —
 // default '/api/v1' (no dev, o Vite faz proxy de /api → backend real).
@@ -107,6 +107,10 @@ export const decideRun = (id: string, body: Record<string, unknown>) => apiFetch
 export const getRunCost = (id: string) => apiFetch<CostResponse>(`/runs/${id}/cost`)
 export const overrideRunBudget = (id: string, body: BudgetOverrideRequest) =>
   apiFetch<CostResponse>(`/runs/${id}/cost/override`, { method: 'POST', body: JSON.stringify(body) })
+
+// Artifacts por nó (InspectDrawer real): GET /api/v1/runs/{id}/artifacts —
+// último checkpoint (canais de artefato) + llm_costs (tokens) + lessons.
+export const getRunArtifacts = (id: string) => apiFetch<ArtifactsResponse>(`/runs/${encodeURIComponent(id)}/artifacts`)
 
 export const getConfig = () => apiFetch<AdeConfig>('/config')
 export const patchConfig = (partial: DeepPartial<AdeConfig>) => apiFetch<AdeConfig>('/config', { method: 'PATCH', body: JSON.stringify(partial) })

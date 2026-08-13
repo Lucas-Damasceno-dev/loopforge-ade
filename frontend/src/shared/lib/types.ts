@@ -329,3 +329,55 @@ export interface HealthStatus {
   status: string
   version: string
 }
+
+// ─── Artifacts (InspectDrawer real) — GET /api/v1/runs/{id}/artifacts ─────
+// Espelha src/lf/api/schemas.py (ArtifactsResponse, ArtifactTokens,
+// NodeArtifact, CircuitBreakerSnapshot, ArtifactLesson).
+
+/** Tokens + custo LLM agregados por nó (tabela llm_costs). */
+export interface ArtifactTokens {
+  node: string
+  model?: string | null
+  prompt_tokens: number
+  completion_tokens: number
+  cost_usd: number
+  estimated: boolean
+}
+
+/** Output de um nó do DAG (canais do último checkpoint). */
+export interface NodeArtifact {
+  output: Record<string, unknown>
+}
+
+/** Snapshot serializável do CircuitBreaker (canal circuit_breaker). */
+export interface CircuitBreakerSnapshot {
+  state?: string | null
+  consecutive_failures: number
+  total_iterations: number
+  total_cost: number
+  max_consecutive_failures?: number | null
+  max_iterations?: number | null
+  max_total_cost?: number | null
+  cost_per_iteration?: number | null
+  reset_timeout?: number | null
+  last_failure_time?: number | null
+}
+
+/** Lição aprendida associada à run (tabela lessons). */
+export interface ArtifactLesson {
+  id: number
+  run_id: string
+  lesson_text: string
+  created_at: number
+}
+
+/** Resposta de GET /runs/{id}/artifacts. */
+export interface ArtifactsResponse {
+  run_id: string
+  node_artifacts: Record<string, NodeArtifact>
+  tokens: ArtifactTokens[]
+  degraded: boolean
+  degraded_reason?: string | null
+  circuit_breaker?: CircuitBreakerSnapshot | null
+  lessons: ArtifactLesson[]
+}

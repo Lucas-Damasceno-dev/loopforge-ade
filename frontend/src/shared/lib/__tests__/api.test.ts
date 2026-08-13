@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, updateLesson, deleteLesson, getGitInfo, getHealth } from '../api'
+import { createRun, listRuns, getRunCost, getRunArtifacts, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, updateLesson, deleteLesson, getGitInfo, getHealth } from '../api'
+import type { ArtifactsResponse } from '../types'
 
 describe('api client', () => {
   beforeEach(() => {
@@ -294,5 +295,43 @@ describe('api client', () => {
   it('getHealth throws ApiError when the engine is unreachable', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ detail: 'down' }), { status: 503 }))
     await expect(getHealth()).rejects.toMatchObject({ status: 503 })
+  })
+
+  it('getRunArtifacts chama GET /runs/{id}/artifacts', async () => {
+    const payload: ArtifactsResponse = { run_id: 'r1', node_artifacts: {}, tokens: [], degraded: false, lessons: [] }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }))
+    const res = await getRunArtifacts('r1')
+    expect(res.run_id).toBe('r1')
+    expect(res.node_artifacts).toEqual({})
+    expect(res.tokens).toEqual([])
+    expect(res.lessons).toEqual([])
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs/r1/artifacts'), expect.anything())
+  })
+
+  it('getRunArtifacts URL-encodes o id da run', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ run_id: 'r1', node_artifacts: {}, tokens: [], degraded: false, lessons: [] }), { status: 200 }))
+    await getRunArtifacts('run abc/1')
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/runs/run%20abc%2F1/artifacts')
+  })
+
+  it('getRunArtifacts retorna tokens + lessons + circuit_breaker quando presentes', async () => {
+    const payload: ArtifactsResponse = {
+      run_id: 'r2',
+      node_artifacts: { developer: { output: { code: 'x' } } },
+      tokens: [{ node: 'developer', model: 'm', prompt_tokens: 10, completion_tokens: 5, cost_usd: 0.01, estimated: false }],
+      degraded: true,
+      degraded_reason: 'llm falhou',
+      circuit_breaker: { state: 'open', consecutive_failures: 3, total_iterations: 5, total_cost: 0.02 },
+      lessons: [{ id: 1, run_id: 'r2', lesson_text: 'use pydantic', created_at: 1700000000 }],
+    }
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }))
+    const res = await getRunArtifacts('r2')
+    expect(res.degraded).toBe(true)
+    expect(res.degraded_reason).toBe('llm falhou')
+    expect(res.node_artifacts.developer.output).toEqual({ code: 'x' })
+    expect(res.tokens[0].node).toBe('developer')
+    expect(res.circuit_breaker?.state).toBe('open')
+    expect(res.lessons[0].lesson_text).toBe('use pydantic')
   })
 })
