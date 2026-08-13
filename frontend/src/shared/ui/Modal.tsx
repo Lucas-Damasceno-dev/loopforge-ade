@@ -61,7 +61,7 @@ export function Modal({ open, title, onClose, children, maxWidth = 480 }: ModalP
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="ade-modal-card-in w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-modal)] outline-none"
+        className="ade-modal-card-in w-full rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-modal)] outline-none"
         style={{ maxWidth }}
       >
         {children}

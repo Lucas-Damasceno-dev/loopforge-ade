@@ -17,7 +17,7 @@ export const ROUTING_OPTIONS = ['full', 'fast', 'patch', 'review-only', 'explore
 // Select enxuto (Gemini): h-8, radius-sm, padding mínimo — mesmo padrão do
 // ConsolePanel. Nativos (contrato/testes), só o visual apertou.
 const selectCls =
-  'h-8 rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-1.5 text-sm text-[var(--text)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]'
+  'h-8 rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-1.5 text-sm text-[var(--text)] transition-colors duration-[var(--dur-base)] hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]'
 
 // Form de nova run (B2/M-20): idea + stack + routing_mode (POST /api/v1/runs).
 // mock_llm/interactive ficam nos defaults do client (false). TanStack Query
@@ -57,7 +57,7 @@ export function NewRunForm({ onCreated }: NewRunFormProps) {
           Run cola na extremidade direita do campo, sem borda interna. Textarea
           cru (sem o Textarea compartilhado) porque o grupo pede fundo/borda
           únicos — classes mantêm os tokens do design system. */}
-      <div className="flex flex-1 items-stretch rounded-md border border-[var(--border)] bg-[var(--bg-elev)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-within:ring-2 focus-within:ring-[var(--accent)]">
+      <div className="flex flex-1 items-stretch rounded-md border border-[var(--border)] bg-[var(--bg-elev)] transition-colors duration-[var(--dur-base)] hover:border-[var(--border-hover)] focus-within:ring-2 focus-within:ring-[var(--accent)]">
         <textarea
           id="new-run-idea"
           value={idea}

@@ -12,10 +12,10 @@ export function Textarea({ invalid = false, className = '', ...rest }: TextareaP
     <textarea
       className={[
         'w-full resize-y rounded-md border bg-[var(--bg-elev)] p-2 text-sm text-[var(--text)] placeholder:text-[var(--text-dim)]',
-        'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+        'transition-colors duration-[var(--dur-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
         'disabled:cursor-not-allowed disabled:opacity-50',
         invalid
-          ? 'border-[var(--err)] ring-1 ring-[var(--err)]/30'
+          ? 'border-[var(--err)] ring-2 ring-[var(--err)]/40'
           : 'border-[var(--border)] hover:border-[var(--border-hover)]',
         className,
       ].join(' ')}

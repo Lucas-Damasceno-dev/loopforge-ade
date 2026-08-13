@@ -21,7 +21,7 @@ export function Button({ variant = 'ghost', size = 'md', className = '', childre
   return (
     <button
       type="button"
-      className={`rounded-md font-medium transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`rounded-md font-medium transition-colors duration-[var(--dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
       {...rest}
     >
       {children}

@@ -8,7 +8,7 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {}
 export function Select({ className = '', ...rest }: SelectProps) {
   return (
     <select
-      className={`h-8 rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-2 text-sm text-[var(--text)] transition-colors duration-150 hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`h-8 rounded-sm border border-[var(--border)] bg-[var(--bg-elev)] px-2 text-sm text-[var(--text)] transition-colors duration-[var(--dur-base)] hover:border-[var(--border-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...rest}
     />
   )

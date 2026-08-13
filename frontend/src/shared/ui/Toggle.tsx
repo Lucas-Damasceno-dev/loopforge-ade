@@ -18,12 +18,12 @@ export function Toggle({ checked, onChange, label, disabled = false, className =
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange?.(!checked)}
-      className={`inline-flex items-center rounded-full p-1 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`inline-flex items-center rounded-full p-1 transition-colors duration-[var(--dur-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...rest}
     >
       <span
         aria-hidden="true"
-        className={`inline-flex h-4 w-7 items-center rounded-full px-0.5 transition-colors duration-150 ${
+        className={`inline-flex h-4 w-7 items-center rounded-full px-0.5 transition-colors duration-[var(--dur-base)] ${
           checked ? 'justify-end bg-[var(--accent)]' : 'justify-start bg-[var(--bg-elev-2)]'
         }`}
       >

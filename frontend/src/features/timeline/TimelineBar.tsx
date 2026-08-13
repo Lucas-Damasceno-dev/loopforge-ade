@@ -74,7 +74,7 @@ export function TimelineBar({ runId }: { runId?: string }) {
 //   mudou só apresentação/posicionamento.
 return (
   <div data-testid="timeline-bar" className="relative h-0">
-    <div className="absolute bottom-2 left-1/2 z-20 flex w-[28rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1.5 shadow-[var(--shadow-node)]">
+    <div className="absolute bottom-2 left-1/2 z-20 flex w-[28rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1.5 shadow-[var(--shadow-node)]">
       <span className="whitespace-nowrap text-xs text-[var(--text-dim)]">
         {inspecting ? 'Inspection — ' : 'Live — '}step {current}/{stepCount}
       </span>
