@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 // abaixo do modal 70), err → role="alert", warn/info → role="status".
 // Entrada com slide de -100% (200ms) — ver §4 Motion.
 const tones = {
-  warn: { role: 'status', cls: 'bg-[var(--warn)]/15 text-[var(--warn)] border-b border-[var(--warn)]/30' },
+  warn: { role: 'status', cls: 'bg-[var(--warn)]/15 text-[var(--warn-text)] border-b border-[var(--warn)]/30' },
   err: { role: 'alert', cls: 'bg-[var(--err)]/15 text-[var(--err-text)] border-b border-[var(--err)]/30' },
   info: { role: 'status', cls: 'bg-[var(--info)]/15 text-[var(--info)] border-b border-[var(--info)]/30' },
 } as const

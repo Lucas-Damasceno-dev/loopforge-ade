@@ -7,12 +7,18 @@ export function nodeAccentVar(node: NodeType): string {
 }
 
 // Variantes -text para o RÓTULO do nó (texto): quando a base fica <4.5:1
-// sobre --bg-elev, o rótulo usa OBRIGATORIAMENTE a variante clara (entry
-// 3.7:1, cpo 2.8:1, tech_lead 4.2:1). Demais nós usam a base (AA).
+// sobre --bg-elev, o rótulo usa OBRIGATORIAMENTE a variante clara (auditoria
+// P0: pm/test_writer/developer/qa/retry/parallel_audit também falhavam AA).
 const TEXT_VARIANTS: Partial<Record<NodeType, string>> = {
   entry: 'var(--node-entry-text)',
   cpo: 'var(--accent-text)',
+  pm: 'var(--node-pm-text)',
   tech_lead: 'var(--node-tech-lead-text)',
+  test_writer: 'var(--node-test-writer-text)',
+  developer: 'var(--node-developer-text)',
+  qa: 'var(--node-qa-text)',
+  retry: 'var(--node-retry-text)',
+  parallel_audit: 'var(--node-parallel-audit-text)',
 }
 
 export function nodeAccentTextVar(node: NodeType): string {

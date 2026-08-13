@@ -20,7 +20,7 @@ const LEVELS: LogLevel[] = ['info', 'warn', 'error']
 
 const LEVEL_COLORS: Record<LogLevel, string> = {
   info: 'text-[var(--text-dim)]',
-  warn: 'text-[var(--warn)]',
+  warn: 'text-[var(--warn-text)]', // 12px normal não alcança 4.5:1 com --warn (§2.3)
   error: 'text-[var(--err-text)]', // 12px normal não alcança 4.5:1 com --err (§2.3)
 }
 

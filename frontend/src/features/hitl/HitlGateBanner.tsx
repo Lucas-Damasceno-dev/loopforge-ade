@@ -19,7 +19,7 @@ export function HitlGateBanner() {
     <div
       role="status"
       data-testid="hitl-gate-banner"
-      className="ade-banner-in flex items-center gap-3 border-b border-[var(--warn)]/30 bg-[var(--warn)]/15 px-4 py-1.5 text-sm text-[var(--warn)]"
+      className="ade-banner-in flex items-center gap-3 border-b border-[var(--warn)]/30 bg-[var(--warn)]/15 px-4 py-1.5 text-sm text-[var(--warn-text)]"
     >
       <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--warn)]" />
       <span className="min-w-0 flex-1 truncate">
