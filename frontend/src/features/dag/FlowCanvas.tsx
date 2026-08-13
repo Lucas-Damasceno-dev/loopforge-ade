@@ -112,7 +112,10 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
     setEdges(
       buildEdges(dagNodes).map((e) => ({
         ...e,
-        markerEnd: { type: MarkerType.ArrowClosed },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: e.id === 'retry->developer' ? 'var(--accent)' : undefined,
+        },
         animated: e.id === 'retry->developer',
         style: e.id === 'retry->developer' ? { stroke: 'var(--accent)', strokeWidth: 2 } : undefined,
       })),
