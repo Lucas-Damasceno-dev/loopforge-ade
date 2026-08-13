@@ -115,7 +115,7 @@ export function CostBar({
         title={maxUsd > 0 ? `Budget ${percent}% — ${formatUsd(spentUsd)} of ${formatUsd(maxUsd)}` : 'Budget — no limit set'}
         className={`inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-0.5 ${className}`}
       >
-        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${barColor}`} />
+        <span aria-hidden="true" className={`h-2 w-2 rounded-full transition-colors duration-[var(--dur-slow)] ${barColor}`} />
         {isLoading && maxUsd === 0 ? (
           <span data-testid="cost-label" className="text-xs text-[var(--text-dim)]">$…</span>
         ) : (

@@ -114,6 +114,7 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         ...e,
         markerEnd: { type: MarkerType.ArrowClosed },
         animated: e.id === 'retry->developer',
+        style: e.id === 'retry->developer' ? { stroke: 'var(--accent)', strokeWidth: 2 } : undefined,
       })),
     )
   }, [mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
@@ -140,7 +141,7 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
         <Controls />
-        <MiniMap pannable zoomable nodeColor="var(--bg-elev-2)" maskColor="rgb(0 0 0 / 0.6)" bgColor="var(--bg)" />
+        <MiniMap pannable zoomable nodeColor="var(--bg-elev-2)" maskColor="var(--overlay-strong)" bgColor="var(--bg)" />
       </ReactFlow>
     </div>
   )
