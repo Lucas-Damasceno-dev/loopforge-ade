@@ -1,6 +1,0 @@
-pyproject.toml
-src/loopforge_ade/__init__.py
-src/loopforge_ade.egg-info/PKG-INFO
-src/loopforge_ade.egg-info/SOURCES.txt
-src/loopforge_ade.egg-info/dependency_links.txt
-src/loopforge_ade.egg-info/top_level.txt

@@ -7,6 +7,12 @@ playwright-report/
 __pycache__/
 *.pyc
 .venv/
+build/
+*.egg-info/
+
+# keep SPA dist dir placeholder tracked
+!src/loopforge_ade/static/dist/
+!src/loopforge_ade/static/dist/.gitkeep
 
 # Git worktrees
 .worktrees/
