@@ -7,6 +7,7 @@ const tones = {
   err: { role: 'alert', cls: 'border-[var(--err)]/30 bg-[var(--err)]/15 text-[var(--err-text)]' },
   ok: { role: 'status', cls: 'border-[var(--ok)]/30 bg-[var(--ok)]/15 text-[var(--ok-text)]' },
   info: { role: 'status', cls: 'border-[var(--info)]/30 bg-[var(--info)]/15 text-[var(--info-text)]' },
+  warn: { role: 'status', cls: 'border-[var(--warn)]/30 bg-[var(--warn)]/15 text-[var(--warn-text)]' },
 } as const
 
 export interface AlertProps extends HTMLAttributes<HTMLDivElement> {

@@ -4,11 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../RunsWorkspace'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useCanvasStore } from '../../../stores/canvasStore'
-import { listRuns, createRun } from '../../../shared/lib/api'
+import { listRuns, createRun, resumeRun } from '../../../shared/lib/api'
 
 vi.mock('../../../shared/lib/api', () => ({
   listRuns: vi.fn(),
   createRun: vi.fn(),
+  resumeRun: vi.fn(),
 }))
 
 // Stubs jsdom para o React Flow (só necessários se FlowCanvas renderizar).
@@ -47,6 +48,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.mocked(listRuns).mockReset()
+  vi.mocked(resumeRun).mockReset()
 })
 
 describe('RunsWorkspace', () => {
@@ -134,5 +136,53 @@ describe('RunsWorkspace', () => {
 
     expect(screen.getAllByRole('tab')).toHaveLength(2)
     expect(useRunsStore.getState().runs.map((r) => r.id)).toEqual(['r1', 'r2'])
+  })
+
+  it('mostra botão Resume na toolbar quando a run ativa está paused', () => {
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    renderWorkspace()
+    // Toolbar + banner renderizam Resume quando paused — confere presença.
+    expect(screen.getAllByRole('button', { name: /^resume$/i }).length).toBeGreaterThan(0)
+  })
+
+  it('banner de paused oferece Resume e Budget override', () => {
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    renderWorkspace()
+    expect(screen.getByTestId('run-paused-banner')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /budget override/i })).toBeInTheDocument()
+  })
+
+  it('clique em Resume chama resumeRun e upserta a run', async () => {
+    vi.useRealTimers() // boot + resumeRun usam promises reais — sem fake timers
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    vi.mocked(resumeRun).mockResolvedValue({ id: 'r1', idea: 'x', stack: 'python', status: 'running' })
+    renderWorkspace()
+    // Toolbar e banner ambos expõem Resume — o primeiro dispara o mesmo fluxo.
+    fireEvent.click(screen.getAllByRole('button', { name: /^resume$/i })[0])
+    await waitFor(() => {
+      expect(resumeRun).toHaveBeenCalledWith('r1')
+      expect(useRunsStore.getState().runs[0].status).toBe('running')
+    })
   })
 })

@@ -138,9 +138,12 @@ export function handleWsEvent(e: WsEvent): void {
       log('error', 'pipeline error', undefined, id)
       break
     }
-    case 'pipeline_resumed':
-      log('info', 'pipeline resumed')
+    case 'pipeline_resumed': {
+      const id = str(e.run_id)
+      if (id) useRunsStore.getState().updateStatus(id, 'running')
+      log('info', 'pipeline resumed', undefined, id)
       break
+    }
     case 'hitl_gate_reached': {
       // C3 (M-12): gate HITL alcançado → banner informativo não-bloqueante
       // (hitlGateStore) + log. O drawer HITL continua abrindo pelo

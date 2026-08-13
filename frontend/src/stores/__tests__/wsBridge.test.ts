@@ -109,6 +109,12 @@ describe('handleWsEvent edge cases', () => {
     expect(useHitlGateStore.getState().gates[0].timeoutSeconds).toBe(30)
   })
 
+  it('pipeline_resumed atualiza status da run para running', () => {
+    useRunsStore.setState({ runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }], activeRunId: 'r1', queue: [], past: [], future: [] })
+    dispatchWsEvent({ event: 'pipeline_resumed', run_id: 'r1', payload: {} })
+    expect(useRunsStore.getState().runs[0].status).toBe('running')
+  })
+
   it('token_delta appends to stream buffer keyed by node (ADR-0007)', () => {
     dispatchWsEvent({ event: 'token_delta', run_id: 'r1', payload: { node: 'developer', content: 'Ola' } })
     dispatchWsEvent({ event: 'token_delta', run_id: 'r1', payload: { node: 'developer', content: ' mundo' } })

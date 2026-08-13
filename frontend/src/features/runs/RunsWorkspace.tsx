@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRunsStore } from '../../stores/runsStore'
 import { Button } from '../../shared/ui/Button'
 import { EmptyState } from '../../shared/ui/EmptyState'
@@ -6,7 +7,9 @@ import { FlowCanvas } from '../dag/FlowCanvas'
 import { RunTabs } from './RunTabs'
 import { NewRunForm } from './NewRunForm'
 import { runDemo } from './demoMock'
-import { listRuns } from '../../shared/lib/api'
+import { listRuns, resumeRun } from '../../shared/lib/api'
+import { useBudgetOverrideStore } from '../costs/budgetOverrideStore'
+import { Alert } from '../../shared/ui/Alert'
 import type { Run } from '../../shared/lib/types'
 
 // Workspace de runs: barra de abas (UX11) + toolbar (demo/form) + painel
@@ -44,6 +47,26 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
 
   const activeRun = runs.find((r) => r.id === activeRunId) ?? null
 
+  const queryClient = useQueryClient()
+  const openOverride = useBudgetOverrideStore((s) => s.openOverride)
+  const [resuming, setResuming] = useState(false)
+
+  const activeRunPaused = activeRun?.status === 'paused'
+
+  const handleResume = async () => {
+    if (!activeRun) return
+    setResuming(true)
+    try {
+      const updated = await resumeRun(activeRun.id)
+      useRunsStore.getState().upsertRun(updated)
+      queryClient.invalidateQueries({ queryKey: ['run-cost', activeRun.id] })
+    } catch {
+      // Erro de resume: mantém status paused (o log do console já cobre).
+    } finally {
+      setResuming(false)
+    }
+  }
+
   const handleClose = (id: string) => {
     removeRun(id)
     if (id === activeRunId) selectRun(null)
@@ -65,12 +88,30 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
             {/* Demo rebaixado (Gemini): secundário — a ação principal é o
                 prompt customizado (grupo do NewRunForm). */}
+            {activeRunPaused && (
+              <Button size="sm" variant="primary" onClick={handleResume} disabled={resuming}>
+                {resuming ? 'Resuming…' : 'Resume'}
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => runDemo()}>Run demo</Button>
             <NewRunForm onCreated={handleCreated} />
           </div>
         </>
       )}
       <div className="relative flex-1 overflow-hidden">
+        {activeRunPaused && activeRun && (
+          <Alert tone="warn" data-testid="run-paused-banner">
+            Run paused — budget hard-stop reached. Adjust budget or resume.
+            <span className="ml-2 inline-flex gap-2">
+              <Button size="sm" variant="primary" onClick={handleResume} disabled={resuming}>
+                {resuming ? 'Resuming…' : 'Resume'}
+              </Button>
+              <Button size="sm" variant="subtle" onClick={() => openOverride(activeRun.id)}>
+                Budget override
+              </Button>
+            </span>
+          </Alert>
+        )}
         {activeRun ? (
           <FlowCanvas />
         ) : (
