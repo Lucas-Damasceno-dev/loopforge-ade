@@ -151,7 +151,7 @@ export function InspectDrawer() {
                 <ul className="mt-1 space-y-1">
                   {secReview.vulnerabilities_found.map((v, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs">
-                      <Badge tone={SEVERITY_TONE[v.severity ?? 'low'] ?? 'neutral'}>{v.severity ?? 'n/a'}</Badge>
+                      <Badge tone={SEVERITY_TONE[v.severity?.toLowerCase() ?? 'low'] ?? 'neutral'}>{v.severity ?? 'n/a'}</Badge>
                       <span className="text-[var(--text-dim)]">
                         {v.type ?? '?'} — {v.description ?? ''}
                       </span>
