@@ -6,7 +6,8 @@ import { InspectDrawer } from '../features/dag/InspectDrawer'
 import { HitlDrawer } from '../features/hitl/HitlDrawer'
 import { HitlGateBanner } from '../features/hitl/HitlGateBanner'
 import { TimelineBar } from '../features/timeline/TimelineBar'
-import { CostBar } from '../features/costs/CostBar'
+import { BudgetPill } from '../features/costs/BudgetPill'
+import { useBudgetOverrideStore } from '../features/costs/budgetOverrideStore'
 import { McpPlayground } from '../features/mcp/McpPlayground'
 import { TrajectoriesPanel } from '../features/trajectories/TrajectoriesPanel'
 import { MemoryPanel } from '../features/memory/MemoryPanel'
@@ -78,6 +79,9 @@ export function App() {
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const runs = useRunsStore((s) => s.runs)
   const activeRun = runs.find((r) => r.id === activeRunId) ?? null
+  // Override de budget (T4): BudgetPill abre o modal via store (mesmo fluxo
+  // que o CostBar tinha; o modal agora vive dentro do BudgetPill).
+  const openBudgetOverride = useBudgetOverrideStore((s) => s.openOverride)
   // Estado do canvas p/ política de drawers sobrepostos (P2): fechar o
   // Inspect quando a run pausa (HITL abre).
   const nodeStatus = useCanvasStore((s) => s.nodeStatus)
@@ -153,6 +157,14 @@ export function App() {
         )}
       </div>
       <TimelineBar />
+      {/* Budget flutuante (T4): pill no canto inferior esquerdo do canvas —
+          substitui o CostBar da topbar (saiu do chrome p/ perto da ação). */}
+      <BudgetPill
+        runId={activeRunId}
+        onOverride={() => {
+          if (activeRunId) openBudgetOverride(activeRunId)
+        }}
+      />
     </div>
   )
 
@@ -161,10 +173,23 @@ export function App() {
       <main data-testid="app-root" className="flex h-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
         {!fullscreen && (
           <Topbar
+            /* Trigger central da command palette (T4 slot; wiring real na
+               Task 7 — placeholder desabilitado). */
+            center={
+              <button
+                type="button"
+                disabled
+                title="Command palette (coming in task 7)"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1 text-xs text-[var(--text-dim)] transition-colors duration-[var(--dur-fast)]"
+              >
+                <kbd className="rounded border border-[var(--border)] bg-[var(--bg-elev-2)] px-1 font-mono text-(--text-2xs) text-[var(--text-dim)]">
+                  ⌘K
+                </kbd>
+                <span>Open command palette…</span>
+              </button>
+            }
             right={
               <>
-                {/* UX12: badge de orçamento global sempre visível. */}
-                <CostBar />
                 {/* Focus mode (Fullscreen API): canvas + console sem chrome. */}
                 <Button size="sm" variant="subtle" title="Focus mode — canvas + console em fullscreen" onClick={toggleFullscreen}>
                   Focus

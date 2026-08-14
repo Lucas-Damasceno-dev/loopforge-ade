@@ -21,7 +21,7 @@ vi.mock('../../features/dag/InspectDrawer', () => ({ InspectDrawer: () => null }
 vi.mock('../../features/hitl/HitlDrawer', () => ({ HitlDrawer: () => null }))
 vi.mock('../../features/hitl/HitlGateBanner', () => ({ HitlGateBanner: () => null }))
 vi.mock('../../features/timeline/TimelineBar', () => ({ TimelineBar: () => null }))
-vi.mock('../../features/costs/CostBar', () => ({ CostBar: () => null }))
+vi.mock('../../features/costs/BudgetPill', () => ({ BudgetPill: () => null }))
 vi.mock('../../features/mcp/McpPlayground', () => ({ McpPlayground: () => null }))
 vi.mock('../../features/auth/ApiKeyGate', () => ({ ApiKeyGate: () => null }))
 vi.mock('../../shared/ui/ToastContainer', () => ({ ToastContainer: () => null }))

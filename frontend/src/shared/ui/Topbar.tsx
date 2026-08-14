@@ -4,7 +4,9 @@ import { useRunsStore } from '../../stores/runsStore'
 import { shortId } from '../../features/trajectories/shortId'
 
 export interface TopbarProps {
-  /** Região direita (cost bar, navegação). */
+  /** Região central (ex.: trigger da command palette — Task 7). */
+  center?: ReactNode
+  /** Região direita (ações — Focus, etc.). */
   right?: ReactNode
 }
 
@@ -24,11 +26,11 @@ const DOT: Record<'ok' | 'warn' | 'err', string> = {
 }
 
 // Topbar (01b §3.11): 44px, bg --bg + border-b. Identidade (workspace + id
-// curto da run ativa em mono), badges de status (WS + região `right` com
-// CostBar/navegação) agrupados à direita. Oculta em fullscreen (Focus mode,
-// §6.1). Navegação de views vive no ActivityRail (T2) — esta região `right`
-// carrega apenas ações (CostBar, Focus).
-export function Topbar({ right }: TopbarProps) {
+// curto da run ativa em mono), badge de status (WS + região `right` com
+// ações) agrupados à direita; `center` é um slot central opcional (trigger da
+// command palette — o CostBar virou BudgetPill flutuante no canvas, T4).
+// Oculta em fullscreen (Focus mode, §6.1).
+export function Topbar({ center, right }: TopbarProps) {
   const status = useWsStore((s) => s.status)
   const runs = useRunsStore((s) => s.runs)
   const activeRunId = useRunsStore((s) => s.activeRunId)
@@ -49,6 +51,8 @@ export function Topbar({ right }: TopbarProps) {
       {activeRun ? (
         <span className="font-mono text-xs text-[var(--text-dim)]">{shortId(activeRun.id)}</span>
       ) : null}
+
+      {center ? <div className="flex min-w-0 flex-1 justify-center px-2">{center}</div> : null}
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
         <span
