@@ -3,11 +3,19 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SidebarHost } from '../SidebarHost'
 import { useRunsStore } from '../../../stores/runsStore'
+import { useAgentsStore } from '../../../stores/agentsStore'
+
+// AgentsPanel faz fetchAgents no mount — lista vazia por default.
+vi.mock('../../../shared/lib/api', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../../shared/lib/api')>()
+  return { ...mod, listAgents: vi.fn().mockResolvedValue([]) }
+})
 
 const queryClient = new QueryClient()
 
 beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null })
+  useAgentsStore.setState({ agents: [], loading: false, error: null })
 })
 
 function renderHost(active: Parameters<typeof SidebarHost>[0]['active']) {
@@ -68,9 +76,12 @@ describe('SidebarHost', () => {
     expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
   })
 
-  it('agents: placeholder "coming in a later phase" sem botão (fix F2)', () => {
+  it('agents: renderiza o painel real (S2) — sem placeholder, sem Open panel', async () => {
     renderHost('agents')
-    expect(screen.getByText(/agent studio — coming in a later phase/i)).toBeInTheDocument()
+    // AgentsPanel (lista vazia) → EmptyState "No agents yet" + CTA.
+    expect(await screen.findByText('No agents yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create agent/i })).toBeInTheDocument()
+    expect(screen.queryByText(/agent studio — coming in a later phase/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
   })
 

@@ -81,14 +81,13 @@ export const PANEL_VIEWS: ViewKey[] = [
 ]
 
 /** Views LEVES (T3): conteúdo direto na sub-sidebar (sem drawer). */
-export const INLINE_VIEWS: ViewKey[] = ['prompt', 'memory', 'health', 'prompts', 'settings', 'git']
+export const INLINE_VIEWS: ViewKey[] = ['prompt', 'agents', 'memory', 'health', 'prompts', 'settings', 'git']
 
 /** Views PESADAS (T3): resumo na sub-sidebar + "Open panel" → drawer.
- *  agents/pipelines: resumo + placeholder ("coming in a later phase") — sem
- *  drawer (PANEL_VIEWS não as contém). */
+ *  pipelines: resumo + placeholder ("coming in a later phase") — sem
+ *  drawer (PANEL_VIEWS não a contém). */
 export const SUMMARY_VIEWS: ViewKey[] = [
   'runs',
-  'agents',
   'pipelines',
   'artifacts',
   'terminal',
