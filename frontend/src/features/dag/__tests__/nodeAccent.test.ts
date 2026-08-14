@@ -20,4 +20,21 @@ describe('nodeAccentTextVar', () => {
     expect(nodeAccentTextVar('tech_lead')).toBe('var(--node-tech-lead-text)')
     expect(nodeAccentTextVar('terminal' as NodeType)).toBe('var(--node-terminal)')
   })
+
+  // ─── S4: cores dos filhos do sub-grafo (appsec/devops) ─────────────────
+
+  it('appsec/devops têm variante -text própria (S4)', () => {
+    expect(nodeAccentTextVar('appsec')).toBe('var(--node-appsec-text)')
+    expect(nodeAccentTextVar('devops')).toBe('var(--node-devops-text)')
+  })
+
+  it('appsec/devops mapeiam a base var(--node-*)', () => {
+    expect(nodeAccentTextVar('appsec')).not.toBe(nodeAccentTextVar('developer'))
+    expect(nodeAccentTextVar('devops')).not.toBe(nodeAccentTextVar('test_writer'))
+  })
+
+  it('split/merge (T3) ainda caem no fallback de base', () => {
+    expect(nodeAccentTextVar('split')).toBe('var(--node-split)')
+    expect(nodeAccentTextVar('merge')).toBe('var(--node-merge)')
+  })
 })

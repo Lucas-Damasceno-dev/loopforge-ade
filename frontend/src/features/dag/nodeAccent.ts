@@ -19,6 +19,9 @@ const TEXT_VARIANTS: Partial<Record<NodeType, string>> = {
   qa: 'var(--node-qa-text)',
   retry: 'var(--node-retry-text)',
   parallel_audit: 'var(--node-parallel-audit-text)',
+  // S4: filhos do sub-grafo (display-only) — variantes claras próprias.
+  appsec: 'var(--node-appsec-text)',
+  devops: 'var(--node-devops-text)',
 }
 
 export function nodeAccentTextVar(node: NodeType): string {

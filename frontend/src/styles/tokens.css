@@ -52,6 +52,11 @@
   --node-qa: #f59e0b;      --node-qa-text: #fbbf24;          /* amber-500/400 */
   --node-retry: #f43f5e;   --node-retry-text: #fb7185;       /* rose-500/400 */
   --node-parallel-audit: #14b8a6; --node-parallel-audit-text: #2dd4bf; /* teal-500/400 */
+  /* S4 — filhos do sub-grafo (display-only): appsec emerald, devops pink
+   * (mockup 5-hybrid). Base 600 p/ distinguir de developer (emerald-500)
+   * e test_writer (pink-500); rótulo usa a variante -text clara. */
+  --node-appsec: #059669;  --node-appsec-text: #6ee7b7;      /* emerald-600/300 */
+  --node-devops: #db2777;  --node-devops-text: #fbcfe8;      /* pink-600/200 */
 
   /* §2.7 — overlays (substituem black/40 e black/60 hardcoded) */
   --overlay: rgb(0 0 0 / 0.40);
