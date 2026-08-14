@@ -197,3 +197,15 @@
 - **Não quebra:** fluxos de run/drawer/shell intactos; NodeFactory registra mas NÃO altera o grafo padrão (runs atuais seguem entry_router; uso real só no S3); tabela nova via create_all (init_db importa models — AgentTemplate precisa entrar no import de models.py; sem migração aditiva necessária).
 - **Riscos:** 2 repos (commits separados por task — dispatch instrui cwd exato); pytest engine lento → alvos + test_api.py como regressão; nó genérico NÃO deve imitar nós especiais (developer/qa/parallel_audit) — só LLM+tools padrão (spec §7).
 - **Fora de escopo:** uso do agente em runs/pipelines (S3), permissões RBAC runtime, prompts templates library (YAGNI).
+
+---
+
+## Post-review carry-over (p/ S3 — editor de pipelines)
+
+- **NodeFactory é infra órfã** (zero callers): S3 precisa hook create/update de agentes → `register_agent_node`, e **slug collision**: name unique é case-sensitive ("My Agent" vs "my agent" = 2 rows, mesmo slug `agent:my-agent` → sobrescreve silencioso)
+- **deleteAgent 404-swallow não limpa error stale** (agentsStore.ts:1432-1435) — fix 1 linha quando tocar no store
+- **Auth /api/v1/agents sem teste** — adicionar 1 asserção no test_auth_rbac (ou test_auth_v1_routers)
+- **Validação local do form incompleta**: timeout limpo → 0 → 422 genérico sem apontar campo; temperature sem max no input; considerar `model` default 'default' no form (espelhar AgentBase)
+- **runStatus.ts = template** p/ unificar nodeStatusMeta quando S3 crescer
+- **app.spec/dag.spec stale** (S1/S4) — cleanup em plano próprio; s2-verify não persistido (persistir como smoke futuro)
+- **Checkpoint automático do loopforge** varre tree do engine durante tasks BE — commitar com `git log -1 --format=%s` antes de qualquer reset; nunca commitar PROJECT_SUMMARY.md/README.md/docs/*
