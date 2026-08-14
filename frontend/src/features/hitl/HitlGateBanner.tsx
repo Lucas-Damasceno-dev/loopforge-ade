@@ -33,9 +33,9 @@ export function HitlGateBanner() {
       </span>
       <button
         type="button"
-        aria-label="Dispensar aviso de gate HITL"
+        aria-label="Dismiss HITL gate banner"
         onClick={() => dismiss(gate.id)}
-        className="shrink-0 rounded p-1 text-[var(--warn)] transition-colors duration-100 hover:bg-[var(--warn)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--warn)]"
+        className="shrink-0 rounded p-1 text-[var(--warn)] transition-colors duration-(--dur-fast) hover:bg-[var(--warn)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--warn)]"
       >
         <CloseIcon />
       </button>

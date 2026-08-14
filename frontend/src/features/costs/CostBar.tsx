@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getRunCost, overrideRunBudget } from '../../shared/lib/api'
 import type { CostResponse } from '../../shared/lib/types'
 import { useRunsStore } from '../../stores/runsStore'
+import { isDemoRunId } from '../runs/demoMock'
 import { Banner } from '../../shared/ui/Banner'
 import { Button } from '../../shared/ui/Button'
 import { Modal } from '../../shared/ui/Modal'
@@ -41,7 +42,11 @@ export function CostBar({
   const { data, isError, isLoading } = useQuery<CostResponse>({
     queryKey: ['run-cost', effectiveRunId],
     queryFn: () => getRunCost(effectiveRunId as string),
-    enabled: !controlled && !!effectiveRunId && run !== null && run.status !== 'queued' && run.status !== 'paused',
+    // Run demo-* é sintética (sem registro no backend) — GET /cost daria 404.
+    enabled: !controlled && !!effectiveRunId && !isDemoRunId(effectiveRunId) && run !== null && run.status !== 'queued' && run.status !== 'paused',
+    // Polling 5s enquanto roda (mesmo padrão do InspectDrawer): custo é
+    // acumulado pelo backend durante a execução — sem isso o badge fica stale.
+    refetchInterval: run?.status === 'running' ? 5000 : false,
   })
 
   const maxUsd = maxUsdProp ?? data?.budget.max_usd ?? 0
@@ -67,13 +72,17 @@ export function CostBar({
     return () => clearTimeout(t)
   }, [level])
 
-  // Sem dados de custo (run ausente/queued/paused/erro) → empty state compacto.
-  const noData = !controlled && (effectiveRunId === null || run === null || run.status === 'queued' || run.status === 'paused' || isError)
+  // Sem dados de custo (run ausente/queued/paused/demo sintética/erro) →
+  // empty state compacto. Demo-* nunca consulta o backend (404) — mostra o
+  // mesmo vazio sem o fetch.
+  const noData =
+    !controlled &&
+    (effectiveRunId === null || run === null || isDemoRunId(effectiveRunId) || run.status === 'queued' || run.status === 'paused' || isError)
   if (noData) {
     return (
-      <div data-testid="cost-bar" className={`flex items-center gap-2 ${className}`} title="Budget — sem dados de custo">
-        <span className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">Budget</span>
-        <span data-testid="cost-empty" className="text-xs text-[var(--text-dim)]">— no data</span>
+      <div data-testid="cost-bar" className={`flex items-center gap-1.5 ${className}`} title="Budget — sem dados de custo">
+        <span aria-hidden="true" data-testid="cost-empty" className="h-1.5 w-1.5 rounded-full bg-[var(--bg-elev-2)]" />
+        <span className="text-(--text-2xs) uppercase tracking-wide text-[var(--text-dim)]">Budget</span>
       </div>
     )
   }
@@ -117,7 +126,7 @@ export function CostBar({
       >
         <span aria-hidden="true" className={`h-2 w-2 rounded-full transition-colors duration-[var(--dur-slow)] ${barColor}`} />
         {isLoading && maxUsd === 0 ? (
-          <span data-testid="cost-label" className="text-xs text-[var(--text-dim)]">$…</span>
+          <span data-testid="cost-label" aria-hidden="true" className="block h-3 w-14 animate-pulse rounded bg-[var(--bg-elev-2)]" />
         ) : (
           <span data-testid="cost-label" className={`text-xs ${labelCls}`}>
             {data?.estimated ? '~' : ''}${spentUsd} / ${maxUsd}

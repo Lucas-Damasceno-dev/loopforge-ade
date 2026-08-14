@@ -1,4 +1,37 @@
-import type { AdeConfig, ArtifactsResponse, BudgetOverrideRequest, Checkpoint, CostResponse, CreateRunInput, DecisionRecord, DeepPartial, EvalsLeaderboard, EvalsSummary, ForkResult, GitInfo, HealthStatus, ImportResult, Lesson, LessonCreate, LessonDeleteResult, McpServer, McpTool, Run, RunListResponse, RunQueueResponse, TimelineResponse, TrajectoryExport } from './types'
+import type {
+  AdeConfig,
+  ArtifactsResponse,
+  AstAnalysisResponse,
+  BudgetOverrideRequest,
+  Checkpoint,
+  CostResponse,
+  CoverageReportResponse,
+  CreateRunInput,
+  DecisionRecord,
+  DeepPartial,
+  DockerConfigResponse,
+  EvalsLeaderboard,
+  EvalsSummary,
+  ExecCommandResponse,
+  ForkResult,
+  GitInfo,
+  HealthStatus,
+  ImportResult,
+  Lesson,
+  LessonCreate,
+  LessonDeleteResult,
+  McpServer,
+  McpTool,
+  Run,
+  RunFilesResponse,
+  RunListResponse,
+  RunQueueResponse,
+  SaveDockerConfigRequest,
+  SaveDockerConfigResponse,
+  TerminalInfoResponse,
+  TimelineResponse,
+  TrajectoryExport,
+} from './types'
 import type { WsEvent } from './ws'
 
 // Base da API v1: VITE_API_BASE opcional (ex.: http://127.0.0.1:8787) —
@@ -114,10 +147,41 @@ export const overrideRunBudget = (id: string, body: BudgetOverrideRequest) =>
 // último checkpoint (canais de artefato) + llm_costs (tokens) + lessons.
 export const getRunArtifacts = (id: string) => apiFetch<ArtifactsResponse>(`/runs/${encodeURIComponent(id)}/artifacts`)
 
+// Arquivos gerados no diretório da run: GET /api/v1/runs/{id}/files
+export const getRunFiles = (id: string) => apiFetch<RunFilesResponse>(`/runs/${encodeURIComponent(id)}/files`)
+
+// Export ZIP de uma run: GET /api/v1/runs/{id}/export
+export async function downloadRunZip(id: string): Promise<void> {
+  const headers: Record<string, string> = {}
+  const key = getApiKey()
+  if (key) headers['X-API-Key'] = key
+  const res = await fetch(`${BASE}/runs/${encodeURIComponent(id)}/export`, { headers })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'Failed to download run zip')
+  }
+  const blob = await res.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `loopforge-run-${id.slice(0, 8)}.zip`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 export const getConfig = () => apiFetch<AdeConfig>('/config')
 export const patchConfig = (partial: DeepPartial<AdeConfig>) => apiFetch<AdeConfig>('/config', { method: 'PATCH', body: JSON.stringify(partial) })
 export const listMcpServers = () => apiFetch<McpServer[]>('/mcp/servers')
 export const listMcpTools = (name: string) => apiFetch<McpTool[]>(`/mcp/servers/${encodeURIComponent(name)}/tools`)
+export const publishGitPr = (runId: string, payload?: { title?: string; body?: string }) =>
+  apiFetch<{ success: boolean; message: string; branch: string; pr_url?: string }>(
+    `/git/${encodeURIComponent(runId)}/publish-pr`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    },
+  )
 
 // Execução de tool MCP (Fase D/UC-05): POST /mcp/servers/{name}/tools/{tool}
 // body {arguments: {...}} → 200 dict resultado; 403 tool não permitida
@@ -187,8 +251,35 @@ export const deleteLesson = (id: number) =>
 // ─── Git (GitPanel) — estado do repositório da run ──────────────────────────
 // GET /api/v1/git/{run_id} (src/lf/api/git.py): branch, HEAD, status curto e
 // log de commits do workdir da run (/tmp/loopforge/run_{run_id} no backend).
-// 404 quando a run não tem diretório/repo git — tratado como estado vazio.
 export const getGitInfo = (runId: string) => apiFetch<GitInfo>(`/git/${encodeURIComponent(runId)}`)
+
+// ─── Terminal (TerminalPanel) ───────────────────────────────────────────────
+export const getTerminalInfo = (runId: string) =>
+  apiFetch<TerminalInfoResponse>(`/terminal/${encodeURIComponent(runId)}/info`)
+
+export const execTerminalCommand = (runId: string, command: string, timeoutSeconds = 15) =>
+  apiFetch<ExecCommandResponse>(`/terminal/${encodeURIComponent(runId)}/exec`, {
+    method: 'POST',
+    body: JSON.stringify({ command, timeout_seconds: timeoutSeconds }),
+  })
+
+// ─── AST & Grafo de Dependências (AstPanel) ─────────────────────────────────
+export const getRunAst = (runId: string) =>
+  apiFetch<AstAnalysisResponse>(`/ast/${encodeURIComponent(runId)}`)
+
+// ─── Cobertura de Testes (CoveragePanel) ────────────────────────────────────
+export const getRunCoverage = (runId: string) =>
+  apiFetch<CoverageReportResponse>(`/coverage/${encodeURIComponent(runId)}`)
+
+// ─── Docker & Devcontainer (DockerPanel) ────────────────────────────────────
+export const getDockerConfig = (runId: string) =>
+  apiFetch<DockerConfigResponse>(`/docker/${encodeURIComponent(runId)}`)
+
+export const saveDockerConfig = (runId: string, payload: SaveDockerConfigRequest) =>
+  apiFetch<SaveDockerConfigResponse>(`/docker/${encodeURIComponent(runId)}/save`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 
 // ─── Health (HealthPanel) — heartbeat do engine ─────────────────────────────
 // GET /health (raiz, SEM auth — fora do prefixo /api/v1): {status, version}.

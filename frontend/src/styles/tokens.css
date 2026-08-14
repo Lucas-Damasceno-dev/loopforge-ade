@@ -126,6 +126,8 @@ pre,
 kbd {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  /* JetBrains Mono: ligaduras comuns de código (=>, !=, ::) — P2-5. */
+  font-variant-ligatures: common-ligatures;
 }
 
 /* ─── Scrollbar (01b §2.8) — console, drawers, abas, painéis ──────────── */
@@ -175,6 +177,16 @@ kbd {
   to { opacity: 1; }
 }
 
+/* Toast (auditoria P0): fade + slide-up curto com o easing canônico — classe
+ * própria p/ não contaminar o .ade-fade-in dos nós do DAG (que ficam fade-only). */
+.ade-toast-in {
+  animation: ade-toast-in 150ms var(--ease-out);
+}
+@keyframes ade-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Glow pulsante do nó running (auditoria P0) — opacity oscila suave.
  * prefers-reduced-motion global zera (animation-duration: 0ms). */
 @keyframes node-pulse {
@@ -187,6 +199,13 @@ kbd {
  * classes unlayered (.ade-fade-in) e utilities do Tailwind (animate-*). */
 .ade-node-running {
   animation: ade-fade-in 150ms ease-out, node-pulse 2s ease-in-out infinite;
+}
+
+/* Hover-lift consistente com a variante sem glow (auditoria P0): só translate,
+ * sem tocar na sombra — o glow running permanece intacto. transition-all do
+ * nó cobre a transform. */
+.ade-node-running:hover {
+  transform: translateY(-2px);
 }
 
 .ade-drawer-in {

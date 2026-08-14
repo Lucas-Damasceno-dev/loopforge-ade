@@ -9,6 +9,13 @@ import { dispatchWsEvent } from '../../stores/wsBridge'
 // v1 (seq/run_id/timestamp/payload) como o EventBus do backend.
 const NODE_DELAY_MS = 300
 
+// Runs demo-* são sintéticas (sem registro no backend) — a UI NÃO pode
+// consultar endpoints por run (GET /runs/{id}/cost, /decisions, …) para elas,
+// senão o servidor responde 404. Consumido por CostBar/FlowCanvas/HitlDrawer.
+export function isDemoRunId(id: string | null | undefined): boolean {
+  return typeof id === 'string' && id.startsWith('demo-')
+}
+
 // entry/retry são virtuais (sem node_execution próprio — contrato 03 §7);
 // a demo só emite execução para os nós de execução.
 const EXECUTION_ORDER = PIPELINE_ORDER.filter((n) => n !== 'entry' && n !== 'retry')

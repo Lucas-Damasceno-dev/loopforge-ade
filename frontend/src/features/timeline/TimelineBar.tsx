@@ -72,30 +72,38 @@ export function TimelineBar({ runId }: { runId?: string }) {
 //   V1 sem resume no server: retorna à visualização live (ghost limpo).
 // - Toda a lógica (steps, ghosting, onSeek, checkpoints) permanece intacta —
 //   mudou só apresentação/posicionamento.
-return (
-  <div data-testid="timeline-bar" className="relative h-0">
-    <div className="absolute bottom-2 left-1/2 z-20 flex w-[28rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1.5 shadow-[var(--shadow-node)]">
-      <span className="whitespace-nowrap text-xs text-[var(--text-dim)]">
-        {inspecting ? 'Inspection — ' : 'Live — '}step {current}/{stepCount}
-      </span>
-      <input
-        type="range"
-        min={0}
-        max={stepCount}
-        value={current}
-        aria-label="Inspection step"
-        className="ade-slider min-w-0 flex-1"
-        onChange={handleChange}
-      />
-      {inspecting && (
-        <Button size="sm" variant="subtle" onClick={() => setGhostToStep(null)}>
-          Resume from here
+  if (stepCount === 0) return null
+
+  return (
+    <div data-testid="timeline-bar" className="relative h-0">
+      <div className="absolute bottom-2 left-1/2 z-20 flex w-[28rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elev)]/95 px-3.5 py-1.5 shadow-lg backdrop-blur-md">
+        {/* Emoji → dot de estado (auditoria de design): sem ícone equivalente
+            em icons.tsx; cor de estado comunica o modo — err = live, accent = inspeção. */}
+        <span className="flex items-center gap-1.5 whitespace-nowrap font-mono text-xs text-[var(--text-dim)]">
+          <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${inspecting ? 'bg-[var(--accent)]' : 'bg-[var(--err)]'}`} />
+          {inspecting ? 'Inspection — ' : 'Live — '}step {current}/{stepCount}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={stepCount}
+          value={current}
+          aria-label="Inspection step"
+          className="ade-slider min-w-0 flex-1 cursor-pointer"
+          onChange={handleChange}
+        />
+        {/* Ação única (auditoria de design): "Resume from here" e "Back to live"
+            eram duplicadas — ambas só limpavam o ghost (V1 sem resume no server).
+            Rótulo depende do estado: inspeção → "Back to live"; live → "Resume from here". */}
+        <Button
+          size="sm"
+          variant={inspecting ? 'subtle' : 'ghost'}
+          aria-label={inspecting ? 'Back to live' : 'Resume from here'}
+          onClick={() => setGhostToStep(null)}
+        >
+          {inspecting ? 'Back to live' : 'Resume from here'}
         </Button>
-      )}
-      <Button size="sm" variant="ghost" disabled={!inspecting} onClick={() => setGhostToStep(null)}>
-        Back to live
-      </Button>
+      </div>
     </div>
-  </div>
-)
+  )
 }

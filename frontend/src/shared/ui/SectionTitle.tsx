@@ -13,7 +13,7 @@ export function SectionTitle({ children, count, className = '' }: SectionTitlePr
   return (
     <h3 className={`text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)] ${className}`}>
       {children}
-      {count !== undefined && <span className="text-[var(--text-dim)]/70"> ({count})</span>}
+      {count !== undefined && <span className="text-[var(--text-dim)]"> ({count})</span>}
     </h3>
   )
 }

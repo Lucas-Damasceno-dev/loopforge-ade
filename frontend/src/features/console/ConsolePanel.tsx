@@ -18,6 +18,10 @@ import { EmptyState } from '../../shared/ui/EmptyState'
 // do App (h-60).
 const LEVELS: LogLevel[] = ['info', 'warn', 'error']
 
+// Teto de retenção (auditoria): evita DOM sem limite em runs longas — exibe
+// as últimas 2000 entradas e avisa quando houve corte.
+const MAX_CONSOLE_ENTRIES = 2000
+
 const LEVEL_COLORS: Record<LogLevel, string> = {
   info: 'text-[var(--text-dim)]',
   warn: 'text-[var(--warn-text)]', // 12px normal não alcança 4.5:1 com --warn (§2.3)
@@ -26,16 +30,43 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
 
 const chipCls = (active: boolean) =>
   [
-    'rounded px-2 py-1 text-xs font-medium transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+    'rounded px-2 py-1 text-xs font-medium transition-colors duration-(--dur-fast) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
     active ? 'bg-[var(--bg-elev-2)] text-[var(--text)]' : 'text-[var(--text-dim)] hover:text-[var(--text)]',
   ].join(' ')
 
 // Chevron de colapso (auditoria): mesmo estilo do close do Drawer.
 const chevronCls =
-  'rounded p-1 text-[var(--text-dim)] transition-colors duration-100 hover:bg-[var(--bg-elev)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]'
+  'rounded p-1 text-[var(--text-dim)] transition-colors duration-(--dur-fast) hover:bg-[var(--bg-elev)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]'
 
 function formatTs(ts: number): string {
   return new Date(ts).toLocaleTimeString()
+}
+
+function renderHighlighted(text: string, query: string) {
+  const q = query.trim()
+  if (!q) return text
+  const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  const parts = text.split(regex)
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase() ? (
+      <mark key={i} className="rounded-xs bg-[var(--warn)]/30 px-0.5 font-semibold text-[var(--warn-text)]">
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  )
+}
+
+const STORAGE_KEY_CONSOLE_COLLAPSED = 'lf_console_collapsed'
+
+function getSavedCollapsed(): boolean | null {
+  try {
+    const val = localStorage.getItem(STORAGE_KEY_CONSOLE_COLLAPSED)
+    return val !== null ? val === 'true' : null
+  } catch {
+    return null
+  }
 }
 
 export function ConsolePanel({ className = '' }: { className?: string }) {
@@ -49,12 +80,37 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
   const listRef = useRef<HTMLDivElement>(null)
 
   const hasContent = entries.length > 0 || Object.keys(streams).length > 0
+  const errorCount = entries.filter((e) => e.level === 'error').length
 
-  // Colapso local (não persiste): vazio → colapsado no mount; transições de
-  // conteúdo (vazio→logs, logs→vazio) expandem/colapsam automaticamente.
-  // Manual (chevron) prevalece até a próxima transição de conteúdo.
-  const [collapsed, setCollapsed] = useState(!hasContent)
+  // Colapso persistido no localStorage: manual (chevron) salva preferência;
+  // vazio inicia colapsado; ao primeiro log/stream expande automaticamente.
+  const [collapsed, setCollapsed] = useState(() => (!hasContent ? true : (getSavedCollapsed() ?? false)))
   const hadContent = useRef(hasContent)
+
+  const toggleCollapse = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(STORAGE_KEY_CONSOLE_COLLAPSED, String(next))
+      } catch {
+        // Fallback defensivo
+      }
+      return next
+    })
+  }
+
+  const handleExportLogs = () => {
+    const lines = visible.map((e) => `[${new Date(e.ts).toISOString()}] [${e.level.toUpperCase()}] [${e.node}] ${e.message}`)
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `loopforge-console-${new Date().toISOString().slice(0, 10)}.log`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   // Seleção derivada: nó + nível + busca (case-insensitive sobre a mensagem).
   const visible = useMemo(() => {
@@ -67,9 +123,13 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
     })
   }, [entries, filters])
 
+  // Retenção: entradas antigas cortadas do DOM (store intacta) + aviso.
+  const truncated = entries.length > MAX_CONSOLE_ENTRIES
+  const displayed = truncated ? visible.slice(-MAX_CONSOLE_ENTRIES) : visible
+
   // Streams de token a token (V1.1/ADR-0007): tratados como nível info —
   // somem sob filtro warn/error; nó/query seguem os filtros comuns.
-  const streamList = useMemo(() => Object.values(streams), [streams])
+  const streamList = Object.values(streams)
   const visibleStreams = useMemo(() => {
     const q = filters.query.trim().toLowerCase()
     return streamList.filter((s) => {
@@ -116,11 +176,16 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
             <span className="text-xs text-[var(--text-dim)]">
               {hasContent ? `${entries.length + streamList.length} ${entries.length + streamList.length === 1 ? 'log' : 'logs'}` : 'No logs'}
             </span>
+            {errorCount > 0 && (
+              <span className="rounded bg-[var(--err)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--err-text)]">
+                {errorCount} {errorCount === 1 ? 'error' : 'errors'}
+              </span>
+            )}
             <button
               type="button"
               aria-label="Expand console"
               aria-expanded={false}
-              onClick={() => setCollapsed(false)}
+              onClick={toggleCollapse}
               className={`ml-auto ${chevronCls}`}
             >
               ▸
@@ -167,6 +232,9 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
             <Button size="sm" variant="ghost" aria-pressed={autoScroll} aria-label="Auto-scroll" title={autoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'} onClick={toggleAutoScroll}>
               {autoScroll ? 'Pause' : 'Resume'}
             </Button>
+            <Button size="sm" variant="subtle" aria-label="Export logs" title="Download filtered logs as .log file" onClick={handleExportLogs}>
+              Export
+            </Button>
             <Button size="sm" variant="subtle" aria-label="Clear logs" onClick={clear}>
               Clear
             </Button>
@@ -174,7 +242,7 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
               type="button"
               aria-label="Collapse console"
               aria-expanded={true}
-              onClick={() => setCollapsed(true)}
+              onClick={toggleCollapse}
               className={chevronCls}
             >
               ▾
@@ -190,19 +258,40 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
           className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 font-mono text-xs leading-5 [scrollbar-gutter:stable]"
         >
           {entries.length === 0 && streamList.length === 0 ? (
-            <EmptyState compact title="No console output yet" />
+            <EmptyState
+              compact
+              icon={
+                <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none stroke-[1.5]">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              }
+              title="No console output yet"
+              description="Pipeline execution logs and agent thought streams will appear here in real-time."
+            />
           ) : visible.length === 0 && visibleStreams.length === 0 ? (
             <p className="mt-1 text-[var(--text-dim)]">No matching logs</p>
           ) : (
             <>
-              {visible.map((e) => (
-                <div key={e.id} role="listitem" data-testid="console-entry" className={LEVEL_COLORS[e.level]}>
-                  [{formatTs(e.ts)}] [{e.node ?? 'system'}] [{e.level.toUpperCase()}] {e.message}
+              {truncated && (
+                <div className="py-0.5 italic text-[var(--text-dim)]" role="note">
+                  … older logs truncated (showing last {MAX_CONSOLE_ENTRIES})
+                </div>
+              )}
+              {displayed.map((e) => (
+                <div key={e.id} role="listitem" className="flex items-baseline gap-2 py-0.5">
+                  <span className="select-none text-[var(--text-dim)]">{formatTs(e.ts)}</span>
+                  <span className={`font-semibold ${LEVEL_COLORS[e.level]}`}>[{e.level.toUpperCase()}]</span>
+                  <span className="text-[var(--text-dim)]">[{e.node ? ((NODE_LABELS as Record<string, string>)[e.node] ?? e.node) : 'system'}]</span>
+                  <span className="rounded-sm whitespace-pre-wrap break-all text-[var(--text)] hover:bg-[var(--bg-elev-2)]">{renderHighlighted(e.message, filters.query)}</span>
                 </div>
               ))}
               {visibleStreams.map((s) => (
-                <div key={s.node} role="listitem" data-testid="console-stream" className={LEVEL_COLORS.info}>
-                  [{formatTs(s.ts)}] [{s.node}] [STREAM] {s.content}
+                <div key={s.node} role="listitem" data-testid="console-stream" className="text-[var(--text)] whitespace-pre-wrap break-words py-0.5">
+                  <span className="text-[var(--text-dim)]">[{formatTs(s.ts)}]</span>{' '}
+                  <span className="text-[var(--text)] font-semibold">[{s.node}]</span>{' '}
+                  <span className="text-[var(--info-text)] font-semibold">[STREAM]</span>{' '}
+                  <span>{s.content}</span>
                   <span className="console-stream-cursor" />
                 </div>
               ))}

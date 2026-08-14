@@ -35,19 +35,19 @@ export const NODE_LABELS: Record<NodeType, string> = {
   parallel_audit: 'Parallel Audit',
 }
 
-// Posições do modo grafo (2D): fluxo principal em uma linha, `retry` abaixo
-// de `developer` — o loop retry→developer sobe com aresta curva. Kanban usa
-// colunas lineares (x = index * 260, y alternado).
+// Posições do modo grafo (2D): fluxo principal em linha horizontal reta (y=120),
+// `retry` abaixo de `developer` (y=280) — o loop retry→developer sobe com aresta curva.
+// Kanban usa colunas lineares alinhadas horizontalmente (x = index * 240, y = 120).
 const GRAPH_POS: Record<NodeType, { x: number; y: number }> = {
-  entry: { x: 0, y: 80 },
-  cpo: { x: 210, y: 80 },
-  pm: { x: 420, y: 80 },
-  tech_lead: { x: 630, y: 80 },
-  test_writer: { x: 840, y: 80 },
-  developer: { x: 1050, y: 80 },
-  qa: { x: 1260, y: 80 },
-  retry: { x: 1050, y: 320 },
-  parallel_audit: { x: 1470, y: 80 },
+  entry: { x: 0, y: 120 },
+  cpo: { x: 220, y: 120 },
+  pm: { x: 440, y: 120 },
+  tech_lead: { x: 660, y: 120 },
+  test_writer: { x: 880, y: 120 },
+  developer: { x: 1100, y: 120 },
+  qa: { x: 1320, y: 120 },
+  retry: { x: 1100, y: 280 },
+  parallel_audit: { x: 1540, y: 120 },
 }
 
 // type (não interface): atribuição a Record<string, unknown> exige índice
@@ -73,6 +73,8 @@ export interface DagEdge {
   id: string
   source: NodeType
   target: NodeType
+  animated?: boolean
+  style?: Record<string, unknown>
 }
 
 export type DagStatuses = Partial<Record<NodeType, { status: NodeStatus; attemptCount: number }>>
@@ -91,7 +93,7 @@ export function buildNodes(
   const order = hasRetry ? pipelineOrderWithRetry() : PIPELINE_ORDER
   return order.map((node, i) => {
     const entry = statuses[node] ?? { status: 'pending' as NodeStatus, attemptCount: 0 }
-    const position = mode === 'graph' ? GRAPH_POS[node] : { x: i * 260, y: 120 + (i % 2) * 80 }
+    const position = mode === 'graph' ? GRAPH_POS[node] : { x: i * 240, y: 120 }
     return {
       id: node,
       type: 'agent',
@@ -124,13 +126,29 @@ export function buildEdges(nodes: DagNode[]): DagEdge[] {
   for (let i = 0; i < order.length - 1; i++) {
     const source = order[i]
     const target = order[i + 1]
-    if (byId.has(source) && byId.has(target)) {
-      edges.push({ id: `${source}->${target}`, source, target })
+    const sourceNode = byId.get(source)
+    const targetNode = byId.get(target)
+    if (sourceNode && targetNode) {
+      const isRunning = targetNode.data.status === 'running'
+      edges.push({
+        id: `${source}->${target}`,
+        source,
+        target,
+        animated: isRunning,
+        style: isRunning ? { stroke: 'var(--accent)', strokeWidth: 2 } : { stroke: 'var(--border)', strokeWidth: 1.5 },
+      })
     }
   }
   const retry = byId.get(RETRY_NODE)
   if (retry && retry.position.x === GRAPH_POS.retry.x && retry.position.y === GRAPH_POS.retry.y) {
-    edges.push({ id: `${RETRY_NODE}->developer`, source: RETRY_NODE, target: 'developer' })
+    const isRetryRunning = retry.data.status === 'running'
+    edges.push({
+      id: `${RETRY_NODE}->developer`,
+      source: RETRY_NODE,
+      target: 'developer',
+      animated: true,
+      style: isRetryRunning ? { stroke: 'var(--err)', strokeWidth: 2 } : { stroke: 'var(--accent)', strokeWidth: 1.5 },
+    })
   }
   return edges
 }

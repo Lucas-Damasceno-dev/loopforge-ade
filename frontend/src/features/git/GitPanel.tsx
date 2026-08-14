@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getGitInfo } from '../../shared/lib/api'
+import { getGitInfo, publishGitPr } from '../../shared/lib/api'
 import type { GitInfo } from '../../shared/lib/types'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Card } from '../../shared/ui/Card'
 import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { Alert } from '../../shared/ui/Alert'
+import { Button } from '../../shared/ui/Button'
+import { showToast } from '../../stores/toastStore'
 
 // Git (Tier2 — GitPanel): estado do repositório da run ativa — branch/HEAD no
 // topo, lista de arquivos alterados (status curto estilo git status --short)
@@ -28,6 +31,9 @@ function statusTone(status: string): string {
 }
 
 export function GitPanel({ open, onClose, runId }: GitPanelProps) {
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [prFeedback, setPrFeedback] = useState<{ tone: 'ok' | 'err'; message: string } | null>(null)
+
   const gitQuery = useQuery<GitInfo>({
     queryKey: ['git-info', runId],
     queryFn: () => getGitInfo(runId),
@@ -35,6 +41,27 @@ export function GitPanel({ open, onClose, runId }: GitPanelProps) {
   })
 
   const info = gitQuery.data
+
+  const handlePublishPr = async () => {
+    setIsPublishing(true)
+    setPrFeedback(null)
+    try {
+      const res = await publishGitPr(runId)
+      if (res.success) {
+        setPrFeedback({ tone: 'ok', message: res.message || 'Pull Request published successfully!' })
+        showToast('Pull Request Published', res.message || 'Branch created and PR opened on GitHub', 'ok')
+        gitQuery.refetch()
+      } else {
+        setPrFeedback({ tone: 'err', message: res.message || 'Failed to publish Pull Request.' })
+        showToast('PR Publication Failed', res.message, 'err')
+      }
+    } catch (err) {
+      setPrFeedback({ tone: 'err', message: String(err) })
+      showToast('Error Publishing PR', String(err), 'err')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
 
   return (
     <Drawer open={open} title="Git" onClose={onClose}>
@@ -44,8 +71,24 @@ export function GitPanel({ open, onClose, runId }: GitPanelProps) {
         <Alert tone="err">No git repository for this run</Alert>
       ) : info ? (
         <div className="space-y-5">
+          {prFeedback && (
+            <Alert tone={prFeedback.tone}>
+              {prFeedback.message}
+            </Alert>
+          )}
+
           <section>
-            <SectionTitle className="mb-2">Repository</SectionTitle>
+            <div className="mb-2 flex items-center justify-between">
+              <SectionTitle>Repository</SectionTitle>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={isPublishing}
+                onClick={handlePublishPr}
+              >
+                {isPublishing ? 'Publishing…' : 'Publish as PR'}
+              </Button>
+            </div>
             <Card className="space-y-1 font-mono text-xs">
               <p data-testid="git-branch" className="text-[var(--text)]">
                 <span className="text-[var(--text-dim)]">branch </span>

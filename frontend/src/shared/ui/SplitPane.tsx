@@ -5,6 +5,10 @@ export interface SplitPaneProps {
   direction: 'horizontal' | 'vertical'
   initialSize: number
   minSize: number
+  /** Teto do redimensionamento (default: sem teto — compat legado). */
+  maxSize?: number
+  /** Inverte a ordem visual: child A em baixo (vertical) / à direita (horizontal). */
+  reversed?: boolean
   children: [ReactNode, ReactNode]
 }
 
@@ -13,7 +17,7 @@ const MAX_SIZE = 10000
 
 // Painel dividido: child A com flexBasis = size, divider arrastável via
 // pointer events (move/up escutados em window durante o arraste).
-export function SplitPane({ direction, initialSize, minSize, children }: SplitPaneProps) {
+export function SplitPane({ direction, initialSize, minSize, maxSize = MAX_SIZE, reversed = false, children }: SplitPaneProps) {
   const [size, setSize] = useState(initialSize)
   const isHorizontal = direction === 'horizontal'
 
@@ -24,7 +28,7 @@ export function SplitPane({ direction, initialSize, minSize, children }: SplitPa
       const startSize = size
       const onMove = (ev: PointerEvent) => {
         const next = (isHorizontal ? ev.clientX : ev.clientY) - start + startSize
-        setSize(Math.min(Math.max(next, minSize), MAX_SIZE))
+        setSize(Math.min(Math.max(next, minSize), maxSize))
       }
       const onUp = () => {
         window.removeEventListener('pointermove', onMove)
@@ -33,11 +37,15 @@ export function SplitPane({ direction, initialSize, minSize, children }: SplitPa
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [isHorizontal, size, minSize],
+    [isHorizontal, size, minSize, maxSize],
   )
 
+  const flexDir = isHorizontal
+    ? reversed ? 'flex-row-reverse' : 'flex-row'
+    : reversed ? 'flex-col-reverse' : 'flex-col'
+
   return (
-    <div className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}>
+    <div className={`flex h-full w-full ${flexDir}`}>
       <div style={{ flexBasis: size, flexGrow: 0, flexShrink: 0 }} className="min-h-0 min-w-0 overflow-hidden">
         {children[0]}
       </div>

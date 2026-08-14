@@ -10,13 +10,15 @@ export interface DrawerProps {
   children: ReactNode
   /** Cor do título no header (ex.: variante -text do acento do nó, §3.2). */
   titleStyle?: CSSProperties
+  /** Largura opcional do Drawer (default: 380px, wide: 640px, xl: 820px). */
+  width?: 'default' | 'wide' | 'xl'
 }
 
 // Drawer não-modal (01b §3.2/§3.8): 380px à direita (full-width <sm),
 // overlay --overlay clicável, Esc fecha, aria-modal="false" (o canvas
 // continua visível), shadow-drawer, entrada com slide 200ms. z-[50] (escala
 // §2.7).
-export function Drawer({ open, title, onClose, children, titleStyle }: DrawerProps) {
+export function Drawer({ open, title, onClose, children, titleStyle, width = 'default' }: DrawerProps) {
   // Listener global de Esc — limpo ao desmontar.
   useEffect(() => {
     if (!open) return
@@ -29,6 +31,13 @@ export function Drawer({ open, title, onClose, children, titleStyle }: DrawerPro
 
   if (!open) return null
 
+  const widthClass =
+    width === 'xl'
+      ? 'max-w-4xl sm:w-[820px]'
+      : width === 'wide'
+        ? 'max-w-2xl sm:w-[640px]'
+        : 'max-w-[380px] sm:w-[380px]'
+
   return createPortal(
     <div className="fixed inset-0 z-[50]" role="presentation">
       {/* overlay translúcido — clique fora fecha */}
@@ -37,7 +46,7 @@ export function Drawer({ open, title, onClose, children, titleStyle }: DrawerPro
         role="dialog"
         aria-modal="false"
         aria-label={title}
-        className="ade-drawer-in absolute right-0 top-0 flex h-full w-full max-w-[380px] flex-col border-l border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-drawer)] sm:w-[380px]"
+        className={`ade-drawer-in absolute right-0 top-0 flex h-full w-full ${widthClass} flex-col border-l border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-drawer)]`}
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h2 className="text-sm font-semibold text-[var(--text)]" style={titleStyle}>{title}</h2>

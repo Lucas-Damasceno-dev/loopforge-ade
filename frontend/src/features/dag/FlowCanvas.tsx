@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '../../stores/canvasStore'
 import { useRunsStore } from '../../stores/runsStore'
 import { getRunCost } from '../../shared/lib/api'
+import { isDemoRunId } from '../runs/demoMock'
 import { normalizeNodeName } from '../../shared/lib/ws'
 import type { CostNode, CostResponse } from '../../shared/lib/types'
 import { AgentNode } from './AgentNode'
@@ -63,12 +64,18 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
   const run = runs.find((r) => r.id === activeRunId) ?? null
 
   // Mesma key do CostBar (dedupe) — mesma condição de enable (sem custo p/
-  // run ausente/queued/paused).
+  // run ausente/queued/paused). Run demo-* é sintética (sem registro no
+  // backend) — GET /cost daria 404; sem fetch, o nó renderiza sem chip.
   const { data: cost } = useQuery<CostResponse>({
     queryKey: ['run-cost', activeRunId],
     queryFn: () => getRunCost(activeRunId as string),
-    enabled: !!activeRunId && run !== null && run.status !== 'queued' && run.status !== 'paused',
+    enabled: !!activeRunId && !isDemoRunId(activeRunId) && run !== null && run.status !== 'queued' && run.status !== 'paused',
+    // Polling só enquanto a run está viva: o custo por nó cresce em tempo real;
+    // concluída/falha, os dados já estão no cache (mesmo padrão do InspectDrawer).
+    refetchInterval: run !== null && run.status === 'running' ? 5000 : false,
   })
+
+  const [showMinimap, setShowMinimap] = useState(false)
 
   const [nodes, setNodes, onNodesChange] = useNodesState<DagNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<DagEdge>([])
@@ -114,10 +121,10 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         ...e,
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: e.id === 'retry->developer' ? 'var(--accent)' : undefined,
+          color: e.animated ? 'var(--accent)' : 'var(--border)',
         },
-        animated: e.id === 'retry->developer',
-        style: e.id === 'retry->developer' ? { stroke: 'var(--accent)', strokeWidth: 2 } : undefined,
+        animated: e.animated,
+        style: e.style ?? (e.animated ? { stroke: 'var(--accent)', strokeWidth: 2 } : { stroke: 'var(--border)', strokeWidth: 1.5 }),
       })),
     )
   }, [mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
@@ -133,7 +140,7 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         fitView
         nodesDraggable={false}
         nodesConnectable={false}
-        proOptions={{ hideAttribution: false }}
+        proOptions={{ hideAttribution: true }}
         // Arestas: --border 1.5px + seta discreta (01b §6.3); a aresta
         // retry→dev segue animada (loop vivo).
         defaultEdgeOptions={{ style: { stroke: 'var(--border)', strokeWidth: 1.5 } }}
@@ -143,8 +150,29 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
-        <Controls />
-        <MiniMap pannable zoomable nodeColor="var(--bg-elev-2)" maskColor="var(--overlay-strong)" bgColor="var(--bg)" />
+        <Controls className="!bg-[var(--bg-elev)] !border-[var(--border)] !shadow-sm [&>button]:!bg-[var(--bg-elev)] [&>button]:!border-[var(--border)] [&>button]:!text-[var(--text-dim)] hover:[&>button]:!text-[var(--text)]" />
+        {showMinimap && (
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor="var(--accent)"
+            maskColor="var(--overlay-strong)"
+            bgColor="var(--bg-elev)"
+            className="!border !border-[var(--border)] !rounded-lg !shadow-lg backdrop-blur-md overflow-hidden"
+          />
+        )}
+        <div className="absolute bottom-3 right-3 z-10">
+          <button
+            type="button"
+            onClick={() => setShowMinimap((v) => !v)}
+            title={showMinimap ? 'Hide Minimap' : 'Show Minimap'}
+            aria-label={showMinimap ? 'Hide Minimap' : 'Show Minimap'}
+            className="flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg-elev)]/90 px-2 py-1 text-(--text-2xs) font-medium text-[var(--text-dim)] shadow-xs backdrop-blur-sm transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-elev-2)] hover:text-[var(--text)]"
+          >
+            <span aria-hidden="true" className="font-mono text-xs font-bold leading-none">M</span>
+            {showMinimap ? 'Hide Map' : 'Minimap'}
+          </button>
+        </div>
       </ReactFlow>
     </div>
   )

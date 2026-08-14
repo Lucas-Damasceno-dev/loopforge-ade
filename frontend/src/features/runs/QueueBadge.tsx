@@ -18,7 +18,7 @@ export function QueueBadge() {
   return (
     <span
       data-testid="queue-badge"
-      className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-dim)]"
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-0.5 text-(--text-2xs) uppercase tracking-wide text-[var(--text-dim)]"
     >
       Queue: {active_count}/{max_concurrent} · {queued.length} waiting
     </span>

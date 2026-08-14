@@ -86,13 +86,17 @@ function isApiError(e: unknown): e is ApiLikeError {
     'detail' in e
   )
 }
-// Detail do backend exibido como veio (PT); 422 pydantic é array de erros →
-// mensagem EN genérica; fallback EN por status.
+// Detail do backend pode vir verbatim (PT) — loga no console, mostra mensagem
+// EN amigável na UI; 422 pydantic é array de erros → mensagem EN genérica;
+// fallback EN por status.
 function settingsErrorMessage(e: unknown): string {
   if (isApiError(e)) {
     const detail = e.detail
     if (Array.isArray(detail)) return 'Invalid configuration value (422)'
-    if (typeof detail === 'string' && detail.trim().length > 0) return detail
+    if (typeof detail === 'string' && detail.trim().length > 0) {
+      console.error('Settings save rejected by API:', detail)
+      return `The server rejected the settings (HTTP ${e.status})`
+    }
     return `API error ${e.status}`
   }
   return e instanceof Error && e.message ? e.message : 'Failed to save settings'
@@ -146,7 +150,20 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <Drawer open={open} title="Settings" onClose={onClose}>
       {loading ? (
-        <p className="text-sm text-[var(--text-dim)]">Loading settings…</p>
+        <div role="status" aria-label="Loading settings" className="space-y-5">
+          <div className="space-y-1.5">
+            <div className="h-3 w-24 animate-pulse rounded bg-[var(--bg-elev-2)]" />
+            <div className="h-8 animate-pulse rounded-md bg-[var(--bg-elev-2)]" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-3 w-28 animate-pulse rounded bg-[var(--bg-elev-2)]" />
+            <div className="h-8 animate-pulse rounded-md bg-[var(--bg-elev-2)]" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-3 w-20 animate-pulse rounded bg-[var(--bg-elev-2)]" />
+            <div className="h-8 animate-pulse rounded-md bg-[var(--bg-elev-2)]" />
+          </div>
+        </div>
       ) : form ? (
         <div className="space-y-5">
           {error && (

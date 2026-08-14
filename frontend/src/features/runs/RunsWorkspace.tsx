@@ -87,7 +87,7 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
       {!hideChrome && (
         <>
           <RunTabs runs={runs} activeRunId={activeRunId} queue={queue} cbByRun={cbByRun} onSelect={selectRun} onClose={handleClose} />
-          <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] px-3 py-2">
             {/* P0 surfacing: badge da fila E3 (ativos/máx + espera) — polling 5s. */}
             <QueueBadge />
             {/* Demo rebaixado (Gemini): secundário — a ação principal é o

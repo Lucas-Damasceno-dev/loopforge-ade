@@ -1,9 +1,17 @@
 import { afterEach, beforeEach, it, expect, vi } from 'vitest'
-import { runDemo } from '../demoMock'
+import { isDemoRunId, runDemo } from '../demoMock'
 import { useRunsStore } from '../../../stores/runsStore'
 
 beforeEach(() => { vi.useFakeTimers(); useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] }) })
 afterEach(() => { vi.useRealTimers() })
+
+it('isDemoRunId detecta runs sintéticas demo-* (guard de fetch cost/decisions)', () => {
+  expect(isDemoRunId('demo-1730000000000')).toBe(true)
+  expect(isDemoRunId('demo-1')).toBe(true)
+  expect(isDemoRunId('r1')).toBe(false)
+  expect(isDemoRunId(null)).toBe(false)
+  expect(isDemoRunId(undefined)).toBe(false)
+})
 
 it('creates demo run and completes pipeline', () => {
   runDemo()

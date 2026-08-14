@@ -51,4 +51,31 @@ describe('NewRunForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
     expect(createRun).not.toHaveBeenCalled()
   })
+
+  it('omits model from the body when the field is empty (default do backend)', async () => {
+    renderForm()
+    fireEvent.change(screen.getByLabelText(/idea/i), { target: { value: 'build a cli' } })
+    fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    await waitFor(() => {
+      const args = vi.mocked(createRun).mock.calls[0]
+      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full' })
+      expect(args?.[0]).not.toHaveProperty('model')
+    })
+  })
+
+  it('sends model in the body when filled', async () => {
+    renderForm()
+    fireEvent.change(screen.getByLabelText(/idea/i), { target: { value: 'build a cli' } })
+    fireEvent.change(screen.getByLabelText(/model/i), { target: { value: 'opencode-go/deepseek-v4-flash' } })
+    fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    await waitFor(() => {
+      const args = vi.mocked(createRun).mock.calls[0]
+      expect(args?.[0]).toEqual({
+        idea: 'build a cli',
+        stack: 'python',
+        routing_mode: 'full',
+        model: 'opencode-go/deepseek-v4-flash',
+      })
+    })
+  })
 })

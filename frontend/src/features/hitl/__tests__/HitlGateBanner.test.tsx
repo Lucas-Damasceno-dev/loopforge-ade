@@ -29,7 +29,7 @@ describe('HitlGateBanner (C3)', () => {
     useHitlGateStore.getState().push({ gateNode: 'pm', runId: 'r2' })
     render(<HitlGateBanner />)
     expect(screen.getByTestId('hitl-gate-banner')).toHaveTextContent('Gate HITL: pm')
-    fireEvent.click(screen.getByRole('button', { name: /dispensar/i }))
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
     expect(screen.getByTestId('hitl-gate-banner')).toHaveTextContent('Gate HITL: qa')
   })
 })

@@ -16,6 +16,7 @@ import { Alert } from '../../shared/ui/Alert'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 import { decideRun, getDecisions, getCheckpoints, getCheckpoint } from '../../shared/lib/api'
 import type { DecisionRecord } from '../../shared/lib/types'
+import { isDemoRunId } from '../runs/demoMock'
 import { NODE_LABELS, PIPELINE_ORDER } from '../dag/dagModel'
 
 // Ações reais do backend (HumanDecisionCreate.action): approve, retry,
@@ -111,9 +112,11 @@ export function HitlDrawer() {
   const expiredEntry = useMemo(() => entries.find((e) => e.level === 'warn' && /expired/i.test(e.message)), [entries])
   const timeoutSeconds = expiredEntry ? /(\d+)s/.exec(expiredEntry.message)?.[1] : undefined
 
-  // Histórico de decisões (trilha auditável — dados reais do backend).
+  // Histórico de decisões (trilha auditável — dados reais do backend). Runs
+  // demo-* são sintéticas (sem registro no backend) — GET /decisions daria
+  // 404; sem fetch, o histórico fica vazio (sem dados para mostrar).
   useEffect(() => {
-    if (!run?.id) return
+    if (!run?.id || isDemoRunId(run.id)) return
     let cancelled = false
     setDecisionsLoading(true)
     getDecisions(run.id)
@@ -251,7 +254,7 @@ export function HitlDrawer() {
                 const common = { 'aria-label': f.label }
                 return (
                   <div key={f.key}>
-                    <label htmlFor={`hitl-${f.key}`} className="mb-0.5 block text-[11px] text-[var(--text-dim)]">{f.label}</label>
+                    <label htmlFor={`hitl-${f.key}`} className="mb-0.5 block text-(--text-2xs) text-[var(--text-dim)]">{f.label}</label>
                     {f.kind === 'select' ? (
                       <Select
                         id={`hitl-${f.key}`}

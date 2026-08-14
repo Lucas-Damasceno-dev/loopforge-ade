@@ -126,6 +126,8 @@ export interface CreateRunInput {
   mock_llm?: boolean
   routing_mode?: string
   interactive?: boolean
+  /** Modelo LLM override para a run (vence env/config por run). */
+  model?: string | null
 }
 
 export interface AdeMcpServer {
@@ -395,7 +397,6 @@ export interface ArtifactLesson {
   created_at: number
 }
 
-/** Resposta de GET /runs/{id}/artifacts. */
 export interface ArtifactsResponse {
   run_id: string
   node_artifacts: Record<string, NodeArtifact>
@@ -405,3 +406,110 @@ export interface ArtifactsResponse {
   circuit_breaker?: CircuitBreakerSnapshot | null
   lessons: ArtifactLesson[]
 }
+
+/** Arquivo gerado no diretório de saída da run (GET /runs/{id}/files). */
+export interface RunFileItem {
+  path: string
+  size: number
+  content: string | null
+  is_binary: boolean
+}
+
+/** Resposta de GET /runs/{id}/files. */
+export interface RunFilesResponse {
+  run_id: string
+  files: RunFileItem[]
+}
+
+// ─── Terminal & Command Runner ──────────────────────────────────────
+export interface ExecCommandResponse {
+  run_id: string
+  command: string
+  stdout: string
+  stderr: string
+  exit_code: number
+  duration_seconds: number
+}
+
+export interface TerminalInfoResponse {
+  run_id: string
+  workspace_path: string | null
+  exists: boolean
+}
+
+// ─── AST & Dependency Analysis ─────────────────────────────────────
+export interface AstSymbolInfo {
+  name: string
+  kind: string
+  line_number: number
+  docstring?: string | null
+}
+
+export interface AstModuleInfo {
+  file_path: string
+  language: string
+  total_lines: number
+  symbols: AstSymbolInfo[]
+  imports: string[]
+}
+
+export interface AstEdge {
+  source_file: string
+  target_module: string
+  import_type: string
+}
+
+export interface AstAnalysisResponse {
+  run_id: string
+  modules: AstModuleInfo[]
+  external_packages: string[]
+  dependency_graph: AstEdge[]
+}
+
+// ─── Code Coverage ─────────────────────────────────────────────────
+export interface FileCoverageItem {
+  file_path: string
+  total_lines: number
+  covered_lines: number
+  missed_lines: number
+  percentage: number
+}
+
+export interface CoverageReportResponse {
+  run_id: string
+  total_lines: number
+  covered_lines: number
+  coverage_percentage: number
+  files: FileCoverageItem[]
+  source: string
+}
+
+// ─── Docker & Devcontainer ─────────────────────────────────────────
+export interface DockerConfigResponse {
+  run_id: string
+  stack: string
+  base_image: string
+  dockerfile: string
+  docker_compose: string
+  devcontainer: string
+  dockerignore: string
+  suggested_ports: number[]
+  environment_vars: Record<string, string>
+}
+
+export interface SaveDockerConfigRequest {
+  dockerfile?: string | null
+  docker_compose?: string | null
+  devcontainer?: string | null
+  dockerignore?: string | null
+}
+
+export interface SaveDockerConfigResponse {
+  run_id: string
+  success: boolean
+  saved_files: string[]
+  message: string
+}
+
+
+

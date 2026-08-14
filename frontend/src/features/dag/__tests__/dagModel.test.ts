@@ -56,11 +56,9 @@ describe('dagModel', () => {
     const edges = buildEdges(nodes)
     expect(edges.some(e => e.source === 'retry' && e.target === 'developer')).toBe(false)
   })
-  it('kanban alternates y between rows (i % 2)', () => {
+  it('kanban aligns all nodes horizontally in a straight line (y=120)', () => {
     const nodes = buildNodes({}, 'kanban', null)
     const ys = nodes.map(n => n.position.y)
-    expect(ys[0]).toBe(ys[2]) // mesma linha para índices pares
-    expect(ys[1]).toBe(ys[3]) // linha seguinte para índices ímpares
-    expect(ys[0]).not.toBe(ys[1])
+    expect(ys.every(y => y === 120)).toBe(true)
   })
 })

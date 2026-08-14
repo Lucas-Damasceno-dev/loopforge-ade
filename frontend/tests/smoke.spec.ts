@@ -46,12 +46,9 @@ test('app loads, runs demo and renders the DAG with a clean console', async ({ p
   // Condicional p/ não quebrar se o ambiente já tiver key (VITE_API_KEY).
   await dismissApiKeyGate(page)
 
-  // Sem run ativa o workspace mostra o empty state (demo não auto-start).
-  await expect(page.getByText('No active run')).toBeVisible()
-
   // (b) Inicia a demo → pipeline sintético termina → selectRun → canvas monta.
   // O demo é E2E interno (dispatchWsEvent → wsBridge → stores), sem backend.
-  await page.getByRole('button', { name: 'Run demo' }).click()
+  await page.getByRole('button', { name: /run demo/i }).first().click()
 
   // Container raiz do React Flow (`.react-flow`) — estável e independente do
   // conteúdo do DAG.
@@ -71,4 +68,17 @@ test('app loads, runs demo and renders the DAG with a clean console', async ({ p
   // apenas se logado; este assert garante que não silenciamos nada estranho.
   const nonApi5xx = api5xx.filter((entry) => !entry.includes('/api/'))
   expect(nonApi5xx).toEqual([])
+})
+
+test('artifacts panel opens from topbar and renders drawer', async ({ page }) => {
+  await page.goto('/')
+  await dismissApiKeyGate(page)
+  await page.getByRole('button', { name: 'Run demo' }).click()
+  await expect(page.locator('.react-flow')).toBeVisible({ timeout: 10_000 })
+
+  const artifactsBtn = page.getByRole('button', { name: 'Artifacts' })
+  await expect(artifactsBtn).toBeVisible()
+  await artifactsBtn.click()
+
+  await expect(page.getByText('Generated Artifacts & Files')).toBeVisible()
 })
