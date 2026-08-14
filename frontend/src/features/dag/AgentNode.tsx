@@ -37,6 +37,9 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
   const elapsed = useRunningTimer(status === 'running' && !ghosted)
 
   const select = () => {
+    // Nós do editor de pipeline (data.selectable=false) não abrem o inspect
+    // drawer — clique gerencia seleção/drag do editor (S3 T11, fix visual).
+    if ((data as { selectable?: boolean }).selectable === false) return
     // Ghosts (timeline) não abrem o inspect drawer (01b §3.1).
     if (ghosted) return
     // S4: filhos display (appsec/devops) abrem o inspector do PAI de execução

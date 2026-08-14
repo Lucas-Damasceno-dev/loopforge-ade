@@ -282,13 +282,18 @@ export function App() {
       </div>
       <TimelineBar />
       {/* Budget flutuante (T4): pill no canto inferior esquerdo do canvas —
-          substitui o CostBar da topbar (saiu do chrome p/ perto da ação). */}
-      <BudgetPill
-        runId={activeRunId}
-        onOverride={() => {
-          if (activeRunId) openBudgetOverride(activeRunId)
-        }}
-      />
+          substitui o CostBar da topbar (saiu do chrome p/ perto da ação).
+          S3 T11: some no modo edição do pipeline (canvas mostra o draft, não
+          a run; em canvas curto o pill (bottom-left, z-20) colide com a base
+          da NodePalette (left-top) — fix visual). */}
+      {!editorOpen ? (
+        <BudgetPill
+          runId={activeRunId}
+          onOverride={() => {
+            if (activeRunId) openBudgetOverride(activeRunId)
+          }}
+        />
+      ) : null}
     </div>
   )
 

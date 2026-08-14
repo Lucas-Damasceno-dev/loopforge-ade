@@ -15,6 +15,11 @@ import { dismissApiKeyGate } from './helpers'
 //  capturado foi de uma URL /api/ (nunca asset/estático).
 const WS_HANDSHAKE_RE = /WebSocket connection to .* failed/i
 const RESOURCE_FAILURE_RE = /Failed to load resource: the server responded with a status of 5\d\d/i
+// S3 (T10): NewRunForm fetches pipelines no mount — no modo demo o backend
+// está ausente → o pipelinesStore loga o erro esperado (mesmo caso dos 5xx de
+// /api/ filtrados acima). Filtro documentado — em produção (backend real) o
+// fetch resolve e nada é logado.
+const DEMO_PIPELINES_RE = /Failed to load pipelines: .*ApiError/i
 
 function watchNetwork(page: Page): { errors: string[]; api5xx: string[] } {
   const errors: string[] = []
@@ -24,6 +29,7 @@ function watchNetwork(page: Page): { errors: string[]; api5xx: string[] } {
     const text = msg.text()
     if (WS_HANDSHAKE_RE.test(text)) return
     if (RESOURCE_FAILURE_RE.test(text)) return
+    if (DEMO_PIPELINES_RE.test(text)) return
     errors.push(`console.error: ${text}`)
   })
   page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`))

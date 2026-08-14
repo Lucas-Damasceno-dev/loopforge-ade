@@ -122,7 +122,7 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
             aria-label="Pipeline (optional)"
             value={pipelineId}
             onChange={(e) => setPipelineId(e.target.value)}
-            className={narrow ? 'min-w-0 flex-1' : undefined}
+            className={narrow ? 'w-full' : undefined}
           >
             <option value="">Pipeline (default)</option>
             {pipelines.map((p) => (

@@ -33,6 +33,9 @@ export interface EditorNodeData extends Record<string, unknown> {
   /** Meta do pipeline preservada p/ round-trip (nodesToPipeline). */
   agent_id: string | null
   config: Record<string, unknown>
+  /** Nós do editor não selecionam p/ o InspectDrawer (inspector de RUN) —
+   *  clique gerencia seleção/drag do editor (T11, fix visual S3). */
+  selectable: boolean
 }
 
 export type EditorNode = Node<EditorNodeData>
@@ -73,6 +76,7 @@ export function pipelineToNodes(
       execIndex: 0,
       agent_id: pn.agent_id,
       config: pn.config,
+      selectable: false,
     },
   }))
 }

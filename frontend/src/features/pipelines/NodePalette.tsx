@@ -24,7 +24,7 @@ export function NodePalette() {
   }, [])
 
   return (
-    <div className="absolute left-3 top-3 z-10 flex max-h-[calc(100%-1.5rem)] w-44 flex-col gap-1.5 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-elev)]/95 p-2 shadow-[var(--shadow-md)] backdrop-blur-sm">
+    <div className="absolute left-3 top-3 z-10 flex max-h-[60vh] w-44 flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--bg-elev)]/95 p-2 shadow-[var(--shadow-md)] backdrop-blur-sm">
       <span className="text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">Nodes</span>
       {STRUCTURAL_TYPES.map((t) => (
         <button

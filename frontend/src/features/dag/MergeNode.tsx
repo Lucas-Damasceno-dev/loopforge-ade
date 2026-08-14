@@ -15,6 +15,9 @@ function MergeNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'mer
   const accentText = nodeAccentTextVar('merge')
 
   const select = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Nós do editor de pipeline (data.selectable=false) não abrem o inspect
+    // drawer — clique gerencia seleção/drag do editor (S3 T11, fix visual).
+    if ((data as { selectable?: boolean }).selectable === false) return
     // Ghosts (timeline) não abrem o inspect drawer (01b §3.1).
     if (ghosted) return
     // Impede o onNodeClick do FlowCanvas (selectNode(node.id) = 'merge') de

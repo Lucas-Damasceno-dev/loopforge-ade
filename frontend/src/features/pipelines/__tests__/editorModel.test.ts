@@ -53,6 +53,12 @@ describe('editorModel (S3)', () => {
     expect(dev.data.config).toEqual({ temperature: 0.5 })
   })
 
+  it('pipelineToNodes marca nós como selectable=false (sem InspectDrawer no editor)', () => {
+    const nodes = pipelineToNodes(pipeline)
+    expect(nodes.length).toBeGreaterThan(0)
+    for (const n of nodes) expect(n.data.selectable).toBe(false)
+  })
+
   it('pipelineToEdges: retry → dashed + err, handles split a/b e merge a/b', () => {
     const edges = pipelineToEdges(pipeline)
     expect(edges).toHaveLength(8)
