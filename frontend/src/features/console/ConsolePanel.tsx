@@ -86,12 +86,25 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
   const errorCount = entries.filter((e) => e.level === 'error').length
 
   // Colapso (T7): fonte do estado no consoleStore (command palette toggla sem
-  // montar o painel). Este efeito DERIVA o estado — vazio colapsa, conteúdo
-  // expande (saved ?? false); persistência da preferência manual no toggle
-  // (localStorage — regra original preservada: toggle manual salva, derivação
-  // automática não sobrescreve preferência).
+  // montar o painel). Este efeito DERIVA o estado por TRANSIÇÃO de conteúdo:
+  //   - mount (sem transição): aplica a regra original (saved ?? !hasContent);
+  //   - vazio→cheio: SEMPRE expande (regressão T7 F1 — antes da T7, novo log
+  //     expandia mesmo com preferência manual de colapsar; logs não podem
+  //     ficar escondidos);
+  //   - cheio→vazio: colapsa (auto-collapse histórico).
+  // Preferência manual (toggle) permanece: setCollapsed + localStorage no
+  // toggleCollapse; derivação automática não sobrescreve estado estável.
+  const hadContent = useRef(hasContent)
   useEffect(() => {
-    setCollapsed(!hasContent ? true : (getSavedCollapsed() ?? false))
+    const prev = hadContent.current
+    hadContent.current = hasContent
+    if (prev !== hasContent) {
+      // Transição real de conteúdo: expande/collapsa sem olhar preferência.
+      setCollapsed(!hasContent)
+      return
+    }
+    // Sem transição → só o mount cai aqui (deps estáveis): regra original.
+    setCollapsed(getSavedCollapsed() ?? !hasContent)
   }, [hasContent, setCollapsed])
 
   const toggleCollapse = () => {

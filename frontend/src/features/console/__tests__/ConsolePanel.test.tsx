@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ConsolePanel } from '../ConsolePanel'
 import { useConsoleStore } from '../../../stores/consoleStore'
@@ -95,6 +95,55 @@ it('collapses and re-expands manually with content', () => {
   expect(screen.queryByText(/alpha/)).not.toBeInTheDocument()
   fireEvent.click(screen.getByLabelText('Expand console'))
   expect(screen.getByText(/alpha/)).toBeInTheDocument()
+})
+
+// ─── Regressão T7 F1: auto-expand na transição vazio→cheio ────────────────
+
+const baseState = () => ({
+  entries: [] as never[],
+  streams: {} as Record<string, never>,
+  filters: { node: 'all' as const, level: 'all' as const, query: '' },
+  autoScroll: true,
+})
+
+afterEach(() => {
+  localStorage.removeItem('lf_console_collapsed')
+})
+
+it('auto-expands when content arrives even with saved=true (T7 F1 regression)', () => {
+  // Preferência manual de colapsar salva (saved=true) + console vazio.
+  localStorage.setItem('lf_console_collapsed', 'true')
+  useConsoleStore.setState({ ...baseState(), collapsed: true })
+  render(<ConsolePanel />)
+  expect(screen.getByText('No logs')).toBeInTheDocument()
+  // Novo log chega → transição vazio→cheio DEVE expandir (antes da T7
+  // expandia sempre; T7 quebrou ao aplicar saved no efeito derivado).
+  act(() => {
+    useConsoleStore.setState({
+      entries: [{ id: '1', ts: 0, node: 'developer', level: 'info', message: 'fresh log' }],
+    })
+  })
+  expect(screen.getByText(/fresh log/)).toBeInTheDocument()
+  expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument()
+})
+
+it('stays collapsed after manual collapse while content persists (preference respected)', () => {
+  useConsoleStore.setState({
+    ...baseState(),
+    entries: [{ id: '1', ts: 0, node: 'developer', level: 'info', message: 'alpha' }],
+    collapsed: false,
+  })
+  render(<ConsolePanel />)
+  expect(screen.getByText(/alpha/)).toBeInTheDocument()
+  fireEvent.click(screen.getByLabelText('Collapse console'))
+  expect(screen.getByText('1 log')).toBeInTheDocument()
+  // Mudança que NÃO altera hasContent (filters) → derivação não re-roda →
+  // preferência manual respeitada.
+  act(() => {
+    useConsoleStore.setState({ filters: { node: 'all', level: 'all', query: 'x' } })
+  })
+  expect(screen.getByText('1 log')).toBeInTheDocument()
+  expect(screen.queryByText(/alpha/)).not.toBeInTheDocument()
 })
 
 // ─── Tab bar ícone-only (T6) ───────────────────────────────────────────────
