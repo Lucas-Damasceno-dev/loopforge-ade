@@ -4,11 +4,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SidebarHost } from '../SidebarHost'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useAgentsStore } from '../../../stores/agentsStore'
+import { usePipelinesStore } from '../../../stores/pipelinesStore'
 
-// AgentsPanel faz fetchAgents no mount — lista vazia por default.
+// Painéis inline fazem fetch no mount — listas vazias por default.
 vi.mock('../../../shared/lib/api', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../../../shared/lib/api')>()
-  return { ...mod, listAgents: vi.fn().mockResolvedValue([]) }
+  return {
+    ...mod,
+    listAgents: vi.fn().mockResolvedValue([]),
+    listPipelines: vi.fn().mockResolvedValue([]),
+  }
 })
 
 const queryClient = new QueryClient()
@@ -16,6 +21,7 @@ const queryClient = new QueryClient()
 beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null })
   useAgentsStore.setState({ agents: [], loading: false, error: null })
+  usePipelinesStore.setState({ pipelines: [], loading: false, error: null })
 })
 
 function renderHost(active: Parameters<typeof SidebarHost>[0]['active']) {
@@ -85,9 +91,12 @@ describe('SidebarHost', () => {
     expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
   })
 
-  it('pipelines: placeholder "coming in a later phase" sem botão (fix F2)', () => {
+  it('pipelines: renderiza o painel real (S3) — sem placeholder, sem Open panel', async () => {
     renderHost('pipelines')
-    expect(screen.getByText(/pipeline studio — coming in a later phase/i)).toBeInTheDocument()
+    // PipelinesPanel (lista vazia) → EmptyState "No pipelines yet" + CTA.
+    expect(await screen.findByText('No pipelines yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create pipeline/i })).toBeInTheDocument()
+    expect(screen.queryByText(/pipeline studio — coming in a later phase/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
   })
 })

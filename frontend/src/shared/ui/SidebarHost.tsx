@@ -7,6 +7,7 @@ import { Button } from './Button'
 import { Badge } from './Badge'
 import { NewRunForm } from '../../features/runs/NewRunForm'
 import { AgentsPanel } from '../../features/agents/AgentsPanel'
+import { PipelinesPanel } from '../../features/pipelines/PipelinesPanel'
 import { MemoryPanelContent } from '../../features/memory/MemoryPanel'
 import { HealthPanelContent } from '../../features/health/HealthPanel'
 import { PromptPanelContent } from '../../features/prompts/PromptPanel'
@@ -87,6 +88,9 @@ export function SidebarHost({ active, onClose, onExpand }: SidebarHostProps) {
       case 'agents':
         content = <AgentsPanel />
         break
+      case 'pipelines':
+        content = <PipelinesPanel />
+        break
       case 'memory':
         content = <MemoryPanelContent />
         break
@@ -105,16 +109,6 @@ export function SidebarHost({ active, onClose, onExpand }: SidebarHostProps) {
     }
   } else if (active === 'runs') {
     content = <RunsSummary runs={runs} activeRunId={activeRunId} onSelect={selectRun} />
-  } else if (active === 'pipelines') {
-    // View sem painel nesta fase: descrição + placeholder (sem "Open panel").
-    content = (
-      <div>
-        <p className="text-xs leading-relaxed text-[var(--text-dim)]">{SUMMARY_DESC[active]}</p>
-        <p className="mt-2 rounded-md border border-dashed border-[var(--border)] p-2 text-xs text-[var(--text-dim)]/70">
-          Pipeline Studio — coming in a later phase.
-        </p>
-      </div>
-    )
   } else {
     content = (
       <p className="text-xs leading-relaxed text-[var(--text-dim)]">
