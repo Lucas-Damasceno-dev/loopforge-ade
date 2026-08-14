@@ -43,6 +43,11 @@ describe('MergeNode', () => {
     expect(screen.getByText('Merge')).toBeInTheDocument()
   })
 
+  it('aria-label inclui status (F2 a11y)', () => {
+    render(wrap(<MergeNode {...props({ status: 'approved' })} />))
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe('Merge (parallel audit, Approved)')
+  })
+
   it('clique seleciona o nó REAL (parallel_audit)', () => {
     const spy = vi.spyOn(useCanvasStore.getState(), 'selectNode').mockImplementation(() => {})
     render(wrap(<MergeNode {...props()} />))

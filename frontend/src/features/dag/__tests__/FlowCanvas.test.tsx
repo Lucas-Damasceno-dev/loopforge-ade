@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MarkerType } from '@xyflow/react'
 import { FlowCanvas, decorateEdges } from '../FlowCanvas'
@@ -101,13 +101,24 @@ describe('FlowCanvas', () => {
     renderCanvas()
     fireEvent.click(await screen.findByLabelText('AppSec (Running)'))
     expect(useCanvasStore.getState().selectedNodeId).toBe('parallel_audit')
+    // F1: com selectedNodeId = parallel_audit, o ring-2 DEVE aparecer no nó
+    // display (regressão S4: nenhum nó display casava com o id do pai).
+    await waitFor(() => {
+      const btn = screen.getByLabelText('AppSec (Running)')
+      expect(btn.className).toContain('ring-2')
+    })
   })
 
   it('clique no split abre o inspector do PAI (parallel_audit)', async () => {
     useCanvasStore.setState({ nodeStatus: { parallel_audit: { status: 'running', attemptCount: 0 } } })
     renderCanvas()
-    fireEvent.click(await screen.findByLabelText('Split (parallel audit)'))
+    fireEvent.click(await screen.findByLabelText('Split (parallel audit, Running)'))
     expect(useCanvasStore.getState().selectedNodeId).toBe('parallel_audit')
+    // F1: split selecionado → ring-2.
+    await waitFor(() => {
+      const btn = screen.getByLabelText('Split (parallel audit, Running)')
+      expect(btn.className).toContain('ring-2')
+    })
   })
 
   it('decorateEdges: retry filho devops->split com curva bottom + estilo err', () => {

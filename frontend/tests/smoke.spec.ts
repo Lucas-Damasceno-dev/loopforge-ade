@@ -59,7 +59,7 @@ test('app loads, runs demo and renders the DAG with a clean console', async ({ p
   // execução completam (aria-label "<Node> (Approved)" — AgentNode.tsx).
   await expect(page.getByLabel('CPO (Approved)')).toBeVisible({ timeout: 10_000 })
   // S4: parallel_audit é expandido no canvas (split/appsec/devops/merge).
-  await expect(page.getByLabel('Split (parallel audit)')).toBeVisible()
+  await expect(page.getByLabel('Split (parallel audit, Approved)')).toBeVisible()
   await expect(page.getByLabel('AppSec (Approved)')).toBeVisible()
 
   // (c) Zero erros de console legítimos.

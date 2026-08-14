@@ -136,7 +136,10 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
       dagNodes.map((n) => ({
         ...n,
         data: { ...n.data, cost: costByNode.get(n.id) },
-        selected: selectedNodeId === n.id,
+        // F1 (final review): selectedNodeId sempre é o nó REAL (parallel_audit
+        // mapeado no clique) — display nodes casam via DISPLAY_PARENT, senão o
+        // ring-2 de seleção nunca aparecia no bloco audit.
+        selected: selectedNodeId === n.id || DISPLAY_PARENT[n.id] === selectedNodeId,
       })),
     )
     setEdges(decorateEdges(buildEdges(dagNodes)))

@@ -96,9 +96,6 @@ export type DagNodeData = {
    *  inteiro junto com o passo de execução (semântica TimelineBar). */
   execIndex: number
   ghosted: boolean
-  /** Flag do bloco paralelo (S4): 'audit' no nó split — SplitNode sabe que
-   *  representa o passo parallel_audit (apresenta sub-cards appsec/devops). */
-  display?: 'audit'
   /** Custo do nó (Fase D/UC-04) — injetado pelo FlowCanvas via cost query;
    *  o buildNodes puro não o conhece (cost é dado de servidor, não de store). */
   cost?: CostNode
@@ -184,7 +181,6 @@ export function buildNodes(
         attemptCount: entry.attemptCount,
         execIndex,
         ghosted: ghostToStep !== null && execIndex >= ghostToStep,
-        ...(displayNode && node === 'split' ? { display: 'audit' as const } : {}),
       },
     }
   })

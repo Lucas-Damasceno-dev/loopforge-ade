@@ -26,7 +26,6 @@ function props(overrides: Partial<DagNodeData> = {}): NodeProps<FlowNode<DagNode
       attemptCount: 0,
       execIndex: 7,
       ghosted: false,
-      display: 'audit',
       ...overrides,
     },
     selected: false,
@@ -43,6 +42,11 @@ describe('SplitNode', () => {
     render(wrap(<SplitNode {...props()} />))
     expect(screen.getByText('Split')).toBeInTheDocument()
     expect(screen.getByText('2× parallel')).toBeInTheDocument()
+  })
+
+  it('aria-label inclui status (F2 a11y)', () => {
+    render(wrap(<SplitNode {...props({ status: 'running' })} />))
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe('Split (parallel audit, Running)')
   })
 
   it('badge pulsa (animate-pulse) quando running', () => {
@@ -77,7 +81,7 @@ describe('SplitNode', () => {
           id: 'split',
           type: 'split',
           position: { x: 0, y: 0 },
-          data: { node: 'split', status: 'pending', attemptCount: 0, execIndex: 7, ghosted: false, display: 'audit' },
+          data: { node: 'split', status: 'pending', attemptCount: 0, execIndex: 7, ghosted: false },
         }]}
         nodeTypes={{ split: SplitNode }}
       />,

@@ -8,10 +8,10 @@ import { nodeAccentTextVar, nodeAccentVar } from './nodeAccent'
 import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
 
 // SplitNode (S4): gateway do bloco paralelo — representa o passo de EXECUÇÃO
-// parallel_audit (data.display='audit'). Compacto (w-32), badge "2× parallel"
-// (pulsa quando running — mockup item 7), 2 source handles (a=topo → appsec,
-// b=base → devops). Clique abre o inspector do PAI (parallel_audit) — o
-// InspectDrawer é keyed no nó real de execução.
+// parallel_audit. Compacto (w-32), badge "2× parallel" (pulsa quando running —
+// mockup item 7), 2 source handles (a=topo → appsec, b=base → devops). Clique
+// abre o inspector do PAI (parallel_audit) — o InspectDrawer é keyed no nó real
+// de execução.
 function SplitNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'split'>>) {
   const { status, ghosted } = data
   const accent = nodeAccentVar('split')
@@ -31,7 +31,7 @@ function SplitNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'spl
       type="button"
       tabIndex={ghosted ? -1 : 0}
       aria-disabled={ghosted || undefined}
-      aria-label="Split (parallel audit)"
+      aria-label={`Split (parallel audit, ${NODE_STATUS_LABEL[status]})`}
       onClick={select}
       className={[
         'w-32 cursor-pointer rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
