@@ -518,5 +518,29 @@ export interface SaveDockerConfigResponse {
   message: string
 }
 
+// ─── Agents (S2) — CRUD /api/v1/agents ────────────────────────────────
+// Espelha AgentResponse do backend (src/lf/api/agents.py): id + timestamps
+// gerados pelo servidor; AgentInput é o payload de criação/atualização.
+export interface Agent {
+  id: string
+  name: string
+  description: string
+  prompt: string
+  model: string
+  temperature: number
+  max_retries: number
+  timeout_seconds: number
+  env_vars: Record<string, string>
+  tools_allowlist: string[]
+  permissions: string[]
+  stack: string
+  budget_usd: number
+  created_at: string
+  updated_at: string
+}
+
+/** Payload de create/update — tudo menos os campos gerados pelo servidor. */
+export type AgentInput = Omit<Agent, 'id' | 'created_at' | 'updated_at'>
+
 
 

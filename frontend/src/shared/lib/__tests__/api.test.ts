@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents } from '../api'
+import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents, listAgents, getAgent, createAgent, updateAgent, deleteAgent } from '../api'
 import type { ArtifactsResponse } from '../types'
 
 describe('api client', () => {
@@ -349,5 +349,76 @@ describe('api client', () => {
     expect(res.tokens[0].node).toBe('developer')
     expect(res.circuit_breaker?.state).toBe('open')
     expect(res.lessons[0].lesson_text).toBe('use pydantic')
+  })
+
+  // ─── Agents (S2) — CRUD /api/v1/agents ──────────────────────────────────
+  const agentFixture = {
+    id: 'a1',
+    name: 'QA Lead',
+    description: 'quality gate',
+    prompt: 'you are qa',
+    model: 'default',
+    temperature: 0.7,
+    max_retries: 2,
+    timeout_seconds: 300,
+    env_vars: { FOO: 'bar' },
+    tools_allowlist: ['fs.read'],
+    permissions: ['read'],
+    stack: 'python',
+    budget_usd: 10.5,
+    created_at: '2026-08-14T00:00:00',
+    updated_at: '2026-08-14T00:00:00',
+  }
+
+  it('listAgents GETs /api/v1/agents and parses the array', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify([agentFixture]), { status: 200 }))
+    const res = await listAgents()
+    expect(res).toHaveLength(1)
+    expect(res[0].id).toBe('a1')
+    expect(res[0].budget_usd).toBe(10.5)
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/agents'), expect.anything())
+  })
+
+  it('getAgent GETs /api/v1/agents/{id}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(agentFixture), { status: 200 }))
+    const res = await getAgent('a1')
+    expect(res.name).toBe('QA Lead')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/agents/a1'), expect.anything())
+  })
+
+  it('createAgent POSTs the AgentInput body with Content-Type json', async () => {
+    const { id: _id, created_at: _c, updated_at: _u, ...input } = agentFixture
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(agentFixture), { status: 201 }))
+    const res = await createAgent(input)
+    expect(res.id).toBe('a1')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/agents')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual(input)
+    expect((init?.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+
+  it('updateAgent PUTs a partial AgentInput to /api/v1/agents/{id}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ...agentFixture, temperature: 0.9 }), { status: 200 }))
+    const res = await updateAgent('a1', { temperature: 0.9 })
+    expect(res.temperature).toBe(0.9)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/agents/a1')
+    expect(init?.method).toBe('PUT')
+    expect(JSON.parse(String(init?.body))).toEqual({ temperature: 0.9 })
+  })
+
+  it('deleteAgent DELETEs /api/v1/agents/{id} and resolves void', async () => {
+    // Backend (task-2): DELETE /{agent_id} → {"deleted": true} (200 JSON).
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ deleted: true }), { status: 200 }))
+    await expect(deleteAgent('a1')).resolves.not.toThrow()
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/agents/a1')
+    expect(init?.method).toBe('DELETE')
+  })
+
+  it('agents 422 propagates ApiError {status: 422}', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: [{ loc: ['body', 'name'], msg: 'missing' }] }), { status: 422 }))
+    await expect(createAgent({ name: '' } as never)).rejects.toMatchObject({ status: 422 })
   })
 })

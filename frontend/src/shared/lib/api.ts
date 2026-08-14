@@ -1,5 +1,7 @@
 import type {
   AdeConfig,
+  Agent,
+  AgentInput,
   ArtifactsResponse,
   AstAnalysisResponse,
   BudgetOverrideRequest,
@@ -280,6 +282,16 @@ export const saveDockerConfig = (runId: string, payload: SaveDockerConfigRequest
     method: 'POST',
     body: JSON.stringify(payload),
   })
+
+// ─── Agents (S2) — CRUD /api/v1/agents (src/lf/api/agents.py) ──────────────
+export const listAgents = () => apiFetch<Agent[]>('/agents')
+export const getAgent = (id: string) => apiFetch<Agent>(`/agents/${encodeURIComponent(id)}`)
+export const createAgent = (input: AgentInput) =>
+  apiFetch<Agent>('/agents', { method: 'POST', body: JSON.stringify(input) })
+export const updateAgent = (id: string, input: Partial<AgentInput>) =>
+  apiFetch<Agent>(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })
+export const deleteAgent = (id: string) =>
+  apiFetch<void>(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
 // ─── Health (HealthPanel) — heartbeat do engine ─────────────────────────────
 // GET /health (raiz, SEM auth — fora do prefixo /api/v1): {status, version}.
