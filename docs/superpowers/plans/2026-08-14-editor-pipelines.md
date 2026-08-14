@@ -298,3 +298,19 @@
 - **Riscos:** T4 é o coração (assembly LangGraph) — grounding obrigatório no build_graph real; retry teto via attempt_counts existente (GraphState já tem); gate condicional v1 = lookup simples (documentado); snapshot JSON em SQLite via coluna Text+json (migração aditiva padrão); checkpoint do engine nas tasks BE (regra reset).
 - **Carry-over S2 integrado:** delete 404-swallow com error:null no pipelinesStore (T7); slug collision → T4 nota (validate rejeita? não — documentado como risco conhecido; agents name case-sensitive); validação de campos do form (T8).
 - **Fora de escopo (YAGNI):** agent_overrides no POST /runs (spec menciona; v1 sem), grafo congelado renderizado no Inspector (v1: badge nome; render do snapshot em plano futuro), versionamento (decisão 9), hooks custom TS, merge N-de-M condicional.
+
+---
+
+## Post-review carry-over (próximas fases)
+
+- **attempt_count GLOBAL** inviabiliza pipelines com 2+ retry nodes → v2: contador por-nó (`{node_id: count}`) ou tentativas na edge
+- **nodesToPipeline/newPipeline dead code** (só testes) — integrar no save (normalização única do round-trip) ou remover; save hoje manda draft bruto com id/created/updated extras (pydantic extra=ignore absorve)
+- **Validate valida o SALVO, não o draft** — avisar unsaved changes ou validar localmente
+- **HITL ignorado em pipeline custom** (build_pipeline_graph sem human_gate_enabled) — documentar ou bloquear interactive+custom
+- **Semântica max_retries** = total de execuções (não retries pós-1ª) — documentar no EdgeConfigDrawer
+- **BudgetPill some com !editorOpen** (App.tsx:281) — usar `editMode` (pill útil em editor-aberto+live)
+- **max_retries default 0 ao trocar type→retry via select** (addEdge default 0, validator exige >=1) — ajustar no updateEdge
+- **agentsStore 404-swallow sem error:null** — alinhar com pipelinesStore (já corrigido)
+- **Lint 7 pré-existentes não-S3** (5 err: Select/RunTabs/ArtifactsPanel/wsStore.test; 2 warn: react-refresh) — cleanup plano próprio
+- **app.spec/dag.spec stale** + filtro DEMO_PIPELINES_RE no smoke — persistir s3-verify como smoke futuro
+- **attempt_count**: se crescer, `_checkpoint_next_nodes` (app.py:1046) devia usar snapshot também
