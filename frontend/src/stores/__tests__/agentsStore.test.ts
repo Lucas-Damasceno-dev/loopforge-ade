@@ -108,10 +108,35 @@ describe('agentsStore (S2)', () => {
     expect(useAgentsStore.getState().agents.map((a) => a.id)).toEqual(['a2'])
   })
 
-  it('deleteAgent sem agentes → no-op sem crash', async () => {
-    vi.mocked(deleteAgent).mockResolvedValue(undefined)
-    await expect(useAgentsStore.getState().deleteAgent('ghost')).resolves.toBeUndefined()
+  it('deleteAgent sem agentes → no-op SEM chamar a API (F1)', async () => {
+    const p = useAgentsStore.getState().deleteAgent('ghost')
+    await expect(p).resolves.toBeUndefined()
+    expect(vi.mocked(deleteAgent)).not.toHaveBeenCalled()
     expect(useAgentsStore.getState().agents).toEqual([])
+  })
+
+  it('deleteAgent com id inexistente localmente → no-op SEM chamar a API (F1)', async () => {
+    useAgentsStore.setState({ agents: [agent()] })
+    await expect(useAgentsStore.getState().deleteAgent('ghost')).resolves.toBeUndefined()
+    expect(vi.mocked(deleteAgent)).not.toHaveBeenCalled()
+    expect(useAgentsStore.getState().agents).toHaveLength(1)
+  })
+
+  it('deleteAgent 404 (id existia) → resolve, remove da lista, sem error (F1)', async () => {
+    useAgentsStore.setState({ agents: [agent(), agent({ id: 'a2' })] })
+    vi.mocked(deleteAgent).mockRejectedValue(new ApiError(404, 'not found'))
+    await expect(useAgentsStore.getState().deleteAgent('a1')).resolves.toBeUndefined()
+    expect(useAgentsStore.getState().error).toBeNull()
+    expect(console.error).not.toHaveBeenCalled()
+    expect(useAgentsStore.getState().agents.map((a) => a.id)).toEqual(['a2'])
+  })
+
+  it('deleteAgent 500 → error friendly + re-throw, lista intacta (F1)', async () => {
+    useAgentsStore.setState({ agents: [agent()] })
+    vi.mocked(deleteAgent).mockRejectedValue(new ApiError(500, 'boom'))
+    await expect(useAgentsStore.getState().deleteAgent('a1')).rejects.toMatchObject({ status: 500 })
+    expect(useAgentsStore.getState().error).toBe('Failed to delete agent (HTTP 500)')
+    expect(useAgentsStore.getState().agents).toHaveLength(1)
   })
 
   it('422 → error friendly EN + detail no console, NÃO muta lista', async () => {
@@ -129,13 +154,5 @@ describe('agentsStore (S2)', () => {
     vi.mocked(createAgent).mockRejectedValue(new ApiError(500, 'boom'))
     await useAgentsStore.getState().createAgent(input()).catch(() => {})
     expect(useAgentsStore.getState().error).toBe('Failed to save agent (HTTP 500)')
-  })
-
-  it('deleteAgent 404 → error friendly, lista intacta', async () => {
-    useAgentsStore.setState({ agents: [agent()] })
-    vi.mocked(deleteAgent).mockRejectedValue(new ApiError(404, 'not found'))
-    await useAgentsStore.getState().deleteAgent('a1').catch(() => {})
-    expect(useAgentsStore.getState().error).toBe('Failed to delete agent (HTTP 404)')
-    expect(useAgentsStore.getState().agents).toHaveLength(1)
   })
 })

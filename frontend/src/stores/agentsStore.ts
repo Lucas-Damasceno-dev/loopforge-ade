@@ -17,7 +17,7 @@ interface AgentsState {
   deleteAgent: (id: string) => Promise<void>
 }
 
-export const useAgentsStore = create<AgentsState>((set) => ({
+export const useAgentsStore = create<AgentsState>((set, get) => ({
   agents: [],
   loading: false,
   error: null,
@@ -59,10 +59,21 @@ export const useAgentsStore = create<AgentsState>((set) => ({
   },
 
   deleteAgent: async (id) => {
+    // F1 (fix round 1): id inexistente localmente (lista vazia inclusa) =
+    // no-op sem chamar a API — o estado já é o desejado.
+    if (!get().agents.some((a) => a.id === id)) return
     try {
       await deleteAgentApi(id)
       set((s) => ({ agents: s.agents.filter((a) => a.id !== id), error: null }))
     } catch (e) {
+      // 404: recurso já inexistente no servidor — estado desejado; remove da
+      // lista (resposta de sucesso de quem já deletou) e engole (sem error,
+      // sem re-throw — delete fire-and-forget na UI não gera unhandled).
+      if (e instanceof ApiError && e.status === 404) {
+        set((s) => ({ agents: s.agents.filter((a) => a.id !== id) }))
+        return
+      }
+      // Rede/500: mantém error amigável + re-throw (caller decide UX).
       set({ error: agentErrorMessage(e, 'delete') })
       throw e
     }
