@@ -50,7 +50,7 @@ function SplitNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'spl
         <span
           title="Runs branches in parallel"
           className={[
-            'rounded bg-[var(--accent)]/15 px-1 font-mono text-(--text-2xs) font-bold text-[var(--accent-text)]',
+            'shrink-0 whitespace-nowrap rounded bg-[var(--accent)]/15 px-1 font-mono text-(--text-2xs) font-bold text-[var(--accent-text)]',
             status === 'running' && !ghosted ? 'animate-pulse' : '',
           ].join(' ')}
         >

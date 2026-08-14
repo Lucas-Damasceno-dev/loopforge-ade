@@ -58,7 +58,9 @@ test('app loads, runs demo and renders the DAG with a clean console', async ({ p
   // Nós de agentes renderizam com o label estável do mock: todos os nós de
   // execução completam (aria-label "<Node> (Approved)" — AgentNode.tsx).
   await expect(page.getByLabel('CPO (Approved)')).toBeVisible({ timeout: 10_000 })
-  await expect(page.getByLabel('Parallel Audit (Approved)')).toBeVisible()
+  // S4: parallel_audit é expandido no canvas (split/appsec/devops/merge).
+  await expect(page.getByLabel('Split (parallel audit)')).toBeVisible()
+  await expect(page.getByLabel('AppSec (Approved)')).toBeVisible()
 
   // (c) Zero erros de console legítimos.
   expect(errors).toEqual([])
@@ -79,6 +81,8 @@ test('artifacts panel opens from topbar and renders drawer', async ({ page }) =>
   const artifactsBtn = page.getByRole('button', { name: 'Artifacts' })
   await expect(artifactsBtn).toBeVisible()
   await artifactsBtn.click()
+  // S1: views abrem na sidebar (resumo) — o drawer completo exige "Open panel".
+  await page.getByRole('button', { name: 'Open Artifacts panel' }).click()
 
   await expect(page.getByText('Generated Artifacts & Files')).toBeVisible()
 })
