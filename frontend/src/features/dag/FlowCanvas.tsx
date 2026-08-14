@@ -28,6 +28,23 @@ import { buildNodes, buildEdges, DISPLAY_PARENT, type DagNode, type DagEdge } fr
 // nodeTypes estável fora do componente (React Flow recria se mudar a cada render).
 const nodeTypes = { agent: AgentNode, split: SplitNode, merge: MergeNode }
 
+// Enriquecimento puro das edges p/ o React Flow (separado p/ teste — edges NÃO
+// renderizam no jsdom; a lógica precisa ser unit-testável).
+// - markerEnd: err quando dashed (retry filho devops->split), accent quando
+//   animada (loop retry->developer), border nos demais.
+// - sourcePosition/targetPosition (bottom no retry filho) já fluem via spread.
+export function decorateEdges(edges: DagEdge[]) {
+  return edges.map((e) => ({
+    ...e,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: e.dashed ? 'var(--err)' : e.animated ? 'var(--accent)' : 'var(--border)',
+    },
+    animated: e.animated,
+    style: e.style ?? (e.animated ? { stroke: 'var(--accent)', strokeWidth: 2 } : { stroke: 'var(--border)', strokeWidth: 1.5 }),
+  }))
+}
+
 export interface FlowCanvasProps {
   onNodeClick?: (id: string) => void
 }
@@ -110,6 +127,10 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
       const node = normalizeNodeName(entry.node)
       if (node) costByNode.set(node, entry)
     }
+    // S4: o split (display) herda o custo do PAI de execução (parallel_audit)
+    // — o único display node com custo nesta fase; appsec/devops/merge sem chip.
+    const auditCost = costByNode.get('parallel_audit')
+    if (auditCost) costByNode.set('split', auditCost)
     const dagNodes = buildNodes(nodeStatus, mode, ghostToStep)
     setNodes(
       dagNodes.map((n) => ({
@@ -118,17 +139,7 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         selected: selectedNodeId === n.id,
       })),
     )
-    setEdges(
-      buildEdges(dagNodes).map((e) => ({
-        ...e,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: e.animated ? 'var(--accent)' : 'var(--border)',
-        },
-        animated: e.animated,
-        style: e.style ?? (e.animated ? { stroke: 'var(--accent)', strokeWidth: 2 } : { stroke: 'var(--border)', strokeWidth: 1.5 }),
-      })),
-    )
+    setEdges(decorateEdges(buildEdges(dagNodes)))
   }, [mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
 
   return (

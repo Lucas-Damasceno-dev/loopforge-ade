@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Handle, Position, type Node as FlowNode, type NodeProps } from '@xyflow/react'
 import { useCanvasStore } from '../../stores/canvasStore'
 import { Badge } from '../../shared/ui/Badge'
+import { formatUsd } from '../costs/costModel'
 import type { DagNodeData } from './dagModel'
 import { nodeAccentTextVar, nodeAccentVar } from './nodeAccent'
 import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
@@ -56,8 +57,21 @@ function SplitNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'spl
           2× parallel
         </span>
       </div>
-      <div className="mt-1.5 flex items-center gap-1.5">
+      <div className="mt-1.5 flex items-center justify-between gap-1.5">
         <Badge tone={NODE_STATUS_TONE[status]}>{NODE_STATUS_LABEL[status]}</Badge>
+        {/* Chip de custo do BLOCO (S4/T5): o split exibe o custo do pai de
+            execução (parallel_audit) — injetado pelo FlowCanvas em data.cost.
+            Mesmo padrão do AgentNode: discreto, sem $0.00, ~ quando estimado. */}
+        {data.cost && data.cost.spent_usd > 0 && (
+          <span
+            data-testid="cost-chip-split"
+            title={data.cost.estimated ? 'Estimated cost — no OpenRouter key, rough approximation' : 'Cost accrued by this node'}
+            className="shrink-0 rounded border border-[var(--border)] bg-[var(--bg)] px-1.5 py-px font-mono text-(--text-2xs) text-[var(--text-dim)]"
+          >
+            {data.cost.estimated ? '~' : ''}
+            {formatUsd(data.cost.spent_usd)}
+          </span>
+        )}
       </div>
       {/* Handles do fan-out: a=topo (appsec, y=60), b=base (devops, y=180). */}
       <Handle id="a" type="source" position={Position.Right} style={{ top: '30%', background: 'var(--border)' }} />

@@ -1,7 +1,9 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { FlowCanvas } from '../FlowCanvas'
+import { MarkerType } from '@xyflow/react'
+import { FlowCanvas, decorateEdges } from '../FlowCanvas'
+import { buildNodes, buildEdges } from '../dagModel'
 import { useCanvasStore } from '../../../stores/canvasStore'
 import { useRunsStore } from '../../../stores/runsStore'
 
@@ -106,5 +108,50 @@ describe('FlowCanvas', () => {
     renderCanvas()
     fireEvent.click(await screen.findByLabelText('Split (parallel audit)'))
     expect(useCanvasStore.getState().selectedNodeId).toBe('parallel_audit')
+  })
+
+  it('decorateEdges: retry filho devops->split com curva bottom + estilo err', () => {
+    const statuses = { parallel_audit: { status: 'rejected' as const, attemptCount: 2 } }
+    const dagNodes = buildNodes(statuses, 'graph', null)
+    const edges = decorateEdges(buildEdges(dagNodes))
+    const retry = edges.find((e) => e.id === 'retry-devops->split')
+    expect(retry).toBeDefined()
+    expect(retry!.sourcePosition).toBe('bottom')
+    expect(retry!.targetPosition).toBe('bottom')
+    expect(retry!.animated).toBe(true)
+    expect(retry!.dashed).toBe(true)
+    expect(retry!.style).toMatchObject({ stroke: 'var(--err)', strokeDasharray: '6 4' })
+    expect(retry!.markerEnd).toEqual({ type: MarkerType.ArrowClosed, color: 'var(--err)' })
+  })
+
+  it('decorateEdges: loop retry->developer segue accent (inalterado)', () => {
+    const statuses = { developer: { status: 'running' as const, attemptCount: 1 } }
+    const dagNodes = buildNodes(statuses, 'graph', null)
+    const edges = decorateEdges(buildEdges(dagNodes))
+    const loop = edges.find((e) => e.id === 'retry->developer')
+    expect(loop).toBeDefined()
+    expect(loop!.markerEnd).toEqual({ type: MarkerType.ArrowClosed, color: 'var(--accent)' })
+    // style próprio do dagModel (T1): accent 1.5 — inalterado nesta task.
+    expect(loop!.style).toMatchObject({ stroke: 'var(--accent)', strokeWidth: 1.5 })
+  })
+
+  it('cost do pai (parallel_audit) é exibido no split — appsec/devops/merge sem chip', async () => {
+    useRunsStore.setState({ runs: [{ id: 'r1', idea: 'x', stack: '', status: 'running' }], activeRunId: 'r1' })
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        run_id: 'r1',
+        spent_usd: 0.42,
+        estimated: false,
+        budget: { max_usd: 10, percent_used: 0.04 },
+        budget_warning: false,
+        nodes: [{ node: 'parallel_audit', spent_usd: 0.42, estimated: false }],
+      }),
+    )
+    renderCanvas()
+    expect(await screen.findByTestId('cost-chip-split')).toHaveTextContent('$0.42')
+    // NÃO duplicar custo nos filhos display (decisão T5).
+    expect(screen.queryByTestId('cost-chip-appsec')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('cost-chip-devops')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('cost-chip-merge')).not.toBeInTheDocument()
   })
 })
