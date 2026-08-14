@@ -34,6 +34,7 @@ vi.mock('../../features/mcp/McpPlayground', () => ({ McpPlayground: () => null }
 vi.mock('../../features/auth/ApiKeyGate', () => ({ ApiKeyGate: () => null }))
 vi.mock('../../shared/ui/ToastContainer', () => ({ ToastContainer: () => null }))
 vi.mock('../../shared/ui/Topbar', () => ({ Topbar: () => <header data-testid="topbar" /> }))
+vi.mock('../../shared/ui/CommandPalette', () => ({ CommandPalette: () => <div data-testid="command-palette" /> }))
 vi.mock('../../shared/ui/ActivityRail', () => ({ ActivityRail: () => <nav data-testid="rail" /> }))
 vi.mock('../../shared/ui/SplitPane', () => ({
   SplitPane: ({ children }: { children?: import('react').ReactNode }) => <div data-testid="splitpane">{children}</div>,

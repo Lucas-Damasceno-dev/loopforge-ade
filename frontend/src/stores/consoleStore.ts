@@ -36,12 +36,18 @@ interface ConsoleState {
   streams: Record<string, ConsoleStream>
   filters: ConsoleFilters
   autoScroll: boolean
+  /** Colapso do painel (T7): fonte do estado movida do ConsolePanel p/ o
+   *  store — a command palette toggla via getState() sem montar o painel.
+   *  Persistência localStorage continua no ConsolePanel (efeito). */
+  collapsed: boolean
   addEntry: (e: ConsoleEntry) => void
   appendStream: (node: NodeType | 'system', content: string, runId?: string) => void
   finishStream: (node: NodeType | 'system') => void
   setFilters: (partial: Partial<ConsoleFilters>) => void
   toggleAutoScroll: () => void
   clear: () => void
+  setCollapsed: (v: boolean) => void
+  toggleCollapsed: () => void
 }
 
 export const useConsoleStore = create<ConsoleState>((set) => ({
@@ -49,6 +55,7 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   streams: {},
   filters: { node: 'all', level: 'all', query: '' },
   autoScroll: true,
+  collapsed: true,
 
   addEntry: (e) => set((s) => ({ entries: [...s.entries, e] })),
 
@@ -93,4 +100,8 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   toggleAutoScroll: () => set((s) => ({ autoScroll: !s.autoScroll })),
 
   clear: () => set({ entries: [], streams: {} }),
+
+  setCollapsed: (v) => set({ collapsed: v }),
+
+  toggleCollapsed: () => set((s) => ({ collapsed: !s.collapsed })),
 }))

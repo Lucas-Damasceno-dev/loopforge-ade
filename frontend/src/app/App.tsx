@@ -25,6 +25,8 @@ import { ApiKeyGate } from '../features/auth/ApiKeyGate'
 import { ToastContainer } from '../shared/ui/ToastContainer'
 import { Drawer } from '../shared/ui/Drawer'
 import { Topbar } from '../shared/ui/Topbar'
+import { CommandPalette } from '../shared/ui/CommandPalette'
+import type { PaletteCtx } from '../shared/lib/commands'
 import { RunInspector } from '../features/dag/RunInspector'
 import { ActivityRail } from '../shared/ui/ActivityRail'
 import { SidebarHost } from '../shared/ui/SidebarHost'
@@ -99,6 +101,19 @@ export function App() {
     useWsStore.getState().connect()
   }, [])
 
+  // Command palette (T7): listener global ⌘K/Ctrl+K abre (preventDefault —
+  // não conflita com atalhos do browser p/ busca). Esc é tratado pela palette.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   // Focus mode honesto (auditoria): NÃO sobrescreve F11 do browser — usa a
   // Fullscreen API real (Esc sai nativamente). try/catch cobre ambientes sem
   // suporte (ex.: iframe sem allowfullscreen).
@@ -118,6 +133,21 @@ export function App() {
     } catch {
       // Fullscreen API indisponível — ignora silenciosamente.
     }
+  }
+
+  // Command palette (T7): estado de abertura + ctx com as ações do shell.
+  // Fecha sempre após executar (CommandPalette); Esc/overlay também fecham.
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const paletteCtx: PaletteCtx = {
+    openView,
+    closeView,
+    openBudgetOverride: () => {
+      if (activeRunId) openBudgetOverride(activeRunId)
+    },
+    toggleInspector: () => setInspectorOpen((v) => !v),
+    toggleFocus: toggleFullscreen,
+    toggleConsole: () => useConsoleStore.getState().toggleCollapsed(),
+    focusNewRunIdea: () => document.querySelector<HTMLTextAreaElement>('#new-run-idea')?.focus(),
   }
 
   // P1-7: título da aba reflete o estado da run ativa (multitab/headless).
@@ -177,14 +207,16 @@ export function App() {
       <main data-testid="app-root" className="flex h-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
         {!fullscreen && (
           <Topbar
-            /* Trigger central da command palette (T4 slot; wiring real na
-               Task 7 — placeholder desabilitado). */
+            /* Trigger central da command palette (T7): abre a mesma palette
+               do atalho ⌘K; aria-haspopup/expanded p/ a11y do dialog. */
             center={
               <button
                 type="button"
-                disabled
-                title="Command palette (coming in task 7)"
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1 text-xs text-[var(--text-dim)] transition-colors duration-[var(--dur-fast)]"
+                aria-haspopup="dialog"
+                aria-expanded={paletteOpen}
+                title="Command palette (⌘K)"
+                onClick={() => setPaletteOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1 text-xs text-[var(--text-dim)] transition-colors duration-[var(--dur-fast)] hover:border-[var(--border-hover)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 <kbd className="rounded border border-[var(--border)] bg-[var(--bg-elev-2)] px-1 font-mono text-(--text-2xs) text-[var(--text-dim)]">
                   ⌘K
@@ -287,6 +319,8 @@ export function App() {
         <ApiKeyGate />
         {/* Notificações flutuantes globais (toasts). */}
         <ToastContainer />
+        {/* Command palette (T7): overlay global ⌘K — z-[80] acima de tudo. */}
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} ctx={paletteCtx} />
       </main>
     </QueryClientProvider>
   )

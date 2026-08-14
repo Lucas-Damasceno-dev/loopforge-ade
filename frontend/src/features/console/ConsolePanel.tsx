@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useConsoleStore } from '../../stores/consoleStore'
 import type { ConsoleFilters, LogLevel } from '../../stores/consoleStore'
 import { NODE_LABELS, PIPELINE_ORDER } from '../dag/dagModel'
@@ -75,7 +75,9 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
   const streams = useConsoleStore((s) => s.streams)
   const filters = useConsoleStore((s) => s.filters)
   const autoScroll = useConsoleStore((s) => s.autoScroll)
+  const collapsed = useConsoleStore((s) => s.collapsed)
   const setFilters = useConsoleStore((s) => s.setFilters)
+  const setCollapsed = useConsoleStore((s) => s.setCollapsed)
   const toggleAutoScroll = useConsoleStore((s) => s.toggleAutoScroll)
   const clear = useConsoleStore((s) => s.clear)
   const listRef = useRef<HTMLDivElement>(null)
@@ -83,21 +85,23 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
   const hasContent = entries.length > 0 || Object.keys(streams).length > 0
   const errorCount = entries.filter((e) => e.level === 'error').length
 
-  // Colapso persistido no localStorage: manual (chevron) salva preferência;
-  // vazio inicia colapsado; ao primeiro log/stream expande automaticamente.
-  const [collapsed, setCollapsed] = useState(() => (!hasContent ? true : (getSavedCollapsed() ?? false)))
-  const hadContent = useRef(hasContent)
+  // Colapso (T7): fonte do estado no consoleStore (command palette toggla sem
+  // montar o painel). Este efeito DERIVA o estado — vazio colapsa, conteúdo
+  // expande (saved ?? false); persistência da preferência manual no toggle
+  // (localStorage — regra original preservada: toggle manual salva, derivação
+  // automática não sobrescreve preferência).
+  useEffect(() => {
+    setCollapsed(!hasContent ? true : (getSavedCollapsed() ?? false))
+  }, [hasContent, setCollapsed])
 
   const toggleCollapse = () => {
-    setCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(STORAGE_KEY_CONSOLE_COLLAPSED, String(next))
-      } catch {
-        // Fallback defensivo
-      }
-      return next
-    })
+    const next = !collapsed
+    setCollapsed(next)
+    try {
+      localStorage.setItem(STORAGE_KEY_CONSOLE_COLLAPSED, String(next))
+    } catch {
+      // Fallback defensivo
+    }
   }
 
   const handleExportLogs = () => {
@@ -141,13 +145,8 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
     })
   }, [streamList, filters])
 
-  // Auto-expand/collapse: primeiro log expande; esvaziar recolhe (auditoria
-  // P0.5). Só na TRANSIÇÃO — colapso manual com conteúdo permanece.
-  useEffect(() => {
-    if (hasContent && !hadContent.current) setCollapsed(false)
-    if (!hasContent && hadContent.current) setCollapsed(true)
-    hadContent.current = hasContent
-  }, [hasContent])
+  // Auto-expand/collapse: derivado no effect acima ([hasContent]) — regra
+  // original (auditoria P0.5) preservada; colapso manual com conteúdo permanece.
 
   // Autoscroll: com autoScroll ligado, conteúdo/filtro novo rola ao fundo.
   useEffect(() => {
