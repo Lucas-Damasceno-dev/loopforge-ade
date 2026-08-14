@@ -5,6 +5,7 @@ import { Button } from '../../shared/ui/Button'
 import { Select } from '../../shared/ui/Select'
 import { Input } from '../../shared/ui/Input'
 import { showToast } from '../../stores/toastStore'
+import { usePipelinesStore } from '../../stores/pipelinesStore'
 import type { CreateRunInput, Run } from '../../shared/lib/types'
 
 export interface NewRunFormProps {
@@ -44,8 +45,17 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
   const [stack, setStack] = useState<string>(STACK_OPTIONS[0])
   const [routingMode, setRoutingMode] = useState<string>(ROUTING_OPTIONS[0])
   const [model, setModel] = useState('')
+  const [pipelineId, setPipelineId] = useState('')
   const [showPresets, setShowPresets] = useState(false)
   const ideaRef = useRef<HTMLTextAreaElement>(null)
+  const pipelines = usePipelinesStore((s) => s.pipelines)
+
+  // S3 T10 (decisão 10-A): pipeline opcional no New Run — fallback automático
+  // quando ausente (backend roda o pipeline default). Carrega a biblioteca no
+  // mount (padrão PipelinesPanel).
+  useEffect(() => {
+    void usePipelinesStore.getState().fetchPipelines()
+  }, [])
 
   // Autosize (rows=1 fixo → cresce até o conteúdo; max-h corta em ~4 linhas).
   const resizeIdea = () => {
@@ -76,6 +86,8 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
     // Model vazio → omitido do body (default do backend por run).
     const m = model.trim()
     if (m) payload.model = m
+    // Pipeline vazio → omitido (fallback automático do backend).
+    if (pipelineId) payload.pipeline_id = pipelineId
     mutation.mutate(payload)
   }
 
@@ -101,6 +113,20 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
           <Select aria-label="Routing mode" value={routingMode} onChange={(e) => setRoutingMode(e.target.value)} className={narrow ? 'min-w-0 flex-1' : undefined}>
             {ROUTING_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </Select>
+          {/* Pipeline opcional (S3 T10): vazio = fallback automático (pipeline
+              default do backend). Backend ignora routing_mode quando pipeline
+              setado — ambos enviados (decisão: manter habilitado). */}
+          <Select
+            aria-label="Pipeline (optional)"
+            value={pipelineId}
+            onChange={(e) => setPipelineId(e.target.value)}
+            className={narrow ? 'min-w-0 flex-1' : undefined}
+          >
+            <option value="">Pipeline (default)</option>
+            {pipelines.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </Select>
           {/* Modelo LLM opcional (RunCreate.model — vence env/config por run).

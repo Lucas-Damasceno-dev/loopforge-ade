@@ -72,6 +72,9 @@ export interface Run {
   degraded?: boolean
   /** Motivo da degradação (ex.: "mock fallback", erro do provider). */
   degraded_reason?: string | null
+  /** Pipeline usado na run (S3 T10 — backend emite pipeline_id/pipeline_name). */
+  pipeline_id?: string | null
+  pipeline_name?: string | null
 }
 
 export interface RunListResponse {
@@ -141,6 +144,8 @@ export interface CreateRunInput {
   interactive?: boolean
   /** Modelo LLM override para a run (vence env/config por run). */
   model?: string | null
+  /** Pipeline (S3 T10): ausente/null → fallback automático (pipeline default). */
+  pipeline_id?: string | null
 }
 
 export interface AdeMcpServer {

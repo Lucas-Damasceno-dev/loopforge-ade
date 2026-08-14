@@ -104,6 +104,13 @@ export function RunInspector() {
                 <div className="mb-2 flex items-center gap-2">
                   <Badge tone={RUN_STATUS_TONE[run.status]}>{runStatusLabel(run.status)}</Badge>
                   {run.degraded && <Badge tone="warn">degraded</Badge>}
+                  {/* S3 T10: pipeline usado na run — badge mono no Run details.
+                      Fallback p/ shortId do id quando sem nome. */}
+                  {run.pipeline_id ? (
+                    <Badge tone="neutral" title={`Pipeline ${run.pipeline_id}`}>
+                      Pipeline: {run.pipeline_name || shortId(run.pipeline_id)}
+                    </Badge>
+                  ) : null}
                 </div>
                 <dl className="space-y-1">
                   <DetailRow label="Run" value={shortId(run.id)} mono />

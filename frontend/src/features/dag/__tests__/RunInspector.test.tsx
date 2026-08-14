@@ -76,4 +76,20 @@ describe('RunInspector', () => {
     renderInspector()
     expect(screen.getByText(/no active run/i)).toBeInTheDocument()
   })
+
+  it('run com pipeline_name → badge "Pipeline: <name>" no Run details', async () => {
+    useRunsStore.setState({ runs: [{ ...runningRun, pipeline_id: 'p1', pipeline_name: 'Main flow' }], activeRunId: 'run-1' })
+    vi.mocked(getRunCost).mockResolvedValue(costMock as never)
+    renderInspector()
+    expect(await screen.findByText('Run details')).toBeInTheDocument()
+    expect(screen.getByText('Pipeline: Main flow')).toBeInTheDocument()
+  })
+
+  it('run sem pipeline → badge ausente', async () => {
+    useRunsStore.setState({ runs: [runningRun], activeRunId: 'run-1' })
+    vi.mocked(getRunCost).mockResolvedValue(costMock as never)
+    renderInspector()
+    expect(await screen.findByText('Run details')).toBeInTheDocument()
+    expect(screen.queryByText(/pipeline:/i)).not.toBeInTheDocument()
+  })
 })
