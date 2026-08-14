@@ -24,6 +24,8 @@ import type {
   LessonDeleteResult,
   McpServer,
   McpTool,
+  Pipeline,
+  PipelineInput,
   Run,
   RunFilesResponse,
   RunListResponse,
@@ -33,6 +35,7 @@ import type {
   TerminalInfoResponse,
   TimelineResponse,
   TrajectoryExport,
+  ValidateResult,
 } from './types'
 import type { WsEvent } from './ws'
 
@@ -292,6 +295,20 @@ export const updateAgent = (id: string, input: Partial<AgentInput>) =>
   apiFetch<Agent>(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })
 export const deleteAgent = (id: string) =>
   apiFetch<void>(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+// ─── Pipelines (S3) — CRUD /api/v1/pipelines (src/lf/api/pipelines.py) ──────
+export const listPipelines = () => apiFetch<Pipeline[]>('/pipelines')
+export const getPipeline = (id: string) => apiFetch<Pipeline>(`/pipelines/${encodeURIComponent(id)}`)
+export const createPipeline = (input: PipelineInput) =>
+  apiFetch<Pipeline>('/pipelines', { method: 'POST', body: JSON.stringify(input) })
+// PATCH-style parcial (PUT): backend mescla os campos enviados.
+export const updatePipeline = (id: string, input: Partial<PipelineInput>) =>
+  apiFetch<Pipeline>(`/pipelines/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })
+export const deletePipeline = (id: string) =>
+  apiFetch<void>(`/pipelines/${encodeURIComponent(id)}`, { method: 'DELETE' })
+// Validação estrutural: 200 {valid, errors} — não lança em pipeline inválido.
+export const validatePipeline = (id: string) =>
+  apiFetch<ValidateResult>(`/pipelines/${encodeURIComponent(id)}/validate`, { method: 'POST' })
 
 // ─── Health (HealthPanel) — heartbeat do engine ─────────────────────────────
 // GET /health (raiz, SEM auth — fora do prefixo /api/v1): {status, version}.

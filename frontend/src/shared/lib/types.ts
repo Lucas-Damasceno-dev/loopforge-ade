@@ -542,5 +542,47 @@ export interface Agent {
 /** Payload de create/update — tudo menos os campos gerados pelo servidor. */
 export type AgentInput = Omit<Agent, 'id' | 'created_at' | 'updated_at'>
 
+// ─── Pipelines (S3) — editor de pipelines /api/v1/pipelines ────────────────
+// Espelha PipelineResponse/PipelineNode/PipelineEdge do backend (S3 T1/T2).
+// type de nó: agent/split/merge/input/output/gate (vocabulário do editor —
+// não confundir com NodeType do DAG display, que é subconjunto diferente).
+export type PipelineNodeType = 'agent' | 'split' | 'merge' | 'input' | 'output' | 'gate'
+
+export interface PipelineNode {
+  id: string
+  type: PipelineNodeType
+  agent_id: string | null
+  config: Record<string, unknown>
+}
+
+export type PipelineEdgeType = 'sequential' | 'parallel' | 'conditional' | 'retry'
+
+export interface PipelineEdge {
+  source: string
+  target: string
+  type: PipelineEdgeType
+  condition: string | null
+  max_retries: number
+}
+
+export interface Pipeline {
+  id: string
+  name: string
+  description: string
+  nodes: PipelineNode[]
+  edges: PipelineEdge[]
+  created_at: string
+  updated_at: string
+}
+
+/** Payload de create/update de pipeline — sem os campos do servidor. */
+export type PipelineInput = Omit<Pipeline, 'id' | 'created_at' | 'updated_at'>
+
+/** Resultado da validação estrutural (POST /pipelines/{id}/validate). */
+export interface ValidateResult {
+  valid: boolean
+  errors: string[]
+}
+
 
 

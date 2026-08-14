@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents, listAgents, getAgent, createAgent, updateAgent, deleteAgent } from '../api'
-import type { ArtifactsResponse } from '../types'
+import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents, listAgents, getAgent, createAgent, updateAgent, deleteAgent, listPipelines, getPipeline, createPipeline, updatePipeline, deletePipeline, validatePipeline } from '../api'
+import type { ArtifactsResponse, Pipeline } from '../types'
 
 describe('api client', () => {
   beforeEach(() => {
@@ -420,5 +420,83 @@ describe('api client', () => {
   it('agents 422 propagates ApiError {status: 422}', async () => {
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: [{ loc: ['body', 'name'], msg: 'missing' }] }), { status: 422 }))
     await expect(createAgent({ name: '' } as never)).rejects.toMatchObject({ status: 422 })
+  })
+
+  // ─── Pipelines (S3) — CRUD /api/v1/pipelines ────────────────────────────
+  const pipelineFixture: Pipeline = {
+    id: 'p1',
+    name: 'Main flow',
+    description: 'default pipeline',
+    nodes: [
+      { id: 'entry', type: 'input', agent_id: null, config: {} },
+      { id: 'dev', type: 'agent', agent_id: 'a1', config: { temperature: 0.5 } },
+      { id: 'end', type: 'output', agent_id: null, config: {} },
+    ],
+    edges: [
+      { source: 'entry', target: 'dev', type: 'sequential', condition: null, max_retries: 2 },
+    ],
+    created_at: '2026-08-14T00:00:00',
+    updated_at: '2026-08-14T00:00:00',
+  }
+
+  it('listPipelines GETs /api/v1/pipelines and parses the array', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify([pipelineFixture]), { status: 200 }))
+    const res = await listPipelines()
+    expect(res).toHaveLength(1)
+    expect(res[0].name).toBe('Main flow')
+    expect(res[0].nodes[1].agent_id).toBe('a1')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/pipelines'), expect.anything())
+  })
+
+  it('getPipeline GETs /api/v1/pipelines/{id}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(pipelineFixture), { status: 200 }))
+    const res = await getPipeline('p1')
+    expect(res.edges[0].type).toBe('sequential')
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/pipelines/p1'), expect.anything())
+  })
+
+  it('createPipeline POSTs the PipelineInput body with Content-Type json', async () => {
+    const { id: _id, created_at: _c, updated_at: _u, ...input } = pipelineFixture
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(pipelineFixture), { status: 201 }))
+    const res = await createPipeline(input)
+    expect(res.id).toBe('p1')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/pipelines')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual(input)
+    expect((init?.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+
+  it('updatePipeline PUTs a partial PipelineInput to /api/v1/pipelines/{id}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ...pipelineFixture, name: 'Renamed' }), { status: 200 }))
+    const res = await updatePipeline('p1', { name: 'Renamed' })
+    expect(res.name).toBe('Renamed')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/pipelines/p1')
+    expect(init?.method).toBe('PUT')
+    expect(JSON.parse(String(init?.body))).toEqual({ name: 'Renamed' })
+  })
+
+  it('deletePipeline DELETEs /api/v1/pipelines/{id}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ deleted: true }), { status: 200 }))
+    await expect(deletePipeline('p1')).resolves.not.toThrow()
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/pipelines/p1')
+    expect(init?.method).toBe('DELETE')
+  })
+
+  it('validatePipeline POSTs to /api/v1/pipelines/{id}/validate and parses {valid, errors}', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ valid: false, errors: ['node x unreachable'] }), { status: 200 }))
+    const res = await validatePipeline('p1')
+    expect(res.valid).toBe(false)
+    expect(res.errors).toEqual(['node x unreachable'])
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/pipelines/p1/validate')
+    expect(init?.method).toBe('POST')
+  })
+
+  it('pipelines 422 propagates ApiError {status: 422}', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: 'invalid edge' }), { status: 422 }))
+    await expect(createPipeline({} as never)).rejects.toMatchObject({ status: 422 })
   })
 })
