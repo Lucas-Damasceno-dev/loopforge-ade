@@ -6,6 +6,7 @@ import { Button } from '../../shared/ui/Button'
 import { Input } from '../../shared/ui/Input'
 import { Select } from '../../shared/ui/Select'
 import { EmptyState } from '../../shared/ui/EmptyState'
+import { IconTabBar } from '../../shared/ui/IconTabBar'
 
 // Console filtrável (E6): painel fixo inferior (UX1) — leitura das entradas do
 // consoleStore (escritas pelo wiring do WS, T5). Filtros atuam na SELEÇÃO
@@ -69,7 +70,7 @@ function getSavedCollapsed(): boolean | null {
   }
 }
 
-export function ConsolePanel({ className = '' }: { className?: string }) {
+export function ConsolePanel({ className = '', onOpenTerminal }: { className?: string; onOpenTerminal?: () => void }) {
   const entries = useConsoleStore((s) => s.entries)
   const streams = useConsoleStore((s) => s.streams)
   const filters = useConsoleStore((s) => s.filters)
@@ -169,30 +170,43 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
       data-testid="console-panel"
       className={`flex shrink-0 flex-col border-t border-[var(--border)] bg-[var(--bg)] ${collapsed ? '' : className}`}
     >
-      <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
-        <h2 className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Console</h2>
-        {collapsed ? (
-          <>
-            <span className="text-xs text-[var(--text-dim)]">
-              {hasContent ? `${entries.length + streamList.length} ${entries.length + streamList.length === 1 ? 'log' : 'logs'}` : 'No logs'}
-            </span>
-            {errorCount > 0 && (
-              <span className="rounded bg-[var(--err)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--err-text)]">
-                {errorCount} {errorCount === 1 ? 'error' : 'errors'}
+      {/* Tab bar ícone-only (T6): Console sempre ativo + Terminal (abre o
+          drawer — wire do App) + badge de erros. Chevron de colapso à direita
+          (mesma semântica de antes: ▸ colapsado / ▾ expandido). */}
+      <div className="flex h-[var(--tab-h)] items-center border-b border-[var(--border)]">
+        <IconTabBar
+          items={[
+            { key: 'console', label: 'Console', icon: 'console', count: errorCount, active: true, onClick: () => {} },
+            { key: 'terminal', label: 'Terminal', icon: 'terminal', onClick: () => onOpenTerminal?.() },
+          ]}
+        />
+        <div className="ml-auto flex items-center gap-2 pr-1">
+          {collapsed ? (
+            <>
+              <span className="text-xs text-[var(--text-dim)]">
+                {hasContent ? `${entries.length + streamList.length} ${entries.length + streamList.length === 1 ? 'log' : 'logs'}` : 'No logs'}
               </span>
-            )}
-            <button
-              type="button"
-              aria-label="Expand console"
-              aria-expanded={false}
-              onClick={toggleCollapse}
-              className={`ml-auto ${chevronCls}`}
-            >
-              ▸
-            </button>
-          </>
-        ) : (
-          <>
+              {errorCount > 0 && (
+                <span className="rounded bg-[var(--err)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--err-text)]">
+                  {errorCount} {errorCount === 1 ? 'error' : 'errors'}
+                </span>
+              )}
+            </>
+          ) : null}
+          <button
+            type="button"
+            aria-label={collapsed ? 'Expand console' : 'Collapse console'}
+            aria-expanded={!collapsed}
+            onClick={toggleCollapse}
+            className={chevronCls}
+          >
+            {collapsed ? '▸' : '▾'}
+          </button>
+        </div>
+      </div>
+      {!collapsed && (
+        <>
+          <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
             <Select
               aria-label="Filter by node"
               value={filters.node}
@@ -238,66 +252,55 @@ export function ConsolePanel({ className = '' }: { className?: string }) {
             <Button size="sm" variant="subtle" aria-label="Clear logs" onClick={clear}>
               Clear
             </Button>
-            <button
-              type="button"
-              aria-label="Collapse console"
-              aria-expanded={true}
-              onClick={toggleCollapse}
-              className={chevronCls}
-            >
-              ▾
-            </button>
-          </>
-        )}
-      </div>
-      {!collapsed && (
-        <div
-          ref={listRef}
-          role="list"
-          onScroll={handleScroll}
-          className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 font-mono text-xs leading-5 [scrollbar-gutter:stable]"
-        >
-          {entries.length === 0 && streamList.length === 0 ? (
-            <EmptyState
-              compact
-              icon={
-                <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none stroke-[1.5]">
-                  <polyline points="4 17 10 11 4 5" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-              }
-              title="No console output yet"
-              description="Pipeline execution logs and agent thought streams will appear here in real-time."
-            />
-          ) : visible.length === 0 && visibleStreams.length === 0 ? (
-            <p className="mt-1 text-[var(--text-dim)]">No matching logs</p>
-          ) : (
-            <>
-              {truncated && (
-                <div className="py-0.5 italic text-[var(--text-dim)]" role="note">
-                  … older logs truncated (showing last {MAX_CONSOLE_ENTRIES})
-                </div>
-              )}
-              {displayed.map((e) => (
-                <div key={e.id} role="listitem" className="flex items-baseline gap-2 py-0.5">
-                  <span className="select-none text-[var(--text-dim)]">{formatTs(e.ts)}</span>
-                  <span className={`font-semibold ${LEVEL_COLORS[e.level]}`}>[{e.level.toUpperCase()}]</span>
-                  <span className="text-[var(--text-dim)]">[{e.node ? ((NODE_LABELS as Record<string, string>)[e.node] ?? e.node) : 'system'}]</span>
-                  <span className="rounded-sm whitespace-pre-wrap break-all text-[var(--text)] hover:bg-[var(--bg-elev-2)]">{renderHighlighted(e.message, filters.query)}</span>
-                </div>
-              ))}
-              {visibleStreams.map((s) => (
-                <div key={s.node} role="listitem" data-testid="console-stream" className="text-[var(--text)] whitespace-pre-wrap break-words py-0.5">
-                  <span className="text-[var(--text-dim)]">[{formatTs(s.ts)}]</span>{' '}
-                  <span className="text-[var(--text)] font-semibold">[{s.node}]</span>{' '}
-                  <span className="text-[var(--info-text)] font-semibold">[STREAM]</span>{' '}
-                  <span>{s.content}</span>
-                  <span className="console-stream-cursor" />
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+          </div>
+          <div
+            ref={listRef}
+            role="list"
+            onScroll={handleScroll}
+            className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 font-mono text-xs leading-5 [scrollbar-gutter:stable]"
+          >
+            {entries.length === 0 && streamList.length === 0 ? (
+              <EmptyState
+                compact
+                icon={
+                  <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none stroke-[1.5]">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                }
+                title="No console output yet"
+                description="Pipeline execution logs and agent thought streams will appear here in real-time."
+              />
+            ) : visible.length === 0 && visibleStreams.length === 0 ? (
+              <p className="mt-1 text-[var(--text-dim)]">No matching logs</p>
+            ) : (
+              <>
+                {truncated && (
+                  <div className="py-0.5 italic text-[var(--text-dim)]" role="note">
+                    … older logs truncated (showing last {MAX_CONSOLE_ENTRIES})
+                  </div>
+                )}
+                {displayed.map((e) => (
+                  <div key={e.id} role="listitem" className="flex items-baseline gap-2 py-0.5">
+                    <span className="select-none text-[var(--text-dim)]">{formatTs(e.ts)}</span>
+                    <span className={`font-semibold ${LEVEL_COLORS[e.level]}`}>[{e.level.toUpperCase()}]</span>
+                    <span className="text-[var(--text-dim)]">[{e.node ? ((NODE_LABELS as Record<string, string>)[e.node] ?? e.node) : 'system'}]</span>
+                    <span className="rounded-sm whitespace-pre-wrap break-all text-[var(--text)] hover:bg-[var(--bg-elev-2)]">{renderHighlighted(e.message, filters.query)}</span>
+                  </div>
+                ))}
+                {visibleStreams.map((s) => (
+                  <div key={s.node} role="listitem" data-testid="console-stream" className="text-[var(--text)] whitespace-pre-wrap break-words py-0.5">
+                    <span className="text-[var(--text-dim)]">[{formatTs(s.ts)}]</span>{' '}
+                    <span className="text-[var(--text)] font-semibold">[{s.node}]</span>{' '}
+                    <span className="text-[var(--info-text)] font-semibold">[STREAM]</span>{' '}
+                    <span>{s.content}</span>
+                    <span className="console-stream-cursor" />
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   )

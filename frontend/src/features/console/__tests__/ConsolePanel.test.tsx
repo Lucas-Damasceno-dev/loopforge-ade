@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ConsolePanel } from '../ConsolePanel'
 import { useConsoleStore } from '../../../stores/consoleStore'
@@ -94,4 +95,31 @@ it('collapses and re-expands manually with content', () => {
   expect(screen.queryByText(/alpha/)).not.toBeInTheDocument()
   fireEvent.click(screen.getByLabelText('Expand console'))
   expect(screen.getByText(/alpha/)).toBeInTheDocument()
+})
+
+// ─── Tab bar ícone-only (T6) ───────────────────────────────────────────────
+
+it('renderiza tab bar ícone-only: Console ativo + badge de erros + Terminal', () => {
+  useConsoleStore.setState({
+    entries: [
+      { id: '1', ts: 0, node: 'developer', level: 'info', message: 'ok' },
+      { id: '2', ts: 0, node: 'qa', level: 'error', message: 'boom' },
+    ],
+    streams: {},
+    filters: { node: 'all', level: 'all', query: '' },
+    autoScroll: true,
+  })
+  render(<ConsolePanel />)
+  const consoleTab = screen.getByRole('tab', { name: 'Console' })
+  expect(consoleTab).toHaveAttribute('aria-selected', 'true')
+  // Badge de count de erros (1 error → '1') no tab Console.
+  expect(consoleTab.textContent).toContain('1')
+  expect(screen.getByRole('tab', { name: 'Terminal' })).toBeInTheDocument()
+})
+
+it('clique na tab Terminal chama onOpenTerminal', () => {
+  const onOpenTerminal = vi.fn()
+  render(<ConsolePanel onOpenTerminal={onOpenTerminal} />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Terminal' }))
+  expect(onOpenTerminal).toHaveBeenCalledTimes(1)
 })

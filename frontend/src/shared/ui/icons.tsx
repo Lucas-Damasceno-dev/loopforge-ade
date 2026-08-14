@@ -5,6 +5,8 @@
 // Pipeline do rail).
 
 const ICONS = {
+  // Console do panel bottom (T6): chevron simples (não VS Code).
+  console: <polyline points="9 18 15 12 9 6" />,
   // Pipeline (T2): views novas do rail de atividade.
   runs: (
     <>
