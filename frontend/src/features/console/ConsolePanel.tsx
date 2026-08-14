@@ -194,16 +194,9 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
         />
         <div className="ml-auto flex items-center gap-2 pr-1">
           {collapsed ? (
-            <>
-              <span className="text-xs text-[var(--text-dim)]">
-                {hasContent ? `${entries.length + streamList.length} ${entries.length + streamList.length === 1 ? 'log' : 'logs'}` : 'No logs'}
-              </span>
-              {errorCount > 0 && (
-                <span className="rounded bg-[var(--err)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--err-text)]">
-                  {errorCount} {errorCount === 1 ? 'error' : 'errors'}
-                </span>
-              )}
-            </>
+            <span className="text-xs text-[var(--text-dim)]">
+              {hasContent ? `${entries.length + streamList.length} ${entries.length + streamList.length === 1 ? 'log' : 'logs'}` : 'No logs'}
+            </span>
           ) : null}
           <button
             type="button"

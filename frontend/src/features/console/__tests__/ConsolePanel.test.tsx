@@ -146,6 +146,22 @@ it('stays collapsed after manual collapse while content persists (preference res
   expect(screen.queryByText(/alpha/)).not.toBeInTheDocument()
 })
 
+it('badge de erros aparece UMA vez no tab bar — não duplica no hint colapsado (T8 F3)', () => {
+  useConsoleStore.setState({
+    ...baseState(),
+    entries: [{ id: '1', ts: 0, node: 'qa', level: 'error', message: 'boom' }],
+    collapsed: false,
+  })
+  render(<ConsolePanel />)
+  const consoleTab = screen.getByRole('button', { name: 'Console' })
+  expect(consoleTab.textContent).toContain('1') // badge de count no tab
+  fireEvent.click(screen.getByLabelText('Collapse console'))
+  expect(screen.getByText('1 log')).toBeInTheDocument()
+  // Hint colapsado NÃO repete o badge de erro (duplicado era o F3 do T6).
+  expect(screen.queryByText(/error/i)).toBeNull()
+  expect(consoleTab.textContent).toContain('1')
+})
+
 // ─── Tab bar ícone-only (T6) ───────────────────────────────────────────────
 
 it('renderiza tab bar ícone-only: Console ativo + badge de erros + Terminal', () => {

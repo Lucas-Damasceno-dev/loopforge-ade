@@ -146,7 +146,7 @@ export function RunInspector() {
                       <span className={`font-mono ${percentCls}`}>{percent}%</span>
                     </div>
                     <div
-                      className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--bg-elev-2)]"
+                      className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--bg-elev-2)]"
                       role="meter"
                       aria-valuenow={percent}
                       aria-valuemin={0}

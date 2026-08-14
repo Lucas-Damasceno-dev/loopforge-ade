@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../features/runs/RunsWorkspace'
 import { ConsolePanel } from '../features/console/ConsolePanel'
@@ -123,7 +123,7 @@ export function App() {
     return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
 
-  const toggleFullscreen = async () => {
+  const toggleFullscreen = useCallback(async () => {
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen()
@@ -133,22 +133,27 @@ export function App() {
     } catch {
       // Fullscreen API indisponível — ignora silenciosamente.
     }
-  }
+  }, [])
 
   // Command palette (T7): estado de abertura + ctx com as ações do shell.
   // Fecha sempre após executar (CommandPalette); Esc/overlay também fecham.
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const paletteCtx: PaletteCtx = {
-    openView,
-    closeView,
-    openBudgetOverride: () => {
-      if (activeRunId) openBudgetOverride(activeRunId)
-    },
-    toggleInspector: () => setInspectorOpen((v) => !v),
-    toggleFocus: toggleFullscreen,
-    toggleConsole: () => useConsoleStore.getState().toggleCollapsed(),
-    focusNewRunIdea: () => document.querySelector<HTMLTextAreaElement>('#new-run-idea')?.focus(),
-  }
+  // T8: memoizado (deps estáveis do zustand + setters) — evita re-render do
+  // CommandPalette a cada render do App (palette é modal; ctx muda pouco).
+  const paletteCtx = useMemo<PaletteCtx>(
+    () => ({
+      openView,
+      closeView,
+      openBudgetOverride: () => {
+        if (activeRunId) openBudgetOverride(activeRunId)
+      },
+      toggleInspector: () => setInspectorOpen((v) => !v),
+      toggleFocus: toggleFullscreen,
+      toggleConsole: () => useConsoleStore.getState().toggleCollapsed(),
+      focusNewRunIdea: () => document.querySelector<HTMLTextAreaElement>('#new-run-idea')?.focus(),
+    }),
+    [openView, closeView, activeRunId, openBudgetOverride, toggleFullscreen],
+  )
 
   // P1-7: título da aba reflete o estado da run ativa (multitab/headless).
   useEffect(() => {

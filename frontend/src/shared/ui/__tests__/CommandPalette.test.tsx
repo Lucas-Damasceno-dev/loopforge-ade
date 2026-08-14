@@ -88,4 +88,39 @@ describe('CommandPalette (T7)', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(2))
   })
+
+  // ─── T8: overlay click, focus trap, focus restore ─────────────────────────
+
+  it('clique no backdrop fecha (onMouseDown no overlay)', () => {
+    renderPalette(ctx, onClose)
+    fireEvent.mouseDown(screen.getByRole('presentation'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('focus trap: Shift+Tab do input vai p/ o último item; Tab do último volta p/ o primeiro', () => {
+    renderPalette(ctx, onClose)
+    const input = screen.getByRole('searchbox')
+    const options = screen.getAllByRole('option')
+    // Foco explícito (auto-focus usa setTimeout 0 — não roda em teste síncrono).
+    input.focus()
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(options[options.length - 1])
+    fireEvent.keyDown(options[options.length - 1], { key: 'Tab' })
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('devolve o foco ao trigger ao fechar (focus restore)', () => {
+    const trigger = document.createElement('button')
+    trigger.textContent = 'trigger'
+    document.body.appendChild(trigger)
+    try {
+      trigger.focus()
+      const { rerender } = renderPalette(ctx, onClose)
+      expect(document.activeElement).toBe(trigger) // guardado no open (antes do auto-focus do input)
+      rerender(<CommandPalette open={false} onClose={onClose} ctx={ctx} />)
+      expect(document.activeElement).toBe(trigger)
+    } finally {
+      trigger.remove()
+    }
+  })
 })

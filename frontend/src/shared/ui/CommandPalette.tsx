@@ -15,16 +15,26 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
 
   const results = useMemo(() => filterCommands(query), [query])
 
-  // Ao abrir: reseta query/seleção e foca o input (após o overlay montar).
+  // Ao abrir: guarda o elemento que tinha foco (trigger ⌘K), reseta query/
+  // seleção e foca o input (após o overlay montar). Ao fechar/desmontar:
+  // devolve o foco ao trigger (T8 — focus restore).
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
+    triggerRef.current = document.activeElement as HTMLElement | null
     setQuery('')
     setIndex(0)
     const t = setTimeout(() => inputRef.current?.focus(), 0)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      triggerRef.current?.focus?.()
+    }
   }, [open])
 
   // Esc global (foco pode sair do input ao clicar um item).
@@ -62,12 +72,37 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
     } else if (e.key === 'Enter' && active) {
       e.preventDefault()
       runItem(active)
+    } else if (e.key === 'Tab') {
+      // Focus trap simples (T8): ciclo Tab/Shift+Tab entre os focáveis do
+      // diálogo (input + itens) — não deixa o foco escapar p/ trás do modal.
+      const focusables = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>('button, input[type="text"]') ?? [],
+      )
+      if (focusables.length < 2) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
   }
 
   return (
-    <div className="fixed inset-0 z-[80] bg-[var(--overlay)]" role="presentation">
+    <div
+      className="fixed inset-0 z-[80] bg-[var(--overlay)]"
+      role="presentation"
+      onMouseDown={(e) => {
+        // Clique no backdrop fecha (T8); cliques dentro do painel não
+        // borbulham p/ cá (target !== currentTarget).
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
