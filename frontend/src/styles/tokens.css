@@ -93,6 +93,16 @@
   --text-xs: 12px;
   --text-sm: 14px;   /* base do body */
   --text-base: 16px;
+
+  /* §2.9 — dimensões do shell híbrido (fase 0; spec docs/ade-shell-visual.md).
+   * Larguras fixas de regiões + alturas de elementos ícone-only — consumidas
+   * pelas tasks 2-7 (rail 48px, sub-sidebar 260px, inspector 300px, bottom
+   * bar, header de painel). Nunca duplicar em px solto nos componentes. */
+  --rail-w: 48px;
+  --sidebar-w: 260px;
+  --inspector-w: 300px;
+  --tab-h: 32px;
+  --panel-head-h: 36px;
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────── */
