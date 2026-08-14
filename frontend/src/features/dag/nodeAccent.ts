@@ -22,6 +22,9 @@ const TEXT_VARIANTS: Partial<Record<NodeType, string>> = {
   // S4: filhos do sub-grafo (display-only) — variantes claras próprias.
   appsec: 'var(--node-appsec-text)',
   devops: 'var(--node-devops-text)',
+  // S4: split/merge (gateways do bloco) — variantes próprias.
+  split: 'var(--node-split-text)',
+  merge: 'var(--node-merge-text)',
 }
 
 export function nodeAccentTextVar(node: NodeType): string {

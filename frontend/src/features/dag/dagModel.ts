@@ -103,7 +103,9 @@ export type DagNodeData = {
 
 export interface DagNode {
   id: NodeType
-  type: 'agent'
+  /** Componente do canvas: split/merge têm nós próprios (T3); demais usam
+   *  AgentNode (inclui appsec/devops — filhos reutilizam o AgentNode). */
+  type: 'agent' | 'split' | 'merge'
   position: { x: number; y: number }
   data: DagNodeData
 }
@@ -171,7 +173,7 @@ export function buildNodes(
     const execIndex = execIndexOf(node, hasRetry)
     return {
       id: node,
-      type: 'agent',
+      type: node === 'split' ? 'split' : node === 'merge' ? 'merge' : 'agent',
       position,
       data: {
         node,

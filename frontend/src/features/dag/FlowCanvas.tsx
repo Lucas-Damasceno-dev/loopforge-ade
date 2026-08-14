@@ -21,10 +21,12 @@ import { isDemoRunId } from '../runs/demoMock'
 import { normalizeNodeName } from '../../shared/lib/ws'
 import type { CostNode, CostResponse } from '../../shared/lib/types'
 import { AgentNode } from './AgentNode'
+import { SplitNode } from './SplitNode'
+import { MergeNode } from './MergeNode'
 import { buildNodes, buildEdges, type DagNode, type DagEdge } from './dagModel'
 
 // nodeTypes estável fora do componente (React Flow recria se mudar a cada render).
-const nodeTypes = { agent: AgentNode }
+const nodeTypes = { agent: AgentNode, split: SplitNode, merge: MergeNode }
 
 export interface FlowCanvasProps {
   onNodeClick?: (id: string) => void

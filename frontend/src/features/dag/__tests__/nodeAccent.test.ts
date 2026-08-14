@@ -33,8 +33,8 @@ describe('nodeAccentTextVar', () => {
     expect(nodeAccentTextVar('devops')).not.toBe(nodeAccentTextVar('test_writer'))
   })
 
-  it('split/merge (T3) ainda caem no fallback de base', () => {
-    expect(nodeAccentTextVar('split')).toBe('var(--node-split)')
-    expect(nodeAccentTextVar('merge')).toBe('var(--node-merge)')
+  it('split/merge (T3) ganharam variante -text própria', () => {
+    expect(nodeAccentTextVar('split')).toBe('var(--node-split-text)')
+    expect(nodeAccentTextVar('merge')).toBe('var(--node-merge-text)')
   })
 })

@@ -57,6 +57,10 @@
    * e test_writer (pink-500); rótulo usa a variante -text clara. */
   --node-appsec: #059669;  --node-appsec-text: #6ee7b7;      /* emerald-600/300 */
   --node-devops: #db2777;  --node-devops-text: #fbcfe8;      /* pink-600/200 */
+  /* S4 — split/merge (sub-grafo): neutros legíveis — split stone (porta de
+   * entrada do bloco), merge teal-700 (convergência, próximo do parallel-audit). */
+  --node-split: #78716c;   --node-split-text: #a8a29e;       /* stone-500/400 */
+  --node-merge: #0f766e;   --node-merge-text: #5eead4;       /* teal-700/300 */
 
   /* §2.7 — overlays (substituem black/40 e black/60 hardcoded) */
   --overlay: rgb(0 0 0 / 0.40);
