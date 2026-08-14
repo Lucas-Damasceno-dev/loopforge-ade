@@ -1,9 +1,14 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SidebarHost } from '../SidebarHost'
+import { useRunsStore } from '../../../stores/runsStore'
 
 const queryClient = new QueryClient()
+
+beforeEach(() => {
+  useRunsStore.setState({ runs: [], activeRunId: null })
+})
 
 function renderHost(active: Parameters<typeof SidebarHost>[0]['active']) {
   const onClose = vi.fn()
@@ -53,5 +58,25 @@ describe('SidebarHost', () => {
   it('active=null não renderiza nada', () => {
     renderHost(null)
     expect(screen.queryByRole('aside')).not.toBeInTheDocument()
+  })
+
+  it('runs (resumo interativo): renderiza lista SEM botão "Open panel" (fix F1)', () => {
+    renderHost('runs')
+    // Resumo dinâmico do store presente (vazio → estado vazio amigável).
+    expect(screen.getByText(/no runs yet/i)).toBeInTheDocument()
+    // runs não tem drawer → sem affordance morta no header.
+    expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
+  })
+
+  it('agents: placeholder "coming in a later phase" sem botão (fix F2)', () => {
+    renderHost('agents')
+    expect(screen.getByText(/agent studio — coming in a later phase/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
+  })
+
+  it('pipelines: placeholder "coming in a later phase" sem botão (fix F2)', () => {
+    renderHost('pipelines')
+    expect(screen.getByText(/pipeline studio — coming in a later phase/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
   })
 })

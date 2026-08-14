@@ -68,9 +68,11 @@ export function App() {
   const handleExpand = () => {
     if (activeView) setExpandedView(activeView)
   }
+  // Fecha SÓ o drawer expandido (fix round 1, F3): a sidebar (activeView)
+  // permanece aberta com o resumo — fechar a view é responsabilidade do
+  // X/Esc da SidebarHost. Antes chamava closeView() e derrubava a sidebar.
   const handleDrawerClose = () => {
     setExpandedView(null)
-    closeView()
   }
   // Run ativa (selecionada nas tabs) — alimenta o GitPanel (repo da run).
   const activeRunId = useRunsStore((s) => s.activeRunId)
