@@ -149,3 +149,15 @@
 - **Não quebra:** contrato WS (appsec/devops continuam rejeitados como execução), TimelineBar ghost (execIndex), RunInspector rows (ordem de execução), canvasStore (zero campos novos), InspectDrawer.
 - **Riscos anotados:** edges com positions bottom exigem suporte do React Flow nas props de edge (verificado: edge pode carregar sourcePosition/targetPosition); SplitNode com 2 source handles exige sourceHandle nas edges (split->appsec usa "a", split->devops "b"); kanban mantém linear (paralelismo só no graph — decisão de escopo).
 - **Fora deste plano:** S2 (CRUD agentes), S3 (editor pipelines), refactor STATUS_TONE/runStatus.ts (carry-over S2).
+
+---
+
+## Post-review carry-over (p/ S2/S3)
+
+- **STATUS_TONE/statusLabel 3 cópias** (RunTabs, RunInspector, SidebarHost.RunsSummary) → extrair `shared/lib/runStatus.ts` (S2)
+- **NodeShell**: layout de nó duplicado 3x (AgentNode/SplitNode/MergeNode ~80% idênticos) — extrair base comum antes de S3 (editor ganha mais tipos de nó)
+- **decorateEdges** ficou em FlowCanvas por constraint de pureza do dagModel (MarkerType é enum runtime) — se crescer no S3, módulo próprio `dag/edgeStyle.ts`
+- **GRAPH_POS Partial + fallback linear + break defensivo do backbone** = fundação do editor dinâmico (S3) — manter
+- **smoke.spec.ts** acopla label com status do demo (`Split (parallel audit, Approved)`) — quebra se demo mudar status default
+- **Ring de seleção** aplica aos 4 nós display quando pai selecionado (bloco unitário) — 1 linha se quiser só o split
+- **page.evaluate com stores** exige import com `.ts` (Vite duplica store zustand sem extensão)
