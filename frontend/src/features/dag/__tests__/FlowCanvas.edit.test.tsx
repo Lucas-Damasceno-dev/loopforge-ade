@@ -5,6 +5,7 @@ import { FlowCanvas } from '../FlowCanvas'
 import { useCanvasStore } from '../../../stores/canvasStore'
 import { useEditorStore } from '../../pipelines/editorStore'
 import { useRunsStore } from '../../../stores/runsStore'
+import { useAgentsStore } from '../../../stores/agentsStore'
 
 // Mesmo harness do FlowCanvas.test existente: stubs de jsdom p/ o React Flow.
 class RO {
@@ -42,6 +43,7 @@ beforeEach(() => {
   useCanvasStore.setState({ mode: 'graph', nodeStatus: {}, ghostToStep: null, selectedNodeId: null })
   useRunsStore.setState({ runs: [], activeRunId: null })
   useEditorStore.setState({ open: false, editingId: null, draft: null, live: true, selectedEdgeId: null, positions: {} })
+  useAgentsStore.setState({ agents: [], loading: false, error: null })
 })
 
 afterEach(() => {
@@ -88,5 +90,35 @@ describe('FlowCanvas modo edição (S3)', () => {
     renderCanvas()
     // 'Input' só existe na paleta do editor; live renderiza o DAG de execução.
     expect(screen.queryByText('Input')).not.toBeInTheDocument()
+  })
+
+  it('edit mode: labels dos nós agent = nome do agente da biblioteca (F1)', async () => {
+    useAgentsStore.setState({
+      agents: [
+        { id: 'a1', name: 'Alpha', description: '', prompt: '', model: 'default', temperature: 0.7, max_retries: 2, timeout_seconds: 300, env_vars: {}, tools_allowlist: [], permissions: [], stack: 'python', budget_usd: 10, created_at: '', updated_at: '' },
+        { id: 'a2', name: 'Beta', description: '', prompt: '', model: 'default', temperature: 0.7, max_retries: 2, timeout_seconds: 300, env_vars: {}, tools_allowlist: [], permissions: [], stack: 'python', budget_usd: 10, created_at: '', updated_at: '' },
+      ],
+      loading: false,
+      error: null,
+    })
+    useEditorStore.setState({
+      open: true,
+      live: false,
+      draft: {
+        name: 'x',
+        description: '',
+        nodes: [
+          { id: 'dev', type: 'agent', agent_id: 'a1', config: {} },
+          { id: 'sec', type: 'agent', agent_id: 'a2', config: {} },
+          // agente órfão (deleted template) → fallback 'Agent' sem crash.
+          { id: 'ghost', type: 'agent', agent_id: 'gone', config: {} },
+        ],
+        edges: [],
+      },
+    })
+    renderCanvas()
+    expect(await screen.findByLabelText('Alpha (Pending)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Beta (Pending)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Agent (Pending)')).toBeInTheDocument()
   })
 })

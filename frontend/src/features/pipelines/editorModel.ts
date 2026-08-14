@@ -52,15 +52,21 @@ function rfType(t: PipelineNodeType): 'agent' | 'split' | 'merge' {
   return 'agent'
 }
 
-/** PipelineInput → nós do React Flow (grade + meta embutida no data). */
-export function pipelineToNodes(pipeline: PipelineInput, positions: Record<string, { x: number; y: number }> = {}): EditorNode[] {
+/** PipelineInput → nós do React Flow (grade + meta embutida no data).
+ *  agentNameById resolve o label do nó agent (F1 — nome do agente da
+ *  biblioteca); agente ausente/órfão cai no fallback (PIPELINE_TYPE_LABEL). */
+export function pipelineToNodes(
+  pipeline: PipelineInput,
+  positions: Record<string, { x: number; y: number }> = {},
+  agentNameById?: Map<string, string>,
+): EditorNode[] {
   return pipeline.nodes.map((pn, i) => ({
     id: pn.id,
     type: rfType(pn.type),
     position: positions[pn.id] ?? gridPos(i),
     data: {
       node: pn.type as NodeType,
-      label: labelFor(pn),
+      label: labelFor(pn, pn.agent_id ? agentNameById?.get(pn.agent_id) : null),
       status: 'pending',
       attemptCount: 0,
       ghosted: false,

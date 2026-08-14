@@ -22,6 +22,7 @@ import { isDemoRunId } from '../runs/demoMock'
 import { normalizeNodeName } from '../../shared/lib/ws'
 import type { CostNode, CostResponse, NodeType } from '../../shared/lib/types'
 import { useEditorStore } from '../pipelines/editorStore'
+import { useAgentsStore } from '../../stores/agentsStore'
 import { NodePalette } from '../pipelines/NodePalette'
 import { EdgeConfigDrawer } from '../pipelines/EdgeConfigDrawer'
 import { pipelineToNodes, pipelineToEdges, type EditorNode, type EditorEdge } from '../pipelines/editorModel'
@@ -98,6 +99,11 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
   const setPosition = useEditorStore((s) => s.setPosition)
   const editMode = editorOpen && !editorLive
 
+  // F1 (fix round 1): label do nó agent no modo edição = nome do agente da
+  // biblioteca (agentsStore). Mapa id→name injetado no pipelineToNodes.
+  const agents = useAgentsStore((s) => s.agents)
+  const agentNameById = new Map(agents.map((a) => [a.id, a.name]))
+
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const runs = useRunsStore((s) => s.runs)
   const run = runs.find((r) => r.id === activeRunId) ?? null
@@ -146,7 +152,7 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
     // execução não existem p/ um pipeline não-rodado).
     if (editMode) {
       if (!draft) return
-      setNodes(pipelineToNodes(draft, positions).map((n) => ({ ...n, selected: false })))
+      setNodes(pipelineToNodes(draft, positions, agentNameById).map((n) => ({ ...n, selected: false })))
       setEdges(pipelineToEdges(draft))
       return
     }
