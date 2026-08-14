@@ -57,9 +57,9 @@ export interface ViewGroup {
 
 export const WORKSPACE_GROUPS: ViewGroup[] = [
   { group: 'Pipeline', views: ['runs', 'prompt', 'agents', 'pipelines'] },
-  { group: 'Workspace & Código', views: ['artifacts', 'terminal', 'ast', 'coverage', 'docker'] },
-  { group: 'Engine & Memória', views: ['trajectories', 'mcp', 'memory', 'evals'] },
-  { group: 'Sistema & Configurações', views: ['git', 'health', 'prompts', 'settings'] },
+  { group: 'Workspace & Code', views: ['artifacts', 'terminal', 'ast', 'coverage', 'docker'] },
+  { group: 'Engine & Memory', views: ['trajectories', 'mcp', 'memory', 'evals'] },
+  { group: 'System & Settings', views: ['git', 'health', 'prompts', 'settings'] },
 ]
 
 /** Views com painel próprio (drawer/sidebar) — usadas pelo App p/ derivar
@@ -78,4 +78,20 @@ export const PANEL_VIEWS: ViewKey[] = [
   'health',
   'prompts',
   'settings',
+]
+
+/** Views LEVES (T3): conteúdo direto na sub-sidebar (sem drawer). */
+export const INLINE_VIEWS: ViewKey[] = ['prompt', 'memory', 'health', 'prompts', 'settings', 'git']
+
+/** Views PESADAS (T3): resumo na sub-sidebar + "Open panel" → drawer. */
+export const SUMMARY_VIEWS: ViewKey[] = [
+  'runs',
+  'artifacts',
+  'terminal',
+  'ast',
+  'coverage',
+  'docker',
+  'mcp',
+  'evals',
+  'trajectories',
 ]

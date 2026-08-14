@@ -12,12 +12,14 @@ export interface ActivityRailProps {
 // esquerda do main. Botão 48px (h-12) com ícone 20px; ativo = barra accent
 // 2px à esquerda + bg-elev + text accent-text; hover bg-elev; tooltip nativo
 // (title + aria-label — nunca canal único); grupos com separadores h-px
-// (WORKSPACE_GROUPS). data-active p/ teste/styling.
+// (WORKSPACE_GROUPS). data-active p/ teste/styling. 17 botões × 48px podem
+// exceder a altura — scrollbar fina global (tokens.css) aparece quando
+// overflow (affordance; oculta aqui tornaria o fim da lista inalcançável).
 export function ActivityRail({ active, onSelect }: ActivityRailProps) {
   return (
     <nav
       aria-label="Activity"
-      className="flex w-[var(--rail-w)] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg)] py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      className="flex w-[var(--rail-w)] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg)] py-1"
     >
       {WORKSPACE_GROUPS.map(({ group, views }, gi) => (
         <div key={group}>

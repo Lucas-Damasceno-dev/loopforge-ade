@@ -31,13 +31,23 @@ function statusTone(status: string): string {
 }
 
 export function GitPanel({ open, onClose, runId }: GitPanelProps) {
+  return (
+    <Drawer open={open} title="Git" onClose={onClose}>
+      <GitPanelContent runId={runId} enabled={open} />
+    </Drawer>
+  )
+}
+
+// Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper.
+// `enabled` liga a query só quando o painel/sidebar está ativo.
+export function GitPanelContent({ runId, enabled = true }: { runId: string; enabled?: boolean }) {
   const [isPublishing, setIsPublishing] = useState(false)
   const [prFeedback, setPrFeedback] = useState<{ tone: 'ok' | 'err'; message: string } | null>(null)
 
   const gitQuery = useQuery<GitInfo>({
     queryKey: ['git-info', runId],
     queryFn: () => getGitInfo(runId),
-    enabled: open && runId.length > 0,
+    enabled: enabled && runId.length > 0,
   })
 
   const info = gitQuery.data
@@ -64,7 +74,7 @@ export function GitPanel({ open, onClose, runId }: GitPanelProps) {
   }
 
   return (
-    <Drawer open={open} title="Git" onClose={onClose}>
+    <>
       {gitQuery.isLoading ? (
         <p className="text-sm text-[var(--text-dim)]">Loading git info…</p>
       ) : gitQuery.isError ? (
@@ -149,6 +159,6 @@ export function GitPanel({ open, onClose, runId }: GitPanelProps) {
           </section>
         </div>
       ) : null}
-    </Drawer>
+    </>
   )
 }

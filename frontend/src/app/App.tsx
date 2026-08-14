@@ -25,8 +25,11 @@ import { ToastContainer } from '../shared/ui/ToastContainer'
 import { Drawer } from '../shared/ui/Drawer'
 import { Topbar } from '../shared/ui/Topbar'
 import { ActivityRail } from '../shared/ui/ActivityRail'
+import { SidebarHost } from '../shared/ui/SidebarHost'
 import { Button } from '../shared/ui/Button'
 import { SplitPane } from '../shared/ui/SplitPane'
+import { PANEL_VIEWS } from '../shared/lib/views'
+import type { ViewKey } from '../shared/lib/views'
 import { useWsStore } from '../stores/wsStore'
 import { useRunsStore } from '../stores/runsStore'
 import { useCanvasStore } from '../stores/canvasStore'
@@ -51,6 +54,24 @@ export function App() {
   const activeView = useViewStore((s) => s.activeView)
   const openView = useViewStore((s) => s.openView)
   const closeView = useViewStore((s) => s.closeView)
+  // View expandida (T3): views pesadas (resumo na sidebar) abrem o drawer
+  // completo via "Open panel" — estado separado do activeView (a sidebar fica
+  // aberta por baixo; o overlay do Drawer cobre o resto). Resetado a cada
+  // troca de view para o drawer nunca ficar órfão.
+  const [expandedView, setExpandedView] = useState<ViewKey | null>(null)
+  useEffect(() => {
+    setExpandedView(null)
+  }, [activeView])
+  // Drawer aberto = view expandida com painel próprio (PANEL_VIEWS: fonte
+  // única das views com drawer — views leves da T3 não expandem).
+  const drawerOpen = (key: ViewKey) => PANEL_VIEWS.includes(key) && expandedView === key
+  const handleExpand = () => {
+    if (activeView) setExpandedView(activeView)
+  }
+  const handleDrawerClose = () => {
+    setExpandedView(null)
+    closeView()
+  }
   // Run ativa (selecionada nas tabs) — alimenta o GitPanel (repo da run).
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const runs = useRunsStore((s) => s.runs)
@@ -111,8 +132,8 @@ export function App() {
     hadPaused.current = hasPaused
   }, [nodeStatus])
 
-  // Views sem painel próprio (runs/prompt/agents/pipelines) ficam só ativas
-  // no rail (T2); as demais abrem drawer nesta fase (SidebarHost na T3).
+  // Views leves (T3) vivem na sub-sidebar (SidebarHost); pesadas abrem o
+  // drawer via "Open panel" (expandedView) — ver SidebarHost.
 
   // Região canvas + timeline flutuante — reusada no SplitPane (console com
   // conteúdo) e no fluxo plano (console colapsado). O wrapper flex-col garante
@@ -156,6 +177,9 @@ export function App() {
             rail some em fullscreen (Focus mode — canvas e console sem chrome). */}
         <div className="flex min-h-0 flex-1">
           {!fullscreen && <ActivityRail active={activeView} onSelect={openView} />}
+          {/* Sub-sidebar 260px (T3): conteúdo por view — leves inline, pesadas
+              resumo + "Open panel". Oculta em fullscreen (Focus mode). */}
+          {!fullscreen && <SidebarHost active={activeView} onClose={closeView} onExpand={handleExpand} />}
           <div className="flex min-h-0 flex-1 flex-col">
             {/* Região canvas + console (P1-3): SplitPane resizável quando o console
                 tem conteúdo (drag no divider ajusta a altura); vazio flui colapsado
@@ -186,33 +210,34 @@ export function App() {
         {/* Drawer HITL (portal p/ body) — complementar: abre com nó paused. */}
         <HitlDrawer />
         {/* Trajetórias (Fase C): fork/export/import/timeline por run. */}
-        <TrajectoriesPanel open={activeView === 'trajectories'} onClose={closeView} />
+        <TrajectoriesPanel open={drawerOpen('trajectories')} onClose={handleDrawerClose} />
         {/* Artefatos e arquivos gerados pela IA no workspace da run ativa. */}
-        <ArtifactsPanel open={activeView === 'artifacts'} onClose={closeView} runId={activeRunId} />
+        <ArtifactsPanel open={drawerOpen('artifacts')} onClose={handleDrawerClose} runId={activeRunId} />
         {/* Terminal interativo web para execução de comandos no workspace da run. */}
-        <TerminalPanel open={activeView === 'terminal'} onClose={closeView} runId={activeRunId} />
+        <TerminalPanel open={drawerOpen('terminal')} onClose={handleDrawerClose} runId={activeRunId} />
         {/* Visualizador de AST e mapa de dependências de código. */}
-        <AstPanel open={activeView === 'ast'} onClose={closeView} runId={activeRunId} />
+        <AstPanel open={drawerOpen('ast')} onClose={handleDrawerClose} runId={activeRunId} />
         {/* Relatório e métricas de cobertura de código de testes. */}
-        <CoveragePanel open={activeView === 'coverage'} onClose={closeView} runId={activeRunId} />
+        <CoveragePanel open={drawerOpen('coverage')} onClose={handleDrawerClose} runId={activeRunId} />
         {/* Exportador e gerador de ambientes Docker e devcontainer. */}
-        <DockerPanel open={activeView === 'docker'} onClose={closeView} runId={activeRunId} />
+        <DockerPanel open={drawerOpen('docker')} onClose={handleDrawerClose} runId={activeRunId} />
         {/* Playground MCP (feature #5, V1 parcial) — drawer aberto pelo rail. */}
-        <Drawer open={activeView === 'mcp'} title="MCP Playground" onClose={closeView}>
+        <Drawer open={drawerOpen('mcp')} title="MCP Playground" onClose={handleDrawerClose}>
           <McpPlayground />
         </Drawer>
-        {/* Memória (lessons engine): busca/cria/remove lições aprendidas. */}
-        <MemoryPanel open={activeView === 'memory'} onClose={closeView} />
+        {/* Memória (lessons engine): conteúdo migrado p/ sub-sidebar (T3);
+            drawer permanece disponível p/ uso direto (open sempre false aqui). */}
+        <MemoryPanel open={false} onClose={handleDrawerClose} />
         {/* Evals (5º pilar BLUEPRINT): resumo de runs/benchmarks + leaderboard. */}
-        <EvalsPanel open={activeView === 'evals'} onClose={closeView} />
+        <EvalsPanel open={drawerOpen('evals')} onClose={handleDrawerClose} />
         {/* Git (Tier2): branch/status/log da run ativa (query só com runId). */}
-        <GitPanel open={activeView === 'git'} onClose={closeView} runId={activeRunId ?? ''} />
+        <GitPanel open={false} onClose={handleDrawerClose} runId={activeRunId ?? ''} />
         {/* Health (Tier2): polling /health 10s + status telemetria. */}
-        <HealthPanel open={activeView === 'health'} onClose={closeView} />
+        <HealthPanel open={false} onClose={handleDrawerClose} />
         {/* Prompts (Tier2): overrides de prompt por persona (get_effective_prompt). */}
-        <PromptPanel open={activeView === 'prompts'} onClose={closeView} />
+        <PromptPanel open={false} onClose={handleDrawerClose} />
         {/* Settings (Fase D/E9): budget/HITL/providers/toggles MCP. */}
-        <SettingsPanel open={activeView === 'settings'} onClose={closeView} />
+        <SettingsPanel open={false} onClose={handleDrawerClose} />
         {/* Gate de API key (B2/M-20): overlay em 401/sem key; dispensável p/ demo. */}
         <ApiKeyGate />
         {/* Notificações flutuantes globais (toasts). */}

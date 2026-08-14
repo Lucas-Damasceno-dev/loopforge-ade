@@ -26,7 +26,7 @@ Stacking: regiões no fluxo do layout (sem z-index). Drawers `z-[50]`, modais
 
 ## 2. Rail 48px
 
-- Botão: `w-full h-11` (48px), ícone 20px (`h-5 w-5`), `stroke-width 2`,
+- Botão: `w-full h-12` (48px), ícone 20px (`h-5 w-5`), `stroke-width 2`,
   `text-[var(--text-dim)]`.
 - Hover: `bg-[var(--bg-elev)] text-[var(--text)]`, `transition-colors
   duration-[var(--dur-fast)]`.

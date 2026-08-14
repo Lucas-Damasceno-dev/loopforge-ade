@@ -21,25 +21,34 @@ interface HealthPanelProps {
 const HEALTH_POLL_MS = 10_000
 
 export function HealthPanel({ open, onClose }: HealthPanelProps) {
+  return (
+    <Drawer open={open} title="Health" onClose={onClose}>
+      <HealthPanelContent enabled={open} />
+    </Drawer>
+  )
+}
+
+// Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper.
+// `enabled` liga/desliga o polling (drawer fechado para; sidebar ativa roda).
+export function HealthPanelContent({ enabled = true }: { enabled?: boolean }) {
   const healthQuery = useQuery<HealthStatus>({
     queryKey: ['health'],
     queryFn: getHealth,
-    enabled: open,
-    refetchInterval: open ? HEALTH_POLL_MS : false,
+    enabled,
+    refetchInterval: enabled ? HEALTH_POLL_MS : false,
   })
   // Status do engine (runs/benchmarks) — telemetria nunca derruba com 500.
   const evalsQuery = useQuery<EvalsSummary>({
     queryKey: ['evals-summary'],
     queryFn: getEvalsSummary,
-    enabled: open,
+    enabled,
   })
 
   const health = healthQuery.data
   const engineStatus = evalsQuery.data?.status
 
   return (
-    <Drawer open={open} title="Health" onClose={onClose}>
-      <div className="space-y-5">
+    <div className="space-y-5">
         <section>
           <SectionTitle className="mb-2">Engine</SectionTitle>
           {healthQuery.isLoading ? (
@@ -78,6 +87,5 @@ export function HealthPanel({ open, onClose }: HealthPanelProps) {
           </p>
         </section>
       </div>
-    </Drawer>
   )
 }

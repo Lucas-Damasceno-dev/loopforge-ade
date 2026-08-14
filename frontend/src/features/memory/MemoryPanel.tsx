@@ -52,6 +52,17 @@ function memoryErrorMessage(e: unknown): string {
 }
 
 export function MemoryPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Drawer open={open} title="Memory" onClose={onClose}>
+      <MemoryPanelContent />
+    </Drawer>
+  )
+}
+
+// Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper. O drawer
+// (acima) e a sub-sidebar compartilham este componente; estados são locais a
+// cada instância (drawer e sidebar não coexistem na T3).
+export function MemoryPanelContent() {
   const queryClient = useQueryClient()
 
   // Filtros aplicados (disparados no Search/Reset — não a cada tecla).
@@ -124,8 +135,7 @@ export function MemoryPanel({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   return (
-    <Drawer open={open} title="Memory" onClose={onClose}>
-      <div className="space-y-5">
+    <div className="space-y-5">
         {createError && (
           <Alert tone="err">{createError}</Alert>
         )}
@@ -253,7 +263,6 @@ export function MemoryPanel({ open, onClose }: { open: boolean; onClose: () => v
             <p className="text-sm text-[var(--text-dim)]">No lessons yet</p>
           )}
         </section>
-      </div>
-    </Drawer>
+    </div>
   )
 }

@@ -109,6 +109,15 @@ const ON_TIMEOUT_OPTIONS = ['continue', 'abort', 'pause'] as const
 // (role=status) / erro (role=alert); botão disabled enquanto salva e quando
 // não há mudanças.
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Drawer open={open} title="Settings" onClose={onClose}>
+      <SettingsPanelContent />
+    </Drawer>
+  )
+}
+
+// Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper.
+export function SettingsPanelContent() {
   const queryClient = useQueryClient()
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: getConfig })
   const [form, setForm] = useState<FormState | null>(null)
@@ -148,7 +157,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   return (
-    <Drawer open={open} title="Settings" onClose={onClose}>
+    <>
       {loading ? (
         <div role="status" aria-label="Loading settings" className="space-y-5">
           <div className="space-y-1.5">
@@ -274,6 +283,6 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </div>
         </div>
       ) : null}
-    </Drawer>
+    </>
   )
 }

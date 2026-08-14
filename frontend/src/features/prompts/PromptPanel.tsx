@@ -53,6 +53,15 @@ function truncate(text: string, max = 140): string {
 }
 
 export function PromptPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Drawer open={open} title="Prompts" onClose={onClose}>
+      <PromptPanelContent />
+    </Drawer>
+  )
+}
+
+// Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper.
+export function PromptPanelContent() {
   const queryClient = useQueryClient()
 
   // Editor ativo: nó em edição + rascunho do prompt.
@@ -121,8 +130,7 @@ export function PromptPanel({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   return (
-    <Drawer open={open} title="Prompts" onClose={onClose}>
-      <div className="space-y-5">
+    <div className="space-y-5">
         {error && (
           <Alert tone="err">{error}</Alert>
         )}
@@ -212,6 +220,5 @@ export function PromptPanel({ open, onClose }: { open: boolean; onClose: () => v
           )}
         </section>
       </div>
-    </Drawer>
   )
 }
