@@ -53,9 +53,9 @@ graph TD
 |---|---|---|---|
 | **Localização do Frontend** | `web/loopforge-ade` | Aplicação React 19 + Vite em pasta dedicada em `web/`. **Backend da ADE embutido no LoopForge (`src/lf`), release conjunto (E1)** — um pacote, uma versão. | — |
 | **Backend Core** | Python 3.12 + FastAPI + Uvicorn | API REST, streaming WebSockets e controle do ciclo de vida dos agentes no LoopForge. | ✅ Já existe (`src/lf/api/app.py`, `create_app()`, via `lf serve`) |
-| **Integração CLI <-> Web UI** | `lf serve` embutido com SPA | O comando `lf serve` inicia a API e serve a SPA estática do React, abrindo o navegador. | ⚠️ Hoje serve dashboard HTML embutido; flag `--no-ui` e servir SPA React são trabalho da Fase 2 |
-| **Protocolo Real-Time** | WebSockets Bidirecionais + Fallback SSE, **com replay/backfill ao conectar (E4)** | Streaming de eventos dos nós, logs em tempo real e canal de sinalização HITL. Ao conectar (ou reconectar), a UI recebe **estado completo da run + eventos desde o início** — essencial para runs via CLI (UX17) aparecerem ao vivo. | ✅ `/ws/streaming` + `/ws/runs/{id}` já existem (eventos `node_execution`, `human_decision_submitted`, ...); **backfill é novo (Fase 2)** |
-| **Token Streaming** | Streaming token a token (provider nativo, Fase 1d) — **consumo sóbrio por evento (UX4)** | O canvas muda cor/status/borda por evento, **sem tokens ao vivo no nó**; o streaming real alimenta os logs estruturados do console. | ⚠️ **Decisão v3**: provider LLM nativo em Python (HTTP streaming) como caminho principal (Fase 1d); OpenCode CLI vira fallback. Hoje o runtime é subprocess — sem streaming token a token |
+| **Integração CLI <-> Web UI** | `lf serve` embutido com SPA | O comando `lf serve` inicia a API e serve a SPA estática do React (mount `/app`), abrindo o navegador. | ✅ **Implementado** (B4/B5): `spa.py::resolve_spa_dist()` + mount `/app`; flag `--no-ui` existe (`cli/commands/serve.py`); dashboard HTML legado segue com banner deprecated |
+| **Protocolo Real-Time** | WebSockets Bidirecionais + Fallback SSE, **com replay/backfill ao conectar (E4)** | Streaming de eventos dos nós, logs em tempo real e canal de sinalização HITL. Ao conectar (ou reconectar), a UI recebe **estado completo da run + eventos desde o início** — essencial para runs via CLI (UX17) aparecerem ao vivo. | ✅ `/ws/streaming` + `/ws/runs/{id}` + journal `events` (backfill `GET /runs/{id}/events?after_seq=`); **backfill E4 no reconnect implementado** (watermark per-run/per-reconnect, 2026-08) |
+| **Token Streaming** | Streaming token a token (provider nativo, Fase 1d) — **consumo sóbrio por evento (UX4)** | O canvas muda cor/status/borda por evento, **sem tokens ao vivo no nó**; o streaming real alimenta os logs estruturados do console. | ⚠️ Provider nativo com streaming existe (`runner/opencode/llm.py`, callback `on_token_delta`); **UI V1 não consome** (ADR-0007) — sem tokens ao vivo no canvas/console |
 | **Design System & Estética** | **Sóbrio (Vercel/Linear) + acentos por tipo de nó (UX19)**; dark-first (UX18); a11y básica: contraste AA + teclado nas ações principais (UX20) | Base visual da UI já no V1 — o glassmorphism neon do v1 foi descartado no grill (baixo contraste para payloads/logs densos). **UI em inglês (E8)**; **dark é o único tema no V1 (E15)**. | Fase 2 |
 | **Temas & Customização** | Presets (Cyberpunk, Nord, GitHub Dark) + tema claro | Temas visuais selecionáveis com editor de acentos. **Só dark no V1 (E15)**; presets + tema claro entram com o Tier 2 (UX18). | V2 (Tier 2) |
 | **Layout da UI** | 3 Colunas Redimensionáveis + **fullscreen do canvas (F11, UX14)**; **split canvas + console (UX1)** | Sidebar de Threads/Navegação \| Centro (canvas, kanban linear) \| Direita (Inspeção) + console fixo abaixo do canvas (**logs filtráveis por nó, nível e busca — E6**). Estado da UI **só na sessão** (UX15). | Fase 2 |
@@ -64,7 +64,7 @@ graph TD
 | **Grafos Dinâmicos** | Spawning de Nós em Tempo Real | Renderização dinâmica no React Flow conforme novos subagentes/nós são criados. | Fase 2 |
 | **Comparador A/B** | Split-Screen Graph Execution | Rodar a mesma tarefa com modelos/prompts diferentes e comparar métricas. | V2 (Tier 2); base: `--mock` já existe |
 | **Modo Dry-Run / Mock** | Respostas Sintéticas Pré-Gravadas | Simulação com custo zero de tokens para teste de fluxo e validação de DAGs. | ✅ Já existe (`--mock`, `MockLLMProvider`, mocks por nó) |
-| **Ponte Híbrida MCP** | **SDK oficial `mcp` (Python) — decisão v3** + bridge em `loopforge/mcp/` | SDK cuida do transporte/protocolo; a ADE foca na conversão de schemas em Pydantic Tool Definitions para o LangGraph + permissões deny-by-default. Servidores MCP declarados no `.loopforge/ade.yaml` (E9). | ❌ **Zero código MCP hoje** — Fase 1b (maior risco) |
+| **Ponte Híbrida MCP** | **SDK oficial `mcp` (Python) — decisão v3** + bridge em `lf/mcp/` | SDK cuida do transporte/protocolo; a ADE foca na conversão de schemas em Pydantic Tool Definitions para o LangGraph + permissões deny-by-default. Servidores MCP declarados no `.loopforge/ade.yaml` (E9). | ✅ **Implementado** (`lf/mcp/registry.py` + `lf/mcp/client.py`): `MCPRegistry` (start/stop por request), allowlist deny-by-default, POST `/api/v1/mcp/servers/{name}/tools/{tool}` (403/404/503) |
 | **Navegação Web Embarcada** | Playwright Headless + Screen Stream | Chromium embarcado com streaming visual ao vivo para o Dashboard. | V2 (Tier 2) — candidato a revisão de escopo |
 | **Resiliência de LLMs** | Fallback: **Provider Nativo (HTTP)** → OpenCode CLI → Mock | Troca de provedor em caso de falhas/rate limits com alertas na UI. | ✅ **Decisão v3**: provider nativo Python vira primário (Fase 1d); hoje a matriz real é OpenRouter (HTTP) → OpenCode (subprocess) → Mock. **Gemini e Ollama não têm clientes**; Ollama entra na Fase 1c, Gemini fica apenas como string de config |
 | **Air-Gapped & LLMs Locais** | Auto-descoberta Ollama/vLLM + Toggle Privacy | Auto-detecção via `/api/tags` com modo "Air-Gapped Privacy" de 1-clique. | ❌ Não existe — Fase 1c (back-end); toggle na UI é V2 |
@@ -74,16 +74,16 @@ graph TD
 | **Monitor de Saúde Host** | Widget "System Health" | CPU, RAM, contagem de processos sandbox e status dos WebSockets. | V2 (Tier 2) |
 | **Diagnóstico de Falhas** | Diagnostic & Error Tracer | Visualizador de exceções com stack traces Python/JS e exportação. | V2 (Tier 2) |
 | **Sandbox de Ferramentas** | Híbrido (Local Dev / Docker Efêmero) | Execução direta no filesystem com opção de isolamento em container. | ⚠️ `runner/sandbox.py` existe (cobertura 45%); consolidar na Fase 1 |
-| **Persistência de Trajetória** | SQLite Assíncrono (`.loopforge/trajectories.db`) | Checkpoints + export/import de trajetórias em JSON. **Sem limpeza/prune automática no V1 (E11)** — dev solo + localhost; TTL configurável fica no V2. | ⚠️ Hoje existe `SqliteSaver` **síncrono** em `.loopforge/checkpoints.sqlite`; migração para `AsyncSqliteSaver` + rotas é a Fase 1a |
+| **Persistência de Trajetória** | SQLite Assíncrono (`.loopforge/trajectories.db`) | Checkpoints + export/import de trajetórias em JSON. **Sem limpeza/prune automática no V1 (E11)** — dev solo + localhost; TTL configurável fica no V2. | ✅ **Implementado**: `AsyncSqliteSaver` em `.loopforge/trajectories.db` + rotas `/api/v1/trajectories/*` (checkpoints, export/import, fork, diff). `checkpoints.sqlite` legado (~66MB) **não é usado** — não apagar, ignorar |
 | **Otimização LLM & Cache** | Cache SQLite + Resumo de Contexto | Evita chamadas LLM duplicadas e comprime histórico perto do limite de tokens. | ✅ `SQLiteLLMCache` (hash SHA256 + normalização) + `compress_prompt()` existem; cache vetorial (embeddings) é V2 |
 | **Exportação & Relatórios** | Pacote ZIP (Markdown + JSON) | Exportação de artefatos, logs, trajetórias e métricas. | ⚠️ `lf export` existe; ampliar para relatório ADE na Fase 4 |
 | **Alertas & Notificações** | OS Desktop Notify + Webhooks | `notify-send` + webhooks Discord/Slack/Telegram. | ✅ Back-end existe; UI de configuração é V2 |
 | **Autenticação & RBAC** | Local por padrão + JWT/API Keys | Acesso local sem senha; JWT/API Keys para times. | ⚠️ **Decisão v3**: público-alvo V1 = **dev solo** → RBAC/JWT para times fica em V2. X-API-Key simples já existe (`auth.py`) |
 | **Segurança do Localhost** | **Binding 127.0.0.1 + CORS restrito (E5)** | O dashboard executa código local com acesso a arquivos/LLMs: binding local por padrão; CORS liberado apenas para a origem da SPA (dev: localhost do Vite; prod: same-origin). | Fase 2 (hardening junto da integração SPA) |
-| **Workspace Multi-Thread** | **Abas no topo (UX11); 1 run ativa + fila no V1 (E3)** | Uma run visível por vez com indicador de status na aba; forks derivados aparecem como abas ligadas à origem. Execução paralela **real** (com atomic task checkout) fica para o V2 — V1 enfileira. | Fase 2 (UI) + **atomic task checkout** no back-end (V2) |
+| **Workspace Multi-Thread** | **Abas no topo (UX11); fila com `max_concurrent_runs` (E3)** | Uma run visível por vez com indicador de status na aba; forks derivados aparecem como abas ligadas à origem. A fila roda **até `max_concurrent_runs` em paralelo (default 2)**; atomic task checkout (paralelismo com lock de escrita) fica para o V2. | ✅ Fila E3 implementada (`GET /api/v1/runs/queue`, promoção até `max_concurrent_runs`); UI surfacing da fila na SPA (2026-08) |
 | **Extensibilidade & Plugins** | System Hooks & Event Listeners | Hooks Python/JS para custom node types, métricas e conectores. | V2 (Tier 2) |
 | **Empacotamento & Distribuição** | **CLI + localhost web (decisão v3); MIT (E12); release conjunto (E1)** | `pip install loopforge-ade` — pacote que **embute a SPA compilada** e **depende de `lf`** (um release só); `lf serve` abre o dashboard. Docker/GHCR vira opcional, não obrigatório. | ⚠️ LoopForge já é v6.0.0 no PyPI; empacotar a ADE é Fase 4 |
-| **Garantia de Qualidade (QA)** | Playwright (E2E) + Pytest (Backend) | E2E para a UI + Pytest com mocks de LLM. **V1: smoke E2E (load, DAG renderiza, navegação) + unit tests dos componentes críticos (E13)**; E2E completo fica para o V2. | ✅ Back-end: 217 testes, 77% cobertura; Playwright E2E é novo (Fase 2+) |
+| **Garantia de Qualidade (QA)** | Playwright (E2E) + Pytest (Backend) | E2E para a UI + Pytest com mocks de LLM. **V1: smoke E2E (load, DAG renderiza, navegação) + unit tests dos componentes críticos (E13)**; E2E completo fica para o V2. | ✅ Back-end: 606 testes coletados (2026-08-13, `--collect-only`); Playwright E2E: 4 specs (smoke/dag/app) |
 | **Experiência HITL** | **Painel não-modal (drawer lateral, UX8)** com diff Code/Prompt | O nó pausado fica visível no canvas enquanto o usuário decide; "Adjust State" via form guiado + avançado JSON (UX9); timeout configurável + notificação OS (UX10). | ✅ Interrupt/HITL existe; UI do drawer é Fase 3 |
 | **Visualizador de Grafos** | `@xyflow/react` (React Flow v12) | DAGs agênticos interativos com nós customizados, animação e zoom/pan. | Fase 2 |
 | **Gerenciamento de Estado** | Zustand com Undo/Redo (Ctrl+Z) + TanStack Query | Estado reativo com histórico Undo/Redo e sincronização WebSocket. | Fase 2 |
@@ -104,18 +104,20 @@ graph TD
 | Cache SQLite + compressão de prompt | ✅ `SQLiteLLMCache` + `compress_prompt()` |
 | Memória / lessons | ✅ `MemoryManager` (tabela `lessons`) + `lessons.md` |
 | CLI completa | ✅ 16 comandos Click: `run, serve, benchmark, resume, diff, explore, pr, export, studio, init, plan, status, release, completion, generate-tests, audit` |
-| QA | ✅ 217 testes passando, 77% de cobertura (limiar CI: 75%) |
+| QA | ✅ 606 testes coletados (2026-08-13, `--collect-only`; gate de cobertura da Fase A: 83.11% ≥ 75%) |
 
 ### 3.2 Premissas falsas / gaps (trabalho futuro)
 
-| Item do v1 | Realidade | Onde entra |
+> **Atualização 2026-08-13**: itens abaixo marcados como "❌ Não existe" foram **implementados** (Fases A–D, ver `docs/` + `STATUS-IMPLEMENTACAO.md`). Mantidos como registro histórico da auditoria do v5.
+
+| Item do v1 | Realidade (auditoria v5) | Onde entrou (status 2026-08-13) |
 |---|---|---|
-| Cliente MCP nativo | ❌ **Zero ocorrências de MCP** no repo (`src/`, `docs/`, testes) | Fase 1b (maior risco de estimativa) |
-| `.loopforge/trajectories.db` + `AsyncSqliteSaver` | ❌ Não existe; hoje `SqliteSaver` **síncrono** em `checkpoints.sqlite` | Fase 1a |
-| Rotas `/api/v1/trajectories/*` (checkpoints/export/import) | ❌ Não existem | Fase 1a |
-| Fallback "Gemini → OpenRouter → Ollama" | ❌ Matriz real: **OpenRouter (HTTP) → OpenCode (subprocess) → Mock**; Gemini/Ollama não têm clientes | Fase 1c (Ollama); Gemini removido da matriz |
-| Auto-descoberta Ollama/vLLM via `/api/tags` | ❌ Não existe | Fase 1c |
-| `lf serve --no-ui` + SPA React | ❌ Flag não existe; `lf serve` entrega dashboard HTML embutido | Fase 2 |
+| Cliente MCP nativo | ❌ **Zero ocorrências de MCP** no repo (`src/`, `docs/`, testes) | ✅ Implementado — `lf/mcp/registry.py` + `lf/mcp/client.py`, allowlist deny-by-default, POST tools |
+| `.loopforge/trajectories.db` + `AsyncSqliteSaver` | ❌ Não existe; hoje `SqliteSaver` **síncrono** em `checkpoints.sqlite` | ✅ Implementado — `AsyncSqliteSaver` em `trajectories.db`; `checkpoints.sqlite` legado não usado (não apagar) |
+| Rotas `/api/v1/trajectories/*` (checkpoints/export/import) | ❌ Não existem | ✅ Implementado — checkpoints, export/import, fork, diff (Fase C) |
+| Fallback "Gemini → OpenRouter → Ollama" | ❌ Matriz real: **OpenRouter (HTTP) → OpenCode (subprocess) → Mock**; Gemini/Ollama não têm clientes | ✅ Parcial — provider nativo HTTP primário + OpenCode fallback; Ollama via `providers.ollama_base_url` |
+| Auto-descoberta Ollama/vLLM via `/api/tags` | ❌ Não existe | ⏳ V2 (Tier 2) |
+| `lf serve --no-ui` + SPA React | ❌ Flag não existe; `lf serve` entrega dashboard HTML embutido | ✅ Implementado — flag `--no-ui` + mount `/app` da SPA (B4/B5) |
 
 ### 3.3 Imprecisões factuais corrigidas
 
@@ -185,7 +187,7 @@ graph TD
 |---|---|---|
 | E1 | **Backend da ADE embutido no LoopForge** (`src/lf`); SPA em `web/loopforge-ade`; `loopforge-ade` = pacote pip que embute a SPA e depende de `lf` | Um repo, uma versão, release conjunto — sem versionamento cruzado de pacotes |
 | E2 | **Run é a unidade primária da UI** (API `/api/runs`); thread/checkpoint é detalhe interno do time-travel | Abas = runs; "resumir" = retomar a run; threads aparecem só no time-travel |
-| E3 | **Multi-thread no V1: 1 run ativa + fila**; execução paralela real com atomic checkout no V2 | Evita contenção de escrita/checkpoint no prazo; abas mostram fila + status |
+| E3 | **Multi-thread no V1: fila com `max_concurrent_runs` (default 2)**; execução paralela real com atomic task checkout no V2 | Evita contenção de escrita/checkpoint no prazo; abas mostram fila + status. *Impl 2026-08: fila implementada com promoção até `max_concurrent_runs`; atomic checkout segue V2* |
 | E4 | **WS com replay/backfill ao conectar**: estado completo + eventos desde o início da run | Run iniciada via CLI (UX17) ou antes da UI abrir aparece completa na tela |
 | E5 | **Segurança local: binding 127.0.0.1 + CORS restrito à origem da SPA** | Dashboard local não exposto na rede; dev via localhost do Vite, prod same-origin |
 | E6 | **Console fixo com logs filtráveis** — filtro por nó, nível (info/warn/error) e busca | Define o protocolo de eventos: streaming (UX4) emite logs estruturados por nó |
@@ -251,7 +253,7 @@ graph TD
 
 #### 6. Workspace Multi-Thread & Sessões em Abas
 * **Abas no topo (UX11)**: uma run visível por vez com indicador de status na aba; forks derivados aparecem como abas ligadas à origem.
-* **1 run ativa + fila no V1 (E3)**: execuções extras enfileiram; **paralelismo real com atomic task checkout fica para o V2** (evita contenção de escrita/checkpoint no prazo).
+* **Fila com `max_concurrent_runs` (E3)**: execuções extras enfileiram e rodam **até `max_concurrent_runs` em paralelo (default 2)**; **atomic task checkout (paralelismo com lock de escrita) fica para o V2**. Fila implementada: `GET /api/v1/runs/queue` + promoção no backend.
 * **Runs via CLI (UX17)**: `lf run` no terminal aparece ao vivo (backfill E4 + mesmo backend, diretriz 7).
 * (V2: cada lane isolada em worktree git — diretriz 5.)
 

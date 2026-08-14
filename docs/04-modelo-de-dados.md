@@ -24,9 +24,10 @@ flowchart LR
 
 - `telemetry.sqlite` — SQLAlchemy async + aiosqlite, WAL + `busy_timeout`
   (já existente). Nome do arquivo **mantido** (renomear para `ade.db` não agrega).
-- `trajectories.db` — `AsyncSqliteSaver` (Fase 1), WAL explícito.
-- `checkpoints.sqlite` (69 MB) — **órfão legado**, sem referência no código;
-  descartável (M-17).
+- `trajectories.db` — `AsyncSqliteSaver` (Fase 1/C), WAL explícito.
+- `checkpoints.sqlite` (~66 MB) — **órfão legado** da época do `SqliteSaver`
+  síncrono: o engine **não usa mais** (AGENTS.md do engine: "NÃO apagar, apenas
+  ignorar" — M-17).
 - Migrações: aditivas, aplicadas no `init_db` com checagem de coluna
   (`PRAGMA table_info`) — padrão já usado no projeto; alembic segue disponível
   mas não introduzido no V1 (custo > benefício para 3 `ALTER TABLE`).
@@ -47,18 +48,21 @@ transição de nó — M-07), cobrindo runs CLI e API.
 
 ### `events` — event journal (novo, ADR-0002/M-05)
 
+Schema real (verificado no código — `api/events.py`):
+
 | coluna | tipo | nota |
 |---|---|---|
-| `id` | INTEGER PK | |
-| `run_id` | TEXT NOT NULL | FK lógica → `pipeline_runs.id` |
-| `thread_id` | TEXT | redundância para debug |
-| `seq` | INTEGER NOT NULL | monotônico por run, 1-based; `UNIQUE(run_id, seq)` |
-| `event` | TEXT | ver catálogo em `03-contratos-api.md` §7 |
+| `id` | TEXT PK | uuid (não INTEGER) |
+| `run_id` | TEXT NOT NULL | índice próprio (`run_id` indexed) |
+| `seq` | INTEGER NOT NULL | monotônico por run, 1-based — alocação atômica via `UPDATE … RETURNING` na tabela `event_seq` |
+| `event_type` | TEXT | ver catálogo em `03-contratos-api.md` §8 |
 | `payload` | TEXT (JSON) | |
-| `ts` | TEXT | ISO-8601 UTC |
+| `created_at` | TEXT | ISO-8601 UTC |
 
-Índice `(run_id, seq)`. Sem prune no V1 (E11) — tabela cresce dezenas de linhas
-por run; export/import de trajectories é o backup manual.
+`event_seq` (contador por run): `run_id` PK, `last_seq` — incremento atômico
+(`UPDATE … RETURNING`); **não** há constraint `UNIQUE(run_id, seq)` no schema
+(a unicidade é garantida pela alocação atômica). Sem prune no V1 (E11) — tabela
+cresce dezenas de linhas por run; export/import de trajectories é o backup manual.
 
 ### `llm_costs` (existente + M-08/M-09)
 
@@ -73,7 +77,7 @@ por run; export/import de trajectories é o backup manual.
 
 `id, run_id, gate_node, action, feedback_category, feedback_message, user, created_at`
 + coluna **`state_patch` TEXT NULL** (M-12) para auditoria de `adjust_state`.
-Registra também `budget-override` (M-10) como ação.
+Registra também `cost/override` (M-10) como ação.
 
 ### `telemetry runs` (per-node, existente)
 
@@ -96,8 +100,9 @@ reconhecidas como heurística e não entram no hard-stop.
 
 ```yaml
 budget:        { max_usd: 10.0 }            # fonte única (ADR-0005)
-hitl:          { timeout_seconds: 300, on_timeout: pause }   # ADR-0006 (on_timeout: novo)
+hitl:          { timeout_seconds: 300, on_timeout: continue }   # ADR-0006/M-11 (default continue)
 providers:     { primary: native, ollama_base_url: "http://localhost:11434" }
+runner:        { subprocess_timeout_seconds: 300, max_concurrent_runs: 2 }   # fila E3
 mcp_servers:
   - { name: fs, command: "…", args: ["…"], tools_allowlist: ["read_file"], enabled: true }
 ```
@@ -109,13 +114,14 @@ mcp_servers:
 
 ## 5. Importados (`trajectory-imports.json`)
 
-Envelopes importados (Fase 1) — append-only, formato `schema_version: "1.0"`.
+Envelopes importados (Fase C) — append-only, formato `schema_version: "1.1"`
+(o `POST /import` aceita apenas 1.1 — ver `03-contratos-api.md` §4).
 V2 candidato: migrar para tabela; V1 mantém arquivo (volume ínfimo).
 
 ## 6. Retenção e tamanho
 
 - Sem TTL/prune no V1 (E11). Ordens de grandeza: checkpoints dominam
   (~centenas de KB por run); `events` e `llm_costs` são KB por run.
-- Rota de descarte manual: `DELETE /api/v1/runs/{id}` remove a run e seus
-  eventos/custos; checkpoints permanecem (órfãos recuperáveis via trajectories
-  API) — política de prune conjunta é V2.
+- Rota de descarte manual: `DELETE /api/runs/{id}` (**só legado**, sem variante
+  v1) remove a run e seus eventos/custos; checkpoints permanecem (órfãos
+  recuperáveis via trajectories API) — política de prune conjunta é V2.

@@ -53,6 +53,7 @@ segue íntegro. Dev sem hot reload não precisa do Terminal 2.
 | `LF_API_HOST` / `LF_API_PORT` | `127.0.0.1` / `8000` | bind do servidor (CLI `lf serve --host/--port` vence) |
 | `LF_CORS_ORIGINS` | `*` (wildcard) | CSV de origens permitidas; **restringir em uso externo** (M-04) |
 | `LF_SPA_DIST` | auto-resolve | override do diretório do dist da SPA |
+| `LF_API_RATE_LIMIT_PER_MIN` | `300` | rate limit HTTP (REST, não WS); `0` desliga; excedido → `429` |
 | `LF_UI_ENABLED` | `1` | `0`/`--no-ui` desliga dashboard legado e SPA |
 | `LF_API_TEST` | — | `1` = banco de teste isolado (`.loopforge/test_api.sqlite`) |
 | `VITE_API_KEY` / `VITE_API_TARGET` / `VITE_API_BASE` | — | dev da SPA: key, alvo do proxy (`8787`), base da API (`/api/v1`) |
@@ -80,8 +81,8 @@ mcp_servers:
 
 ```bash
 # Backend (engine) — local, SEMPRE com OPENCODE_MOCK=1 (senão o teste de runner
-# spawna `opencode` real e estoura o timeout de 5min). Suíte atual: 302 passed,
-# 1 skipped, 1 xfailed.
+# spawna `opencode` real e estoura o timeout de 5min). Suíte atual: **606 testes
+# coletados** (2026-08-13, `--collect-only`; gate de cobertura da Fase A: 83.11%).
 cd $ENGINE && OPENCODE_MOCK=1 .venv/bin/python -m pytest -q
 cd $ENGINE && OPENCODE_MOCK=1 .venv/bin/python -m pytest tests/test_event_envelope.py   # contrato do envelope v1
 
@@ -90,7 +91,7 @@ cd $ENGINE && .venv/bin/ruff check --select E,F,W,I,N,UP,SIM src/lf tests
 cd $ENGINE && .venv/bin/mypy src/lf
 cd $ENGINE && OPENCODE_MOCK=1 .venv/bin/python -m pytest --cov=src/lf --cov-fail-under=75 tests/
 
-# SPA (24 arquivos / 126 testes)
+# SPA (43 arquivos de teste em src — 17 *.test.ts + 26 *.test.tsx)
 cd $ADE/frontend && npm run test        # Vitest
 cd $ADE/frontend && npm run lint && npm run build
 cd $ADE/frontend && npx playwright test # smoke E2E (requer backend mock ou demo)
@@ -125,10 +126,10 @@ mudança quebradora de envelope ⇒ `schema_version` novo.
 |---|---|---|
 | WS fecha com 1008 | token ausente/errado | `VITE_API_KEY` = key impressa no boot; o WS reusa a API key como token (wsStore) — sem ela, 403/1008 e "Reconnecting…" eterno |
 | 401 em `/api/v1/*` | M-03 passou a exigir key | enviar `X-API-Key`; em dev use `LF_API_API_KEY` fixa + `VITE_API_KEY` (serve.py gera key nova a cada boot sem env) |
-| `sqlite3.OperationalError: database is locked` | writers demais / WAL não ativo | verificar WAL; 1 run ativa (E3); aumentar `busy_timeout` |
+| `sqlite3.OperationalError: database is locked` | writers demais / WAL não ativo | verificar WAL; reduzir `runner.max_concurrent_runs`; aumentar `busy_timeout` |
 | SPA branca em `/app` | dist não sincronizado | `npm run build` + `python scripts/sync_dist.py $ADE/frontend/dist`; checar `LF_SPA_DIST` |
 | Run "sumiu" da UI após restart | run CLI antiga (pré-M-07) | esperado: só runs novas têm linha canônica |
-| `checkpoints.sqlite` gigante | arquivo **legado órfão** | pode apagar; checkpoints vivem em `trajectories.db` |
+| `checkpoints.sqlite` gigante | arquivo **legado órfão** (não usado) | **não apagar, apenas ignorar**; checkpoints vivem em `trajectories.db` |
 | Budget não dispara | run anterior à M-08 (sem `run_id` no ledger) | esperado em dados antigos |
 | MCP server "down" | comando não encontrado | validar `command`/`args` do `ade.yaml`; logs do boot |
 | 403 em POST tool MCP | tool fora do `tools_allowlist` | adicionar à allowlist do server no `ade.yaml` (deny-by-default) |
@@ -138,10 +139,11 @@ mudança quebradora de envelope ⇒ `schema_version` novo.
 
 ## 6. Limites operacionais conhecidos (V1)
 
-- 1 run ativa + fila; sem paralelismo real.
+- Fila com até `runner.max_concurrent_runs` (default **2**) em paralelo; sem
+  atomic task checkout (lock de escrita) — V2.
 - Override de budget (`POST /runs/{id}/cost/override`) é **em memória** — por
   processo; sem persistência em SQLite (decisão documentada em `costs.py`).
 - Sem prune/TTL de `trajectories.db` e `events` — export é o backup; limpeza
-  manual via `DELETE /api/v1/runs/{id}`.
+  manual via `DELETE /api/runs/{id}` (**só legado**, sem variante v1).
 - Dashboard HTML legado: deprecated (banner), WS com fix de token; removido na
   próxima major.

@@ -1,6 +1,6 @@
 # ADR-0007: Token streaming ao vivo fora do MVP
 
-- **Status**: proposto (mantém e formaliza gap já documentado na spec Fase 2)
+- **Status**: aceito/implementado parcialmente (fora do MVP mantido; 2026-08-13)
 - **Data**: 2026-08-07
 
 ## Contexto
@@ -19,6 +19,10 @@ dúvida restante era o console.
 (ADR-0002) + logs estruturados por nó. O `stream()` interno permanece pronto e
 testado; a exposição (canal WS dedicado `/ws/runs/{id}/tokens` ou multiplexação
 no envelope) fica para **V2**, junto com a decisão de consumo visual.
+
+> **Implementação (verificada no código)**: o provider nativo expõe o callback
+> `on_token_delta` (`runner/opencode/llm.py:174-315`) e o evento `token_delta`
+> existe no catálogo — mas a UI V1 **não consome** (decisão mantida).
 
 Justificativa:
 - **Custo/valor**: stream de tokens exige mux por run, backpressure, e UI de
@@ -44,4 +48,4 @@ demo mock (UX16) e pelos logs por nó no inspect drawer. Decisão reversível:
 ## Referências
 
 - Spec Fase 2 §3.3-a (gap documentado); BLUEPRINT UX4
-- `pipeline/llm_factory.py` (NativeLLMProvider.stream)
+- `runner/opencode/llm.py` (`on_token_delta`; o plano citava `pipeline/llm_factory.py`)

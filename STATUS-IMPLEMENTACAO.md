@@ -11,8 +11,8 @@
 - SPA: worktree `~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2` → branch **`feature/ade-fase2`** (igual ao main via merges acima; commitado até `721624d`).
 2. Confira `git status` nos três; leia a seção **Próximo passo**.
 3. Verificação:
-   - Engine: `cd agentes/LoopForge && OPENCODE_MOCK=1 .venv/bin/python -m pytest -q` (Fase D: **302 passed, 1 skipped, 1 xfailed**; cobertura **83.11%** ≥75%). **SEMPRE com `OPENCODE_MOCK=1`** (sem isso, `test_opencode_runner_mock_or_execution` spawna subprocesso real de `opencode` e estoura timeout de 5min).
-   - SPA: `cd ~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2 && npm run build && npm run test` (**28 arquivos / 200 testes**; E2E: `npx playwright test` — 4/4, chromium já instalado).
+   - Engine: `cd agentes/LoopForge && OPENCODE_MOCK=1 .venv/bin/python -m pytest -q` (**606 testes coletados** em 2026-08-13 via `--collect-only`; suíte completa não re-rodada nesta auditoria; gate de cobertura **83.11%** ≥75% na Fase A). **SEMPRE com `OPENCODE_MOCK=1`** (sem isso, `test_opencode_runner_mock_or_execution` spawna subprocesso real de `opencode` e estoura timeout de 5min).
+   - SPA: `cd ~/.local/share/opencode/worktree/loopforge-ade/feature/ade-fase2 && npm run build && npm run test` (**43 arquivos** de teste em `frontend/src` — 17 `*.test.ts` + 26 `*.test.tsx`; E2E: `npx playwright test` — 4/4, chromium já instalado).
 4. Convenções: commits citam M-id (ex.: `fix(api): resume usa thread_id persistido [M-01]`); docs/comentários em PT, identificadores em EN; sem monorepo (AGENTS.md da raiz).
 5. **Flakiness conhecida dos lanes**: algumas sessões fixer retornam resultado vazio sem aplicar nada (padrão recorrente). Sempre VERIFICAR o estado real no disco (`git log -3`, `git status`, greps) antes de dar uma tarefa como feita ou re-despachar. Sessão fix-3 (ses_020b81ca...) falhou 2x em silêncio — não reutilizar.
 
@@ -77,8 +77,8 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 1. ~~Fases A e B~~ **FECHADAS** (A: gate 83.11%; B: merge `21c2dda`).
 2. ~~Fase C~~ **FECHADA**: backend (C1 fork, C2 export/import, C3 adjust_state, C4 on_timeout, C5 timeline — engine `340c9a1`, 296/1/1) + SPA (`3d51f8a`, 23/110 testes, smoke ✓) + merge `834dea1`.
 3. ~~Fase D~~ **FECHADA**: engine `7cbfd61` (302/1/1 — POST mcp tools, cost nodes, PATCH config validado) + SPA `0394520`/`721624d` (28/197 vitest, 4/4 playwright) + docs `7709e3e` + merges `a0ee0c2`/`2cbc612`. **MVP completo: UCs 01–12 cobertos, docs de operação espelham o código real.**
-4. **Pendências resolvidas (commit `c149c66`)**: (a) demoMock — run demo-* cancelada vira `completed` ao iniciar novo demo (não fica presa em `running`); (b) shortId dedup em `trajectories/shortId` (RunTabs/Topbar importam) — slice(-4) só para ids demo-* >10 chars (`demo-1` intacto); (c) errorMsg — `detail` opcional no shape check (status sozinho já é API error); (d) HitlDrawer — guard `!run?.id`. Fora do V1 (mantido): (e) CORS restrito + rate limiting (checklist 05).
-5. Fase E (se houver no plano 06) após D fechada — plano 06 termina na Fase D; próximo grande item é V1.1 (execução paralela E3, token streaming ADR-0007) se priorizado.
+4. **Pendências resolvidas (commit `c149c66`)**: (a) demoMock — run demo-* cancelada vira `completed` ao iniciar novo demo (não fica presa em `running`); (b) shortId dedup em `trajectories/shortId` (RunTabs/Topbar importam) — slice(-4) só para ids demo-* >10 chars (`demo-1` intacto); (c) errorMsg — `detail` opcional no shape check (status sozinho já é API error); (d) HitlDrawer — guard `!run?.id`. Fora do V1 (mantido): (e) CORS restrito (checklist 05). *Rate limiting saiu do "fora do V1": middleware implementado (default 300 req/min via `LF_API_RATE_LIMIT_PER_MIN`, 0=off — ver `docs/05`).*
+5. **Em andamento — polish pass P0** (spec `db7ba46`, plano `2ef02b5`, 5 tasks): style tokens/dag nos commits `06689d4`..`1ea9bec`; working tree com tasks P0 não commitadas. Depois: V1.1 se priorizado (execução paralela — fila já roda com `max_concurrent_runs` default 2 —, token streaming ADR-0007).
 
 ## Refinamento pós-MVP (2026-08-10) — commits `85a28cb` + `05da796`
 
@@ -87,8 +87,18 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 - **R3**: `nodeStatusMeta.ts` compartilhado (AgentNode + InspectDrawer) — elimina mapeamento duplicado documentado.
 - Verificação: build ✓ · lint ✓ · **28/200 testes, stderr limpo** ✓ · Playwright 4/4 ✓.
 
+## Pós-MVP — runs via CLI, backfill E4, CB surfacing e polish (2026-08-09 → 13)
+
+- **resume UI** (`df8d128`): toolbar + banner de resume; `wsBridge` consome `pipeline_resumed`.
+- **InspectDrawer real** (`0c9511c`, `79e85d2`): artifacts reais (payloads, tokens, audit, degraded/CB); severity do appsec normalizada (case-insensitive).
+- **Packaging** (`0e52351`, `794e931`, `60c23bd`): pacote `loopforge-ade` com `package-data` da SPA (Task 16); `.gitignore` versiona só o `.gitkeep` da dist.
+- **Backfill E4 no reconnect** (`492b102`): backfill ao reconectar + polling de artifacts + limpeza de dead code; fixes de dedupe/paginação e watermark per-run/per-reconnect (`481e2b9`, `44713eb`, `3f5d32d`) — sem false-skip cross-run.
+- **Surfacing CB + degraded + fila E3** (`bedf68f`, `8a09d74`): badge de circuit breaker com iters/custo + meta no `cbByRun`.
+- **Polish pass P0** (spec `db7ba46`, plano `2ef02b5`, 5 tasks; commits de style `06689d4`..`1ea9bec`): tokens únicos (durações/easing), glow accent, variantes `-text` por nó (AA), ring de erro em paridade, CloseIcon único, EmptyState compact, pulso running em cascade, aresta retry accent. **Em andamento** — working tree com style tasks P0 não commitadas.
+
 ## Histórico de commits
 
 - ADE main: `7807bcc` (docs 19 arquivos), `b21e068` (status Fase A+B2/B3), **`21c2dda`** (merge feature/ade-fase2 — SPA completa B1–B6), `17750c4` (status Fase C backend), **`834dea1`** (merge feature/ade-fase2 — SPA Fase C completa), `b79075a` (status Fase C completa), **`a0ee0c2`** (merge feature/ade-fase2 — Fase D D1–D3), `7709e3e` (docs Fase D [D4]), **`2cbc612`** (merge feature/ade-fase2 — Fase D D4 testes), `2fa3ca1` (fix SPA: WS reusa API key como token [M-03]), `81cd9bb` (docs 08: dev com key fixa [M-03]), `5d8a1d9` (fix SPA: boot busca runs existentes e auto-seleciona a ativa), `fac391d` (docs: status Fase D completa, MVP completo), **`c149c66`** (fix SPA: pendências do MVP — demo cancelada completa, shortId, errorMsg shape, guard HitlDrawer), **`85a28cb`** (fix SPA: E8 strings de UI em EN + suíte zero warnings), **`05da796`** (refactor SPA: nodeStatusMeta compartilhado).
+- Pós-MVP (main): `df8d128` (resume UI + pipeline_resumed), `0c9511c`+`79e85d2` (InspectDrawer artifacts reais), `0e52351`+`794e931`+`60c23bd` (packaging loopforge-ade), `492b102`+`481e2b9`+`44713eb`+`3f5d32d` (backfill E4 reconnect + dedupe + watermark), `bedf68f`+`8a09d74` (CB/degraded/fila E3 na SPA), `db7ba46`+`2d19d85`+`2ef02b5` (spec+plano polish P0), `06689d4`..`1ea9bec` (style polish P0 — em andamento).
 - SPA worktree `feature/ade-fase2`: `0e8605a` (design system + envelope v1 [M-19]), `403e5ae` (B2/B3 [M-20][M-08][M-10]), `047a283` (smoke E2E [E13]), `3d51f8a` (Fase C: fork/export/import, adjust_state, banner HITL, timeline [M-13][M-14][M-12][M-11][M-02]), `0394520` (Fase D: chips custo por nó, playground MCP, Settings [D1][D2][D3]), `721624d` (Fase D D4: E2E UC-01..12 + endurecimento, 197 vitest).
 - Engine `feature/ade-fase-a` (auto-checkpoint "checkpoint: loopforge/..."): `f927eb9` (n5/A7), `14e2974` (n1), n2a (events.py), `cac8fb1` (n3), `264fa70` (n4), `a27a618` (ruído), `d833082`/`7d93a59` (n6), B4 (spa.py+test_spa_mount), `ca97075` (B5), `0aaba9a` (.gitignore fix), c1 (C1+C2 fork/export/import — auto-checkpoints), `dc825d7` (C3+C4 + flaky fix test_events_backfill), `8e1ed04` (C5 timeline [M-02]), `340c9a1` (Fase C backend), `7cbfd61` (Fase D: POST mcp tools + cost nodes + PATCH config [D2][D1][D3]).

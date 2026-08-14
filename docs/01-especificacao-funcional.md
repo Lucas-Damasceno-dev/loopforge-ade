@@ -28,8 +28,8 @@ fullscreen do canvas (UX14). Persistência de layout = sessão apenas (UX15).
 **Ator**: operador. **Tela**: Workspace › New Run.
 1. Form: `idea` (textarea), `stack` (select: python/java/rust/go/js — M-20),
    `routing_mode` (select, default `full`), `mock_llm` (toggle).
-2. `POST /api/v1/runs` → run `pending`; se houver run ativa, entra na **fila**
-   (E3) com posição visível na aba.
+2. `POST /api/v1/runs` → run `queued`; se já houver `max_concurrent_runs`
+   ativas (default 2), entra na **fila** (E3) com posição visível na aba.
 3. Aba criada com status ao vivo. **Pós-condição**: run aparece no console via
    `run_created` + backfill.
 
@@ -51,7 +51,7 @@ Estado da tela preservado (Zustand). Indistinguível de uma sessão contínua.
 ### UC-04 — Inspecionar nó (payload, logs, custo, retries)
 Click no nó → **Inspect drawer** (direita, não-modal): inputs/outputs do estado
 (quando via checkpoint), logs do nó (journal, `log_excerpt`), tokens/custo
-(`GET /runs/{id}/cost` › `per_node`), lista de tentativas com erro de cada uma.
+(`GET /runs/{id}/cost` › `nodes`), lista de tentativas com erro de cada uma.
 Parallel Audit expande em sub-cards AppSec/DevOps (UX3).
 
 ### UC-05 — Time-travel (inspeção)
@@ -66,27 +66,30 @@ Run pausa em gate (developer/qa/parallel_audit) → status `waiting_decision`,
 evento `hitl_gate_reached` → HITL drawer abre (não bloqueia o canvas, UX8).
 Ações: **Approve** / **Retry** / **Adjust prompt** (categoria+mensagem) /
 **Adjust state** (form guiado com diff de estado + JSON avançado validado, UX9 —
-M-12) / **Abort**. Timeout: badge "awaiting decision (timed out)" se
-`on_timeout=pause` (default, ADR-0006). Histórico completo no drawer (quem/
+M-12) / **Abort**. Timeout (`hitl.timeout_seconds`, default 300s): com
+`on_timeout=continue` (default, ADR-0006/M-11) o pipeline segue e a decisão
+tardia é aceita se chegar; com `pause`, fica aguardando; com `abort`, run falha
+com motivo `hitl_timeout_abort`. Histórico completo no drawer (quem/
 quando/ação/estado — audit trail).
 
 ### UC-07 — Forkar a partir de um checkpoint
-No modo inspeção: botão **"Fork from here"** → `POST .../fork {checkpoint_id}`
-→ nova run (aba nova) com badge "fork of #origem" (UX7), `parent_run_id`
-preenchido. A filha é enfileirada normalmente. Original intocada (D4).
+No modo inspeção: botão **"Fork from here"** → `POST /api/v1/trajectories/{thread_id}/fork`
+(fork do checkpoint head da thread) → nova run (aba nova) com badge "fork of
+#origem" (UX7), `parent_run_id` preenchido. A filha é enfileirada normalmente.
+Original intocada (D4).
 
 ### UC-08 — Budget: warning e hard-stop
 Cost bar global sempre visível (UX12): `$gasto / $budget`. 80% → toast +
-barra âmbar. 100% → run pausa (`budget_exceeded`) + **modal bloqueante**:
+barra âmbar. 100% → run pausa (`paused`) + **modal bloqueante**:
 gasto detalhado por nó (chips, custos estimados marcados "~") + campo
-`new_max_usd` + "Give override" (M-10) ou "Abort run". Override registra em
-`human_decisions` e resume a run.
+`new_max_usd` + "Give override" (M-10 — `POST /api/v1/runs/{run_id}/cost/override`)
+ou "Abort run". Override registra em `human_decisions` e resume a run.
 
 ### UC-09 — Gerir MCP
 Painel lista servers do `ade.yaml` (status up/down) e tools de cada um.
-Playground: escolher tool → form JSON dos args → **Run** (Fase D; antes:
-botão desabilitado com tooltip "available in Fase D"). Tool fora da allowlist
-→ erro 403 exibido inline (deny-by-default).
+Playground: escolher tool → form JSON dos args → **Run** (executa via
+`POST /api/v1/mcp/servers/{name}/tools/{tool}`). Tool fora da allowlist
+→ erro 403 exibido inline (deny-by-default); server indisponível → 503.
 
 ### UC-10 — Editar config (Settings)
 Settings mostra `ade.yaml` efetivo: budget, `hitl.timeout_seconds` +
@@ -112,12 +115,15 @@ thread → 409 com mensagem clara.
 
 | status | significado | cor/badge |
 |---|---|---|
-| `pending` / `queued` | criada / na fila (E3) | neutro |
+| `queued` | criada (`POST /runs`) / na fila (E3) | neutro |
 | `running` | executando | accent pulsando sóbrio |
 | `waiting_decision` | pausada em gate HITL | warn |
-| `decision_expired` | gate expirado, ainda aguardando (pause) | warn + badge "timed out" |
-| `budget_exceeded` | hard-stop; aguardando override/abort | err |
+| `decision_expired` | gate expirado; ainda aguardando (continue/pause) | warn + badge "timed out" |
+| `paused` | hard-stop de budget (100%); aguardando override/abort | err |
 | `completed` / `failed` / `aborted` | terminais | ok / err / neutro |
+
+> `pending` e `budget_exceeded` permanecem no enum do backend (transição/
+> legado); o estado observável de hard-stop é `paused` (M-10).
 
 ### 3.2 Status de nó
 

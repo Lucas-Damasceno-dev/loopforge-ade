@@ -1,4 +1,4 @@
-# LoopForge ADE — Documentação (v1, 2026-08-07)
+# LoopForge ADE — Documentação (v1, 2026-08-13)
 
 Documentação viva da ADE: visão, especificações, plano e decisões. **Substitui**
 como referência o `BLUEPRINT.md` (v5) e as specs/plans de Fase 1–2 em
@@ -41,9 +41,9 @@ rastreadas em `09-mudancas-sobre-o-existente.md`.
 - Afirmações sobre o estado atual são marcadas como **"verificado no código"**
   (auditadas no fonte) ou **"planejado"** (existe apenas em spec/plano, ainda
   não implementado).
-- Estado de implementação auditado em 2026-08-08: engine **Fases A–C completas +
-  D (D1–D3)** no branch `feature/ade-fase-a` (HEAD `7cbfd61`, suíte **302 passed /
-  1 skipped / 1 xfailed** com `OPENCODE_MOCK=1`); SPA B–D no branch
-  `feature/ade-fase2` (HEAD `0394520`, **24 arquivos / 126 testes**, build/lint
-  limpos). Pendente da Fase D: D4 (endurecimento E2E) e `STATUS-IMPLEMENTACAO.md`
-  (orquestrador).
+- Estado de implementação auditado em 2026-08-13: engine **Fases A–D completas +
+  pós-MVP** (release conjunto com a SPA; **606 testes coletados** via
+  `OPENCODE_MOCK=1 pytest --collect-only`); SPA **B–D completas + pós-MVP** em
+  `frontend/` (**43 arquivos** de teste em `src` — 17 `*.test.ts` + 26
+  `*.test.tsx` — + 4 specs Playwright; build/lint limpos). Em andamento: polish
+  pass P0 (style tokens/DAG, working tree sujo).

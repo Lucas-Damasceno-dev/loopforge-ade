@@ -36,7 +36,7 @@ run **observável, pausável, rebobinável e bifurcável**.
 
 | # | Feature | Fundação |
 |---|---|---|
-| 1 | **Workspace de runs em abas** — lista, fila (1 ativa + fila, E3), nova run (idea+stack), demo mock 1-click (UX16) | `POST/GET /runs` + journal |
+| 1 | **Workspace de runs em abas** — lista, fila (até `max_concurrent_runs` em paralelo, default 2 — E3), nova run (idea+stack), demo mock 1-click (UX16) | `POST/GET /runs` + journal |
 | 2 | **DAG visual interativo** — kanban-linear e grafo 2D (UX2), status por nó, retries visíveis (E7), click-to-inspect (payload, logs, custo do nó) | `@xyflow/react` + envelope v1 |
 | 3 | **Console filtrável** (E6) com **backfill real** e reconexão sem perda (E4/E14) | event journal (ADR-0002) |
 | 4 | **Time-travel**: slider de checkpoints, ghost + banner de inspeção (UX5/6), **fork real** de qualquer checkpoint (UX7) | trajectories API + M-13 |
@@ -49,7 +49,7 @@ run **observável, pausável, rebobinável e bifurcável**.
 | Fora do MVP | Por quê | Quando |
 |---|---|---|
 | Token streaming ao vivo | Custo/valor; UX4; ADR-0007 | V2 |
-| Execução paralela real + checkout atômico | Contenção de escrita/checkpoint; E3 | V2 |
+| Checkout atômico de task (paralelismo com lock) | Fila já roda **até `max_concurrent_runs` em paralelo (default 2)** sem lock de escrita; atomic checkout fica para o V2 | V2 |
 | Worktrees isolados por lane | Depende de paralelismo real | V2 |
 | Evals integrados | BLUEPRINT já priorizou; benchmark CLI existe | V2 |
 | RBAC/multiusuário, aprovação em camada de equipe | Público é dev solo (D2) | V2+ |
@@ -78,4 +78,4 @@ viva. Reversões explícitas (com justificativa) estão em
 `09-mudancas-sobre-o-existente.md` — as maiores: pacote pip único (ADR-0001),
 event journal que torna E4 real (ADR-0002), identidade run↔thread persistida
 (ADR-0003), budget de fonte única com hard-stop-pausa (ADR-0005) e HITL
-`on_timeout` fail-safe (ADR-0006).
+`on_timeout` fail-safe (ADR-0006; default real na implementação: `continue` — ver M-11).

@@ -1,6 +1,6 @@
 # ADR-0004: API `/api/v1` canônica, auth uniforme e CORS restrito
 
-- **Status**: proposto (fecha gap de segurança auditado)
+- **Status**: aceito/implementado (Fase A — M-03/M-18; CORS M-04 parcial — default `*` mantido; 2026-08-13)
 - **Data**: 2026-08-07
 
 ## Contexto
@@ -31,10 +31,12 @@ Auditoria (Fase 1 implementada):
    `/api/v1/runs*`. As rotas legadas `/api/runs*` ficam como alias que responde
    com header `Sunset` + `Deprecation`, removidas na próxima major do `lf`.
    `lf explore` e o dashboard legado continuam funcionando durante a deprecação.
-3. **CORS restrito**: `LF_CORS_ORIGINS` (csv) com default
-   `http://127.0.0.1:5173,http://localhost:5173` (dev Vite); `allow_credentials`
-   só com origens explícitas. Em produção a SPA é same-origin (servida pelo
-   próprio `lf`), então CORS é essencialmente um problema de dev.
+3. **CORS configurável**: `LF_CORS_ORIGINS` (csv) restringe; **default mantido `*`
+   (wildcard, sem `allow_credentials`)** — decisão revisada na implementação
+   (M-04): o default restrito do ADR (`127.0.0.1:5173`) foi descartado para não
+   quebrar fluxos de dev/consumidores; a restrição existe quando a env é definida.
+   Em produção a SPA é same-origin (servida pelo próprio `lf`), então CORS é
+   essencialmente um problema de dev.
 4. **WS auth uniforme**: `?token=` obrigatório quando `LF_API_API_KEY` ativa, nos
    dois paths WS (já existe; manter). SPA injeta o token de `VITE_API_KEY`.
 5. **Dashboard legado**: fix mínimo de token WS (ler `?api_key=` da URL ou

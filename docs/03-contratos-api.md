@@ -1,7 +1,7 @@
 # 03 — Contratos de API (REST + WebSocket)
 
-> Contratos **implementados** (verificado no código até a Fase D: engine `7cbfd61`,
-> SPA `0394520`). Onde divergem de decisões históricas, ver
+> Contratos **implementados** (verificado no código, atualizado 2026-08-13 —
+> pós-MVP). Onde divergem de decisões históricas, ver
 > `09-mudancas-sobre-o-existente.md` (IDs M-xx).
 > Prefixo canônico: `/api/v1`. Legado `/api/runs*` responde com `Sunset` + `Deprecation` (M-18).
 
@@ -21,10 +21,11 @@
 
 | Método | Path | Descrição | Body → Resposta |
 |---|---|---|---|
-| POST | `/api/v1/runs` | Cria run e enfileira (E3/M-21: 1 ativa + fila) | `{idea, stack="python", routing_mode="full", mock_llm=false, interactive=false}` → `201 Run` |
+| POST | `/api/v1/runs` | Cria run e enfileira (E3/M-21: fila até `max_concurrent_runs`, default 2) | `{idea, stack="python", routing_mode="full", mock_llm=false, interactive=false}` → `201 Run` |
 | GET | `/api/v1/runs` | Lista paginada | → `{items: [Run], total}` |
+| GET | `/api/v1/runs/queue` | **Estado da fila E3** (implementado pós-MVP) | → `{max_concurrent, active_count, active: [Run], queued: [Run]}` |
 | GET | `/api/v1/runs/{id}` | Detalhe | → `Run` |
-| DELETE | `/api/v1/runs/{id}` | Remove run (não toca checkpoints) | → `204` |
+| DELETE | `/api/runs/{id}` | Remove run (não toca checkpoints) — **só legado** (sem variante v1; 204) | → `204` |
 | POST | `/api/runs/{id}/execute` | (Re)dispara run `pending`/`failed` — **só legado** (sem variante v1) | → `202 Run` |
 | POST | `/api/v1/runs/{id}/resume` | Resume do último checkpoint (usa `thread_id` persistido — M-01) | → `202 Run` |
 | GET | `/api/v1/runs/{id}/events` | **Backfill do journal** (M-06) | `?after_seq=0&limit=200` → `{run_id, events: [Envelope], next_after_seq}` |
@@ -64,10 +65,11 @@
 | Método | Path | Descrição | Body → Resposta |
 |---|---|---|---|
 | POST | `/api/v1/runs/{id}/decide` | Registra decisão humana | `HumanDecisionCreate` → `201 HumanDecisionResponse` |
-| GET | `/api/runs/{id}/decisions` | Audit trail (quem/quando/o quê/com qual estado) | → `[HumanDecisionResponse]` |
+| GET | `/api/v1/runs/{id}/decisions` | Audit trail (quem/quando/o quê/com qual estado) — variante v1 existe desde a Fase A (M-18) | → `[HumanDecisionResponse]` |
+| GET | `/api/runs/{id}/decisions` | Alias legado do audit trail | → `[HumanDecisionResponse]` |
 
-> Nota (M-18): a rota de audit trail **não tem variante `/api/v1`** — apenas o
-> path legado acima responde hoje.
+> Nota (M-18): o audit trail tem **duas variantes** — `/api/v1/runs/{id}/decisions`
+> e o alias legado `/api/runs/{id}/decisions`; ambas respondem hoje.
 
 ```jsonc
 // HumanDecisionCreate (M-12 adiciona adjust_state)
@@ -91,6 +93,7 @@ via `aupdate_state` (422 caso contrário).
 |---|---|---|
 | GET | `/api/v1/trajectories/{thread_id}/checkpoints` | **Existe a thread?** → `[{thread_id}]` (filtro de existência) ou `[]` — a listagem rica por run está no `timeline` |
 | GET | `/api/v1/trajectories/{thread_id}/checkpoints/{checkpoint_id}` | Estado completo (`channel_values`) naquele ponto → `{thread_id, checkpoint_id, state}` |
+| GET | `/api/v1/trajectories/{thread_id}/diff` | **Diff estruturado entre checkpoints** (time-travel profundo, Fase C) | `?from=<checkpoint_id>&to=<checkpoint_id>` → `{thread_id, from, to, added: {key: preview}, removed: {key: preview}, changed: [{key, before, after}]}` (previews JSON-safe truncados a 500 chars; `404` thread/checkpoint ausente, `422` from/to faltando) |
 | POST | `/api/v1/trajectories/export/{run_id}` | Export **enriquecido v1.1** (M-14) pela run (thread canônica `run-{run_id}`) → `TrajectoryExport` |
 | GET | `/api/v1/trajectories/{thread_id}/export` | Alias compat do export (mesmo payload enriquecido) |
 | POST | `/api/v1/trajectories/import` | Importa envelope; `422` schema inválido (exige `schema_version: "1.1"`); `409` thread já existe (sem merge no V1) → `201 {run_id, thread_id, checkpoints_imported}` |
@@ -125,6 +128,30 @@ via `aupdate_state` (422 caso contrário).
   allowlist (`MCPPermissionDenied`); `404` server não declarado no `ade.yaml`;
   `503` server não conectado.
 - `GET /api/v1/providers/ollama/models` — auto-discovery (503 se Ollama fora).
+
+### 5.1 Routers auxiliares (implementados — pós-MVP)
+
+| Prefixo | Endpoints |
+|---|---|
+| `/api/v1/costs` | `GET /runs/{run_id}/cost`, `POST /runs/{run_id}/cost/override` (mesmos contratos da seção 2) |
+| `/api/v1/memory` | `GET /lessons`, `POST /lessons`, `PATCH /lessons/{lesson_id}`, `DELETE /lessons/{lesson_id}` |
+| `/api/v1/evals` | `GET /summary`, `GET /leaderboard` |
+| `/api/v1/git` | `GET /{run_id}` (status git da run), `POST /{run_id}/publish-pr` |
+| `/api/v1/prompts` | `PATCH /{node}`, `DELETE /{node}` (edita prompt de um nó) |
+| `/api/v1/artifacts` | `GET /runs/{run_id}/artifacts`, `GET /runs/{run_id}/files`, `GET /runs/{run_id}/export` |
+| `/api/v1/terminal` | `GET /{run_id}/info`, `POST /{run_id}/exec` (executa comando no dir da run) |
+| `/api/v1/ast` | `GET /{run_id}` (árvore AST do código gerado) |
+| `/api/v1/coverage` | `GET /{run_id}` (resultado de cobertura de testes) |
+| `/api/v1/docker` | `GET /{run_id}`, `POST /{run_id}/save` (snapshot do dir da run) |
+
+Todos os routers acima exigem auth (`X-API-Key`), exceto `GET /health` e
+`GET /api/genome|registry|retro`.
+
+### 5.2 Rate limiting (HTTP)
+
+Middleware `RateLimitMiddleware` (`api/rate_limit.py`) ativo quando
+`LF_API_RATE_LIMIT_PER_MIN > 0` (default **300 req/min**; `0` desliga). Aplica-se
+apenas a requisições HTTP (não a WebSockets); limite excedido → `429`.
 
 ## 6. WebSocket — envelope v1 (ADR-0002)
 
@@ -200,6 +227,8 @@ Regras de reconciliação (M-19):
 | `human_decision_submitted` | `{gate_node, action, feedback_category?, user, state_patch?}` | API |
 | `human_decision_expired` | `{node, timeout_seconds, run_status}` | dispatcher |
 | `fork_created` | `{parent_run_id, fork_run_id, checkpoint_id}` | API (M-13) |
+| `circuit_breaker_changed` | snapshot do CB: `{state, max_total_cost, spent_usd, consecutive_failures, iteration, reset_at, …}` (~10 campos) | dispatcher (implementado pós-MVP — surfacing CB na SPA) |
+| `token_delta` | `{node?, tokens, …}` — **callback `on_token_delta`** no provider nativo (`runner/opencode/llm.py`); **UI V1 não consome** | runner (ADR-0007) |
 
 > **Budget não emite evento WS**: `budget_warning`/`budget_exceeded` (M-10) não
 > existem como eventos — o estado vem do `GET /runs/{id}/cost` (`budget_warning`

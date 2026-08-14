@@ -13,7 +13,7 @@ adversários multiusuário (V2).
 | WS | `?token=` nos dois paths; close `1008` se inválido. |
 | Binding | default `127.0.0.1` (E5). `--host 0.0.0.0` possível mas exige key ativa; log de aviso explícito no boot. |
 | CORS | `LF_CORS_ORIGINS` (csv) restringe; **default é `*` (wildcard)** (M-04). Produção = same-origin (SPA servida pelo `lf`), CORS inócuo. `allow_credentials` só com origens explícitas (nunca `*` + credentials). |
-| Rate limiting | **Não** no V1 — localhost + key tornam irrelevante; brute-force local é cenário fora do modelo de ameaça. Revisitar se binding externo virar caso suportado. |
+| Rate limiting | `LF_API_RATE_LIMIT_PER_MIN` (default **300**; `0` desliga) — `RateLimitMiddleware` HTTP-only (`api/rate_limit.py`); excedido → `429`. Aplica-se a REST, **não** a WebSockets. Default ativo; desligável para binding local estrito. |
 
 ## 2. Controle de custos (diretriz 1 — não negociável)
 
@@ -102,5 +102,6 @@ adversários multiusuário (V2).
 - [ ] CORS rejeita origem não listada (teste) — **default é `*`** (wildcard,
       M-04); a restrição só existe quando `LF_CORS_ORIGINS` é definida. Teste de
       rejeição faz sentido apenas nesse modo.
-- Rate limiting: **não** no V1 (localhost + key; brute-force local fora do modelo
-  de ameaça) — revisitar se binding externo virar caso suportado.
+- Rate limiting: **implementado** — `RateLimitMiddleware` com default
+  **300 req/min** via `LF_API_RATE_LIMIT_PER_MIN` (0 = off); HTTP-only, `429`
+  quando excedido. (Entrou pós-MVP; verificado no código — `api/rate_limit.py`.)

@@ -1,6 +1,6 @@
 # ADR-0005: Orçamento com fonte única e hard-stop real
 
-- **Status**: proposto (implementa a diretriz 1 do BLUEPRINT, hoje inexistente)
+- **Status**: aceito/implementado (Fase A backend + Fase D UI — M-08/M-09/M-10; 2026-08-13)
 - **Data**: 2026-08-07
 
 ## Contexto
@@ -51,12 +51,20 @@ reconhece a imprecisão sem fingir precisão.
 A barra global de budget (UX12) e o modal (UX13) consomem este endpoint via
 TanStack Query (poll leve a cada evento `node_execution`, não por timer).
 
+> **Shape final implementado** (`CostResponse`, verificado no código):
+> `{run_id, spent_usd, estimated, budget: {max_usd, percent_used},
+> budget_warning: bool, nodes: [{node, spent_usd, estimated}]}`.
+
 **5. Enforcement**:
-- 80% → evento `budget_warning` (WS + journal) → toast na UI.
-- 100% → dispatcher **pausa a run** com status `budget_exceeded` (não aborta:
-  checkpoints preservados), evento `budget_exceeded`, modal bloqueante na UI.
-- Escape hatch: `POST /api/v1/runs/{run_id}/budget-override {new_max_usd}` →
-  ajusta o budget da run e resume. Registrado em `human_decisions` (audit trail).
+- 80% → `budget_warning` (campo do `GET /cost`; **não é evento WS** — a UI vê o
+  campo via poll/TanStack Query) → toast na UI.
+- 100% → dispatcher **pausa a run** com status `paused` (não aborta:
+  checkpoints preservados) + evento `circuit_breaker_changed` + modal bloqueante
+  na UI. *(O ADR propunha status `budget_exceeded`; a implementação M-10 usa
+  `paused` — ver `01` §3.1.)*
+- Escape hatch: `POST /api/v1/runs/{run_id}/cost/override {new_max_usd}` (nome
+  final; o ADR citava `budget-override`) → ajusta o budget da run e resume.
+  Registrado em `human_decisions` (audit trail).
 
 ## Alternativas consideradas
 

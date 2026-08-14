@@ -9,7 +9,7 @@ flowchart TB
     end
     subgraph lf["Processo lf serve (FastAPI/Uvicorn)"]
         API["REST /api/v1/*<br/>WS /ws/runs/{id} · /ws/streaming"]
-        BUS["EventBus<br/>(journal + broadcast) — ADR-0002"]
+        BUS["EventBus<br/>(journal + broadcast) — ADR-0002 · api/events.py"]
         DISP["TaskDispatcher<br/>(writer canônico da run — M-07)"]
         GRAPH["LangGraph StateGraph<br/>9 nós de execução (NodeRegistry) + interrupt gates"]
         MCPR["MCPRegistry<br/>(stdio, deny-by-default)"]
@@ -42,15 +42,16 @@ Decisões estruturais:
 - **Pacote pip único** (ADR-0001) — SPA compilada servida por `StaticFiles` em
   `/app`; `lf serve` abre o browser na SPA.
 - **Run = unidade primária, run↔thread 1:1 persistido** (E2, ADR-0003).
-- **1 run ativa + fila** (E3) — sem execução paralela real no V1 (evita contenção
-  de checkpoint/escrita; V2 traz checkout atômico de tarefas).
+- **Fila com `max_concurrent_runs` (E3)** — `POST /runs` cria `queued`; a fila
+  promove até `max_concurrent_runs` (default 2) em paralelo, sem lock de escrita
+  (checkout atômico de tarefas fica no V2).
 
 ## 2. Camadas do backend (`src/lf/`)
 
 | Camada | Módulos | Responsabilidade |
 |---|---|---|
-| HTTP/WS | `api/app.py`, `api/{runs em app, trajectories, mcp, providers, config}.py`, `api/websocket_manager.py`, `api/spa.py` (novo) | Contratos de `03-contratos-api.md`; mount da SPA |
-| Eventos | `api/event_bus.py` (novo, M-05) | Persistir no journal + broadcast; único ponto de emissão |
+| HTTP/WS | `api/app.py`, `api/{trajectories, mcp, providers, config, costs, memory, evals, git, prompts, artifacts, terminal, ast_analyzer, coverage, docker_gen, rate_limit}.py`, `api/websocket_manager.py`, `api/spa.py` | Contratos de `03-contratos-api.md`; mount da SPA |
+| Eventos | `api/events.py` (novo, M-05) | Persistir no journal + broadcast; único ponto de emissão |
 | Orquestração | `orchestrator/task_dispatcher.py` | Dispatch/resume, gates HITL, upsert de run (M-07), enforcement de budget (M-08/10) |
 | Pipeline | `pipeline/graph.py`, `pipeline/nodes/*`, `pipeline/llm_factory.py`, `pipeline/checkpointer.py` | DAG de 9 nós de execução (NodeRegistry), providers, checkpoints |
 | MCP | `mcp/{client,registry,permissions,bridge}.py` | stdio, allowlist deny-by-default |
@@ -62,7 +63,7 @@ dispatcher); dispatcher nunca escreve HTTP; nós do pipeline não conhecem a API
 
 ## 3. Arquitetura da SPA (`frontend/src/`)
 
-Já implementada no branch `feature/ade-fase2` (T1–T11); ajustes de M-19:
+Implementada em `frontend/` (19 features em `features/`):
 
 ```
 app/            App.tsx, layout (3 colunas + fullscreen F11)
@@ -72,8 +73,13 @@ features/
   console/      ConsolePanel (filtros node/level/texto, autoscroll)
   timeline/     TimelineBar (slider + ghost + banner inspeção)
   hitl/         HitlDrawer (approve/retry/adjust_*/abort, audit trail)
-  costs/        CostBar + modal override (dados reais pós M-08)
-  mcp/          McpPlayground (lista tools; execução na Fase D)
+  costs/        CostBar + modal override (dados reais — GET /runs/{id}/cost)
+  mcp/          McpPlayground (lista tools; execução via POST tools)
+  trajectories/ Fork/Export/Import dialogs + TrajectoriesPanel
+  auth/         ApiKeyGate (tela 401, X-API-Key em sessionStorage)
+  git/          GitPanel · evals/ · memory/ · prompts/ · artifacts/ (polling)
+  terminal/     TerminalPanel · ast/ · docker/ · health/
+  settings/     SettingsPanel (PATCH /api/v1/config)
 shared/lib/     api.ts (REST), ws.ts (envelope v1, backoff), types.ts
 shared/ui/      Button/Badge/Drawer/Banner/EmptyState/SplitPane
 stores/         runsStore (undo/redo), canvasStore, consoleStore, wsStore, wsBridge
@@ -121,16 +127,15 @@ sequenceDiagram
    `human_decision_submitted` → dispatcher consome via polling (~0,5 s) e aplica
    (`approve` continua; `retry` limpa erro; `adjust_prompt`/`adjust_state`
    atualizam estado; `abort` encerra).
-   **Estado real (verificado no código)**: o polling existe
-   (`_poll_remote_decision_once`, `task_dispatcher.py:242`, chamado no loop em
-   `:465` a cada ~0,5 s), mas consulta `human_decisions WHERE run_id = <thread_id>`
-   (`:336`) enquanto a API grava `run_id = <uuid da run>` — **as chaves nunca
-   casam e a decisão remota nunca é consumida hoje**. `_check_remote_decision`
-   (`:272`) é código morto. O fix é a task A9 / M-22 (dispatcher passa a consultar
-   pelo uuid da run, extraído do `thread_id` no formato `run-{uuid}` do ADR-0003),
-   com aceite E2E obrigatório.
-3. Timeout: emite `human_decision_expired`; comportamento conforme
-   `hitl.on_timeout` (`pause` = segue aguardando, default; `continue` = prossegue).
+   **Estado real (verificado no código)**: **M-22 implementado na Fase A** — o
+   dispatcher consulta `human_decisions WHERE run_id = <uuid da run>` (extraído
+   do `thread_id` no formato `run-{uuid}` do ADR-0003) e a decisão remota é
+   consumida ponta a ponta (aceite E2E HITL na Fase A). O polling existe em
+   `_poll_remote_decision_once` (`task_dispatcher.py`), chamado no loop a cada
+   ~0,5 s.
+3. Timeout (`hitl.timeout_seconds`, default 300s): emite `human_decision_expired`;
+   comportamento conforme `hitl.on_timeout` — `continue` = prossegue graciosamente
+   (default), `pause` = segue aguardando, `abort` = falha com `hitl_timeout_abort`.
 
 ### 4.3 Time-travel e fork
 
@@ -146,7 +151,8 @@ sequenceDiagram
 
 `CostTracker.track(run_id, node, ...)` a cada chamada LLM → dispatcher soma
 `llm_costs` da run → ≥80%: `budget_warning`; ≥100% (com buffer 10% em estimados):
-status `budget_exceeded`, pausa, `budget_exceeded`; `budget-override` → resume.
+status `paused` (hard-stop, M-10) + evento `circuit_breaker_changed`;
+`POST /runs/{id}/cost/override` → resume.
 
 ## 5. Comunicação — resumo de escolhas
 

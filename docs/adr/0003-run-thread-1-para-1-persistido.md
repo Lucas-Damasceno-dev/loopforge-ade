@@ -1,6 +1,6 @@
 # ADR-0003: Identidade run↔thread 1:1, persistida e de escrita única
 
-- **Status**: proposto (corrige bug vivo e classe inteira de bugs de mapeamento)
+- **Status**: aceito/implementado (Fase A — M-01/M-02/M-07; 2026-08-13)
 - **Data**: 2026-08-07
 
 ## Contexto

@@ -50,9 +50,9 @@ Valores em `styles/tokens.css` são fonte de verdade. Onde o token não existe h
 
 ### 2.2 Acentos por tipo de nó
 
-> Nota de reconciliação (M-19): hoje o branch usa o id `dev` e o token `--node-dev`.
-> Com o conjunto canônico (03 §7), o id vira `developer` e o token vira
-> `--node-developer`. `entry` e `retry` são nós virtuais de apresentação.
+> Nota de reconciliação (M-19, **implementado**): o id do nó de implementação é
+> `developer` (backend) e o token é `--node-developer`; `entry` e `retry` são nós
+> virtuais de apresentação. A SPA não usa mais o id `dev` nem o token `--node-dev`.
 
 | Nó | Token (base) | Valor | Base sobre `--bg-elev` (border/chip) | Rótulo do nó (texto) |
 |---|---|---|---|---|

@@ -1,6 +1,6 @@
 # ADR-0002: Event journal persistido + envelope de eventos v1
 
-- **Status**: proposto (torna real a decisão E4 do BLUEPRINT, hoje rebaixada de fato)
+- **Status**: aceito/implementado (Fase A — M-05/M-06; 2026-08-13)
 - **Data**: 2026-08-07
 
 ## Contexto
@@ -41,7 +41,13 @@ CREATE TABLE events (
 CREATE INDEX idx_events_run ON events(run_id, seq);
 ```
 
-**2. Emissor único (`EventBus`).** Novo módulo `src/lf/api/event_bus.py`:
+> **Schema final implementado** (verificado em `api/events.py`): `id TEXT` (uuid)
+> PK, `run_id` indexed, `seq` INTEGER, `event_type` TEXT, `payload` JSON,
+> `created_at`; sem `thread_id`/`ts`/`UNIQUE` — o `seq` é alocado atomicamente via
+> `UPDATE … RETURNING` na tabela `event_seq` (run_id PK, last_seq).
+
+**2. Emissor único (`EventBus`).** Novo módulo `src/lf/api/events.py` (nome final;
+o plano citava `event_bus.py`):
 `publish(run_id, thread_id, event, payload)` → persiste no journal (seq =
 `MAX(seq)+1` da run) **e** faz broadcast WS no mesmo ponto de código.
 `TaskDispatcher._broadcast_ws` e os broadcasts inline de `app.py` são substituídos
@@ -58,6 +64,10 @@ por chamadas ao `EventBus`. Nenhum evento sai sem ser journado.
   "payload": { "node": "qa", "status": "completed", "…": "…" }
 }
 ```
+
+> **Envelope final serializado** (verificado no código): `{seq, event, run_id,
+> timestamp, payload}` — `schema_version` e `thread_id` são **implícitos** (não
+> serializados; ver `03-contratos-api.md` §6).
 
 O payload específico de cada evento sai do top-level para dentro de `payload`
 (quebra intencional de contrato — a SPA consumidora ainda está em branch, sem

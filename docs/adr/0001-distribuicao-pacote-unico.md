@@ -1,6 +1,6 @@
 # ADR-0001: Distribuição em pacote pip único (`lf` embute a SPA)
 
-- **Status**: proposto (substitui parcialmente a decisão E1 do BLUEPRINT v5)
+- **Status**: aceito/implementado (Fase B — B4/B5, 2026-08-13)
 - **Data**: 2026-08-07
 - **Decisor**: arquitetura ADE
 
@@ -35,19 +35,23 @@ Fatos adicionais do ambiente: os dois repos vivem no mesmo diretório `portfolio
 `agentes/LoopForge/src/lf/ade/static/` como *package data* do `lf`, e `lf serve`
 monta esse diretório via `StaticFiles` (substituindo o dashboard HTML legado). O
 repo `web/loopforge-ade` permanece como **fonte de verdade da SPA** (código React,
-testes, docs), mas **não é publicado como pacote pip** — seu `pyproject.toml`
-(esqueleto da Fase 2) é descartado.
+testes, docs), mas **não é publicado como pacote pip** — seu `pyproject.toml` é
+**mantido como placeholder** (`loopforge-ade` 0.1.0, dist vazio; o embed real é
+`lf.ade.static.dist` via `scripts/sync_dist.py` — M-15).
 
 Mecanismo de sincronização:
 
 1. `web/loopforge-ade/scripts/sync-dist.sh` (ou `npm run sync:engine`): builda a SPA
    e copia `frontend/dist/*` → `../../agentes/LoopForge/src/lf/ade/static/`.
+   *Implementado como `agentes/LoopForge/scripts/sync_dist.py` (B5).*
 2. `lf/api/spa.py::resolve_spa_dist()` resolve em ordem: (1) env `LF_SPA_DIST`,
    (2) `importlib.resources` em `lf.ade.static` (caso instalado via pip),
    (3) path de dev `web/loopforge-ade/frontend/dist` relativo ao repo.
+   *Implementado — `spa.py` (B4) + mount `/app`.*
 3. A versão da SPA **é** a versão do `lf` (semver único). CI do engine falha se
    `src/lf/ade/static/` divergir do `frontend/dist` do repo da SPA (check de hash
    em CI ou release script único que faz os dois passos).
+   *Implementado — job `spa-drift.yml` (B5).*
 
 ## Alternativas consideradas
 
@@ -70,8 +74,9 @@ Mecanismo de sincronização:
   dev-solo; a GitHub Action que consome `lf` baixa os assets mas não os serve.
 - Fix exclusivo de SPA exige bump de versão do `lf`. Aceito: release conjunto já
   era o objetivo declarado de E1.
-- `web/loopforge-ade/pyproject.toml` (esqueleto, branch `feature/ade-fase2`) vira
-  obsoleto → removido na reconciliação do branch (ver `09-mudancas-sobre-o-existente.md`, M-15).
+- `web/loopforge-ade/pyproject.toml` (esqueleto, branch `feature/ade-fase2`) é
+  **mantido como placeholder** do pacote `loopforge-ade` 0.1.0 (dist vazio, não
+  publicado) — ver `09-mudancas-sobre-o-existente.md`, M-15.
 
 ## Referências
 
