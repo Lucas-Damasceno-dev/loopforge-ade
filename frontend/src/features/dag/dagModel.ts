@@ -30,7 +30,10 @@ export const RETRY_NODE: NodeType = 'retry'
 // sempre derivam do pai (parallel_audit).
 export const DISPLAY_NODES: NodeType[] = ['split', 'appsec', 'devops', 'merge']
 
-export const DISPLAY_PARENT: Record<'split' | 'appsec' | 'devops' | 'merge', NodeType> = {
+// Nó display → nó REAL de execução (paralelo visual S4): appsec/devops/split/
+// merge são sub-cards de parallel_audit — clique abre o inspector do pai
+// (AgentNode/T4). Partial porque nós normais não têm pai (self).
+export const DISPLAY_PARENT: Partial<Record<NodeType, NodeType>> = {
   split: 'parallel_audit',
   appsec: 'parallel_audit',
   devops: 'parallel_audit',

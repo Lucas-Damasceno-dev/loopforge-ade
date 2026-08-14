@@ -3,7 +3,7 @@ import { Handle, Position, type Node as FlowNode, type NodeProps } from '@xyflow
 import { useCanvasStore } from '../../stores/canvasStore'
 import { Badge } from '../../shared/ui/Badge'
 import { formatUsd } from '../costs/costModel'
-import { NODE_LABELS, type DagNodeData } from './dagModel'
+import { NODE_LABELS, DISPLAY_PARENT, type DagNodeData } from './dagModel'
 import { nodeAccentTextVar, nodeAccentVar } from './nodeAccent'
 import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
 
@@ -37,7 +37,10 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
   const select = () => {
     // Ghosts (timeline) não abrem o inspect drawer (01b §3.1).
     if (ghosted) return
-    useCanvasStore.getState().selectNode(node)
+    // S4: filhos display (appsec/devops) abrem o inspector do PAI de execução
+    // (parallel_audit) — o InspectDrawer é keyed no nó real; nós normais
+    // selecionam a si mesmos (inalterado).
+    useCanvasStore.getState().selectNode(DISPLAY_PARENT[node] ?? node)
   }
 
   // Glow no estado running (01b §4): sombra accent suave substitui a shadow

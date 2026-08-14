@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FlowCanvas } from '../FlowCanvas'
 import { useCanvasStore } from '../../../stores/canvasStore'
@@ -92,5 +92,19 @@ describe('FlowCanvas', () => {
     renderCanvas()
     expect(await screen.findByText('Entry')).toBeInTheDocument()
     expect(screen.queryByTestId('cost-chip-developer')).not.toBeInTheDocument()
+  })
+
+  it('clique em filho display (appsec) abre o inspector do PAI (parallel_audit)', async () => {
+    useCanvasStore.setState({ nodeStatus: { parallel_audit: { status: 'running', attemptCount: 0 } } })
+    renderCanvas()
+    fireEvent.click(await screen.findByLabelText('AppSec (Running)'))
+    expect(useCanvasStore.getState().selectedNodeId).toBe('parallel_audit')
+  })
+
+  it('clique no split abre o inspector do PAI (parallel_audit)', async () => {
+    useCanvasStore.setState({ nodeStatus: { parallel_audit: { status: 'running', attemptCount: 0 } } })
+    renderCanvas()
+    fireEvent.click(await screen.findByLabelText('Split (parallel audit)'))
+    expect(useCanvasStore.getState().selectedNodeId).toBe('parallel_audit')
   })
 })

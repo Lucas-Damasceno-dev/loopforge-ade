@@ -19,11 +19,11 @@ import { useRunsStore } from '../../stores/runsStore'
 import { getRunCost } from '../../shared/lib/api'
 import { isDemoRunId } from '../runs/demoMock'
 import { normalizeNodeName } from '../../shared/lib/ws'
-import type { CostNode, CostResponse } from '../../shared/lib/types'
+import type { CostNode, CostResponse, NodeType } from '../../shared/lib/types'
 import { AgentNode } from './AgentNode'
 import { SplitNode } from './SplitNode'
 import { MergeNode } from './MergeNode'
-import { buildNodes, buildEdges, type DagNode, type DagEdge } from './dagModel'
+import { buildNodes, buildEdges, DISPLAY_PARENT, type DagNode, type DagEdge } from './dagModel'
 
 // nodeTypes estável fora do componente (React Flow recria se mudar a cada render).
 const nodeTypes = { agent: AgentNode, split: SplitNode, merge: MergeNode }
@@ -147,7 +147,11 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         // retry→dev segue animada (loop vivo).
         defaultEdgeOptions={{ style: { stroke: 'var(--border)', strokeWidth: 1.5 } }}
         onNodeClick={(_, node) => {
-          selectNode(node.id)
+          // S4: filhos display (appsec/devops) abrem o inspector do PAI
+          // (parallel_audit) — o onClick do próprio nó também mapeia, mas o
+          // React Flow dispara este handler por último (bubble) e sobrescreveria
+          // com node.id; mapear aqui garante o contrato no fluxo integrado.
+          selectNode(DISPLAY_PARENT[node.id as NodeType] ?? node.id)
           onNodeClick?.(node.id)
         }}
       >
