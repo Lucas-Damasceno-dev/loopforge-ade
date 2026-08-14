@@ -387,7 +387,10 @@ describe('api client', () => {
   })
 
   it('createAgent POSTs the AgentInput body with Content-Type json', async () => {
-    const { id: _id, created_at: _c, updated_at: _u, ...input } = agentFixture
+    const { id, created_at, updated_at, ...input } = agentFixture
+    void id
+    void created_at
+    void updated_at
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(agentFixture), { status: 201 }))
     const res = await createAgent(input)
     expect(res.id).toBe('a1')
@@ -456,7 +459,10 @@ describe('api client', () => {
   })
 
   it('createPipeline POSTs the PipelineInput body with Content-Type json', async () => {
-    const { id: _id, created_at: _c, updated_at: _u, ...input } = pipelineFixture
+    const { id, created_at, updated_at, ...input } = pipelineFixture
+    void id
+    void created_at
+    void updated_at
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(pipelineFixture), { status: 201 }))
     const res = await createPipeline(input)
     expect(res.id).toBe('p1')

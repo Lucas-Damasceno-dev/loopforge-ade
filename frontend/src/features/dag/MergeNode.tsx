@@ -31,7 +31,11 @@ function MergeNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'mer
       type="button"
       tabIndex={ghosted ? -1 : 0}
       aria-disabled={ghosted || undefined}
-      aria-label={`Merge (parallel audit, ${NODE_STATUS_LABEL[status]})`}
+      aria-label={
+        (data as { selectable?: boolean }).selectable === false
+          ? `Merge, ${NODE_STATUS_LABEL[status]}` // F4 (fix wave): modo editor — nó merge genérico
+          : `Merge (parallel audit, ${NODE_STATUS_LABEL[status]})`
+      }
       onClick={select}
       className={[
         'w-32 cursor-pointer rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',

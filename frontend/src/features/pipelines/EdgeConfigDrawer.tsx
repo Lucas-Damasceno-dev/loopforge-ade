@@ -55,10 +55,12 @@ export function EdgeConfigDrawer() {
           Max retries
           <input
             type="number"
-            min={0}
+            // F5 (fix wave): validator exige max_retries >= 1 p/ retry — UI
+            // não pode aceitar 0 (falharia só no save).
+            min={1}
             value={edge.max_retries}
             aria-label="Max retries"
-            onChange={(e) => set({ max_retries: Math.max(0, Number(e.target.value) || 0) })}
+            onChange={(e) => set({ max_retries: Math.max(1, Number(e.target.value) || 1) })}
             className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 py-1 text-xs text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           />
         </label>

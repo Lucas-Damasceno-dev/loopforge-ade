@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -101,8 +101,11 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
 
   // F1 (fix round 1): label do nó agent no modo edição = nome do agente da
   // biblioteca (agentsStore). Mapa id→name injetado no pipelineToNodes.
+  // F1 (fix wave): useMemo — o mapa NÃO é recriado a cada render; o effect
+  // abaixo depende dele e re-roda quando agents chega do fetch (race: labels
+  // genéricos 'Agent' até o store popular).
   const agents = useAgentsStore((s) => s.agents)
-  const agentNameById = new Map(agents.map((a) => [a.id, a.name]))
+  const agentNameById = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents])
 
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const runs = useRunsStore((s) => s.runs)
@@ -179,7 +182,16 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
       })),
     )
     setEdges(decorateEdges(buildEdges(dagNodes)))
-  }, [editMode, draft, positions, mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
+  }, [editMode, draft, positions, mode, nodeStatus, ghostToStep, selectedNodeId, cost, agentNameById, setNodes, setEdges])
+
+  // F3 (fix wave): editor abre herdando zoom/pan da run anterior (hadNodes já
+  // true → o effect de fit acima não dispara). Fit explícito no draft do
+  // editor, após os nós montarem (setNodes do React Flow é assíncrono).
+  useEffect(() => {
+    if (!editMode || !draft) return
+    const t = setTimeout(() => void fitView({ padding: 0.25, duration: 350 }), 50)
+    return () => clearTimeout(t)
+  }, [editMode, draft, fitView])
 
   // Drag no modo edição → positions no editorStore (draft não persiste geometria).
   const onEditNodesChange: OnNodesChange = (changes) => {

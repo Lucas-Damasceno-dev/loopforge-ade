@@ -30,7 +30,10 @@ const pipeline = (over: Partial<Pipeline> = {}): Pipeline => ({
 })
 
 const input = (over: Partial<PipelineInput> = {}): PipelineInput => {
-  const { id: _id, created_at: _c, updated_at: _u, ...rest } = pipeline()
+  const { id, created_at, updated_at, ...rest } = pipeline()
+  void id
+  void created_at
+  void updated_at
   return { ...rest, ...over }
 }
 

@@ -16,7 +16,7 @@ class RO {
 const mockDOMRect = { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) }
 const domMatrix = new (class DOMMatrixReadOnly2D {
   m22 = 1
-  constructor(_init?: unknown) {}
+  constructor() {}
   static fromMatrix = (m: unknown) => m
   static fromString = () => new DOMMatrixReadOnly2D()
   invert = () => new DOMMatrixReadOnly2D()
@@ -81,8 +81,9 @@ describe('FlowCanvas modo edição (S3)', () => {
     fireEvent.click(screen.getByText('Split'))
     expect(useEditorStore.getState().draft!.nodes).toHaveLength(1)
     expect(useEditorStore.getState().draft!.nodes[0].type).toBe('split')
-    // Nó split renderiza com SplitNode (aria-label próprio com status).
-    await waitFor(() => expect(screen.getByLabelText('Split (parallel audit, Pending)')).toBeInTheDocument())
+    // Nó split renderiza com SplitNode — aria-label do EDITOR (F4 fix wave):
+    // "Split, Pending" (nó split genérico), não "Split (parallel audit, …)".
+    await waitFor(() => expect(screen.getByLabelText('Split, Pending')).toBeInTheDocument())
   })
 
   it('live mode NÃO mostra a paleta (comportamento 1:1)', async () => {
@@ -120,5 +121,42 @@ describe('FlowCanvas modo edição (S3)', () => {
     expect(await screen.findByLabelText('Alpha (Pending)')).toBeInTheDocument()
     expect(screen.getByLabelText('Beta (Pending)')).toBeInTheDocument()
     expect(screen.getByLabelText('Agent (Pending)')).toBeInTheDocument()
+  })
+
+  it('F1 fix wave: labels atualizam quando agents chega do fetch (race 1º load)', async () => {
+    useEditorStore.setState({
+      open: true,
+      live: false,
+      draft: {
+        name: 'x',
+        description: '',
+        nodes: [
+          { id: 'dev', type: 'agent', agent_id: 'a1', config: {} },
+          { id: 'sec', type: 'agent', agent_id: 'a2', config: {} },
+        ],
+        edges: [],
+      },
+    })
+    // agentsStore VAZIO no primeiro render (fetch pendente — NodePalette
+    // dispara fetchAgents no mount; spy resolve o estado DEPOIS do effect
+    // inicial do FlowCanvas já ter rodado com o mapa vazio — delay real,
+    // senão o setState síncrono populava antes do primeiro effect).
+    vi.spyOn(useAgentsStore.getState(), 'fetchAgents').mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 50))
+      useAgentsStore.setState({
+        agents: [
+          { id: 'a1', name: 'Alpha', description: '', prompt: '', model: 'default', temperature: 0.7, max_retries: 2, timeout_seconds: 300, env_vars: {}, tools_allowlist: [], permissions: [], stack: 'python', budget_usd: 10, created_at: '', updated_at: '' },
+          { id: 'a2', name: 'Beta', description: '', prompt: '', model: 'default', temperature: 0.7, max_retries: 2, timeout_seconds: 300, env_vars: {}, tools_allowlist: [], permissions: [], stack: 'python', budget_usd: 10, created_at: '', updated_at: '' },
+        ],
+        loading: false,
+        error: null,
+      })
+    })
+    renderCanvas()
+    // Race: labels genéricos antes do fetch resolver.
+    expect(await screen.findAllByLabelText('Agent (Pending)')).toHaveLength(2)
+    // Fetch resolve → agentNameById (useMemo) muda → effect re-roda → nomeados.
+    await waitFor(() => expect(screen.getByLabelText('Alpha (Pending)')).toBeInTheDocument())
+    expect(screen.getByLabelText('Beta (Pending)')).toBeInTheDocument()
   })
 })
