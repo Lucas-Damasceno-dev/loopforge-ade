@@ -2,31 +2,15 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRunsStore } from '../../stores/runsStore'
 import { getRunCost } from '../../shared/lib/api'
-import type { CostNode, CostResponse, RunStatus } from '../../shared/lib/types'
-import { Badge, type BadgeProps } from '../../shared/ui/Badge'
+import type { CostNode, CostResponse } from '../../shared/lib/types'
+import { Badge } from '../../shared/ui/Badge'
 import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { EmptyState } from '../../shared/ui/EmptyState'
 import { shortId } from '../trajectories/shortId'
 import { isDemoRunId } from '../runs/demoMock'
 import { PIPELINE_ORDER, NODE_LABELS } from './dagModel'
+import { RUN_STATUS_TONE, runStatusLabel } from '../../shared/lib/runStatus'
 import { budgetPercent, costForNode, formatUsd, hardStopLevel } from '../costs/costModel'
-
-// Tone por status de RUN (mesmo vocabulário das abas — RunTabs). NÃO é o
-// nodeStatusMeta (status de NÓ, vocabulário diferente).
-const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
-  pending: 'neutral',
-  queued: 'info',
-  running: 'accent',
-  paused: 'warn',
-  completed: 'ok',
-  failed: 'err',
-}
-
-function statusLabel(s: RunStatus): string {
-  if (s === 'queued') return 'Queued'
-  if (s === 'paused') return 'Paused'
-  return s
-}
 
 // Duração no formato m:ss (padrão do timer de nó do canvas).
 function formatElapsed(seconds?: number): string {
@@ -118,7 +102,7 @@ export function RunInspector() {
               <section>
                 <SectionTitle className="mb-2">Run details</SectionTitle>
                 <div className="mb-2 flex items-center gap-2">
-                  <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
+                  <Badge tone={RUN_STATUS_TONE[run.status]}>{runStatusLabel(run.status)}</Badge>
                   {run.degraded && <Badge tone="warn">degraded</Badge>}
                 </div>
                 <dl className="space-y-1">

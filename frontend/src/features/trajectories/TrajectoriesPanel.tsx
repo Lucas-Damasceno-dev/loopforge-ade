@@ -3,34 +3,18 @@ import type { ChangeEvent } from 'react'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Button } from '../../shared/ui/Button'
 import { Badge } from '../../shared/ui/Badge'
-import type { BadgeProps } from '../../shared/ui/Badge'
 import { EmptyState } from '../../shared/ui/EmptyState'
 import { Alert } from '../../shared/ui/Alert'
 import { useRunsStore } from '../../stores/runsStore'
 import { importTrajectory } from '../../shared/lib/api'
-import type { ForkResult, ImportResult, Run, RunStatus, TrajectoryExport } from '../../shared/lib/types'
+import type { ForkResult, ImportResult, Run, TrajectoryExport } from '../../shared/lib/types'
+import { RUN_STATUS_TONE, runStatusLabel } from '../../shared/lib/runStatus'
 import { trajectoryErrorMessage } from './errorMsg'
 import { shortId } from './shortId'
 import { ForkDialog } from './ForkDialog'
 import { ExportDialog } from './ExportDialog'
 import { TimelineDialog } from './TimelineDialog'
 import { DiffPanel } from './DiffPanel'
-
-// status da run → tone do badge (mesmo mapeamento do RunTabs).
-const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
-  pending: 'neutral',
-  queued: 'info',
-  running: 'accent',
-  paused: 'warn',
-  completed: 'ok',
-  failed: 'err',
-}
-
-function statusLabel(s: RunStatus): string {
-  if (s === 'queued') return 'Queued'
-  if (s === 'paused') return 'Paused'
-  return s
-}
 
 export interface TrajectoriesPanelProps {
   open: boolean
@@ -136,7 +120,7 @@ export function TrajectoriesPanel({ open, onClose }: TrajectoriesPanelProps) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-medium text-[var(--text)]">{shortId(run.id)}</span>
-                    <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
+                    <Badge tone={RUN_STATUS_TONE[run.status]}>{runStatusLabel(run.status)}</Badge>
                   </div>
                   {run.idea ? (
                     <p className="mt-0.5 truncate text-xs text-[var(--text-dim)]" title={run.idea}>

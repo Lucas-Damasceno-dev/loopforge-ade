@@ -1,24 +1,10 @@
 import { useRef, useState, useEffect, type KeyboardEvent } from 'react'
-import { Badge, type BadgeProps } from '../../shared/ui/Badge'
+import { Badge } from '../../shared/ui/Badge'
 import { CloseIcon } from '../../shared/ui/icons'
-import type { Run, RunStatus } from '../../shared/lib/types'
+import type { Run } from '../../shared/lib/types'
+import { RUN_STATUS_TONE, runStatusLabel } from '../../shared/lib/runStatus'
 import { shortId } from '../trajectories/shortId'
 import type { CbSnapshot } from '../../stores/runsStore'
-
-const STATUS_TONE: Record<RunStatus, BadgeProps['tone']> = {
-  pending: 'neutral',
-  queued: 'info',
-  running: 'accent',
-  paused: 'warn',
-  completed: 'ok',
-  failed: 'err',
-}
-
-function statusLabel(s: RunStatus): string {
-  if (s === 'queued') return 'Queued'
-  if (s === 'paused') return 'Paused'
-  return s
-}
 
 // Ícone de stack (P1-4): sem ícone SVG no design system p/ stack → monograma
 // (1ª letra) em span estilizado. Nunca emoji colorido.
@@ -138,7 +124,7 @@ export function RunTabs({ runs, activeRunId, queue: _queue, cbByRun, onSelect, o
                   {getStackMark(run.stack)}
                 </span>
                 <span className="font-mono text-(--text-2xs) font-semibold">{shortId(run.id)}</span>
-                <Badge tone={STATUS_TONE[run.status]}>{statusLabel(run.status)}</Badge>
+                <Badge tone={RUN_STATUS_TONE[run.status]}>{runStatusLabel(run.status)}</Badge>
                 {run.degraded ? (
                   <Badge tone="warn" title={run.degraded_reason ?? undefined}>degraded</Badge>
                 ) : null}

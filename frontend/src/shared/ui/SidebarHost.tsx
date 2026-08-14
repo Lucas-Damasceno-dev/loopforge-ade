@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { INLINE_VIEWS, PANEL_VIEWS, SUMMARY_VIEWS, VIEWS_META } from '../lib/views'
 import type { ViewKey } from '../lib/views'
+import { RUN_SUMMARY_TONE } from '../lib/runStatus'
 import { CloseIcon } from './icons'
 import { Button } from './Button'
 import { Badge } from './Badge'
@@ -156,14 +157,8 @@ export function SidebarHost({ active, onClose, onExpand }: SidebarHostProps) {
 // Resumo de runs (barato — lê o store): lista compacta com seleção direta.
 // O botão "Open panel" (header) permanece como affordance; runs não tem
 // drawer próprio nesta fase.
-const STATUS_TONE: Record<string, 'ok' | 'warn' | 'err' | 'accent'> = {
-  running: 'ok',
-  queued: 'accent',
-  completed: 'ok',
-  paused: 'warn',
-  failed: 'err',
-  pending: 'accent',
-}
+// Tone reduzido do resumo (ok p/ running/completed, accent p/ queued/pending)
+// vive em RUN_SUMMARY_TONE (runStatus.ts — fonte única de status de RUN).
 
 function RunsSummary({
   runs,
@@ -181,7 +176,7 @@ function RunsSummary({
     <ul className="space-y-1.5">
       {runs.map((run) => {
         const active = run.id === activeRunId
-        const tone = STATUS_TONE[run.status] ?? 'accent'
+        const tone = RUN_SUMMARY_TONE[run.status] ?? 'accent'
         return (
           <li key={run.id}>
             <button
