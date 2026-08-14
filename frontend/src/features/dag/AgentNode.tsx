@@ -31,7 +31,9 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
   const { node, status, attemptCount, ghosted } = data
   const accent = nodeAccentVar(node)
   const accentText = nodeAccentTextVar(node)
-  const label = NODE_LABELS[node]
+  // S3 (editor): data.label override — agente da biblioteca com nome próprio;
+  // fallback p/ NODE_LABELS (nós do DAG live e input/output/gate do editor).
+  const label = data.label ?? NODE_LABELS[node]
   const elapsed = useRunningTimer(status === 'running' && !ghosted)
 
   const select = () => {

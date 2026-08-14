@@ -10,6 +10,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  type OnNodesChange,
 } from '@xyflow/react'
 import { useQuery } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
@@ -20,6 +21,10 @@ import { getRunCost } from '../../shared/lib/api'
 import { isDemoRunId } from '../runs/demoMock'
 import { normalizeNodeName } from '../../shared/lib/ws'
 import type { CostNode, CostResponse, NodeType } from '../../shared/lib/types'
+import { useEditorStore } from '../pipelines/editorStore'
+import { NodePalette } from '../pipelines/NodePalette'
+import { EdgeConfigDrawer } from '../pipelines/EdgeConfigDrawer'
+import { pipelineToNodes, pipelineToEdges, type EditorNode, type EditorEdge } from '../pipelines/editorModel'
 import { AgentNode } from './AgentNode'
 import { SplitNode } from './SplitNode'
 import { MergeNode } from './MergeNode'
@@ -78,6 +83,21 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
   const selectedNodeId = useCanvasStore(useShallow((s) => s.selectedNodeId))
   const selectNode = useCanvasStore((s) => s.selectNode)
 
+  // ─── Modo edição (S3) ────────────────────────────────────────────────────
+  // editorOpen && !live → renderiza o DRAFT do pipeline (editorModel) com
+  // drag/connect/delete + paleta + edge config. live=true → DAG de execução
+  // atual (buildNodes/buildEdges), comportamento 1:1 (sem paleta/drag).
+  const editorOpen = useEditorStore((s) => s.open)
+  const editorLive = useEditorStore((s) => s.live)
+  const draft = useEditorStore((s) => s.draft)
+  const positions = useEditorStore((s) => s.positions)
+  const addEdge = useEditorStore((s) => s.addEdge)
+  const removeNode = useEditorStore((s) => s.removeNode)
+  const removeEdge = useEditorStore((s) => s.removeEdge)
+  const setSelectedEdgeId = useEditorStore((s) => s.setSelectedEdgeId)
+  const setPosition = useEditorStore((s) => s.setPosition)
+  const editMode = editorOpen && !editorLive
+
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const runs = useRunsStore((s) => s.runs)
   const run = runs.find((r) => r.id === activeRunId) ?? null
@@ -96,8 +116,10 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
 
   const [showMinimap, setShowMinimap] = useState(false)
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<DagNode>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<DagEdge>([])
+  // Estado do canvas: nós/edges do DAG live (DagNode/DagEdge) OU do editor de
+  // pipelines (EditorNode/EditorEdge — ids de pipeline são strings livres).
+  const [nodes, setNodes, onNodesChange] = useNodesState<DagNode | EditorNode>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<DagEdge | EditorEdge>([])
   const { fitView } = useReactFlow()
 
   // P0.9: fit na transição vazio → layout (primeiro carregamento) e na troca
@@ -120,6 +142,14 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
 
   // Re-deriva a geometria + status quando o canvasStore muda (WS → stores → aqui).
   useEffect(() => {
+    // Modo edição: renderiza o DRAFT do pipeline (sem custo/status — dados de
+    // execução não existem p/ um pipeline não-rodado).
+    if (editMode) {
+      if (!draft) return
+      setNodes(pipelineToNodes(draft, positions).map((n) => ({ ...n, selected: false })))
+      setEdges(pipelineToEdges(draft))
+      return
+    }
     // Custo por nó: mapa {NodeType → CostNode} — nome do backend normalizado
     // (developer/qa/…) para o id canônico do canvas (dev → developer alias).
     const costByNode = new Map<string, CostNode>()
@@ -143,24 +173,42 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
       })),
     )
     setEdges(decorateEdges(buildEdges(dagNodes)))
-  }, [mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
+  }, [editMode, draft, positions, mode, nodeStatus, ghostToStep, selectedNodeId, cost, setNodes, setEdges])
+
+  // Drag no modo edição → positions no editorStore (draft não persiste geometria).
+  const onEditNodesChange: OnNodesChange = (changes) => {
+    for (const c of changes) {
+      if (c.type === 'position' && c.position) setPosition(c.id, c.position)
+    }
+  }
+
+  const handleEditConnect = (conn: { source: string | null; target: string | null }) => {
+    if (conn.source && conn.target) addEdge(conn.source, conn.target)
+  }
 
   return (
     <div className="h-full w-full" style={{ background: 'var(--bg)' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={editMode ? onEditNodesChange : onNodesChange}
+        onEdgesChange={editMode ? () => {} : onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        nodesDraggable={false}
-        nodesConnectable={false}
+        nodesDraggable={editMode}
+        nodesConnectable={editMode}
+        deleteKeyCode={editMode ? 'Backspace' : null}
+        onConnect={editMode ? handleEditConnect : undefined}
+        onEdgeClick={editMode ? (_, edge) => setSelectedEdgeId(edge.id) : undefined}
+        onNodesDelete={(deleted) => deleted.forEach((n) => removeNode(n.id))}
+        onEdgesDelete={(deleted) => deleted.forEach((e) => removeEdge(e.id))}
         proOptions={{ hideAttribution: true }}
         // Arestas: --border 1.5px + seta discreta (01b §6.3); a aresta
         // retry→dev segue animada (loop vivo).
         defaultEdgeOptions={{ style: { stroke: 'var(--border)', strokeWidth: 1.5 } }}
         onNodeClick={(_, node) => {
+          // Modo edição: sem inspector (clique gerencia seleção/drag do editor).
+          if (editMode) return
           // S4: filhos display (appsec/devops) abrem o inspector do PAI
           // (parallel_audit) — o onClick do próprio nó também mapeia, mas o
           // React Flow dispara este handler por último (bubble) e sobrescreveria
@@ -171,6 +219,8 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
         <Controls className="!bg-[var(--bg-elev)] !border-[var(--border)] !shadow-sm [&>button]:!bg-[var(--bg-elev)] [&>button]:!border-[var(--border)] [&>button]:!text-[var(--text-dim)] hover:[&>button]:!text-[var(--text)]" />
+        {editMode && <NodePalette />}
+        {editMode && <EdgeConfigDrawer />}
         {showMinimap && (
           <MiniMap
             pannable

@@ -25,6 +25,10 @@ const TEXT_VARIANTS: Partial<Record<NodeType, string>> = {
   // S4: split/merge (gateways do bloco) — variantes próprias.
   split: 'var(--node-split-text)',
   merge: 'var(--node-merge-text)',
+  // S3 (editor de pipelines): input/output/gate — variantes próprias.
+  input: 'var(--node-input-text)',
+  output: 'var(--node-output-text)',
+  gate: 'var(--node-gate-text)',
 }
 
 export function nodeAccentTextVar(node: NodeType): string {

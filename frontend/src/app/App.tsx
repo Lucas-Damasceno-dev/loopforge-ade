@@ -39,6 +39,9 @@ import { useRunsStore } from '../stores/runsStore'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useConsoleStore } from '../stores/consoleStore'
 import { useViewStore } from '../stores/viewStore'
+import { usePipelinesStore } from '../stores/pipelinesStore'
+import { useEditorStore } from '../features/pipelines/editorStore'
+import type { ValidateResult } from '../shared/lib/types'
 import { shortId } from '../features/trajectories/shortId'
 
 const queryClient = new QueryClient()
@@ -180,6 +183,41 @@ export function App() {
   // Views leves (T3) vivem na sub-sidebar (SidebarHost); pesadas abrem o
   // drawer via "Open panel" (expandedView) — ver SidebarHost.
 
+  // ─── Editor de pipelines (S3 T9) — toggle Edit/Live + Save/Validate ─────
+  const editorOpen = useEditorStore((s) => s.open)
+  const editorLive = useEditorStore((s) => s.live)
+  const setEditorLive = useEditorStore((s) => s.setLive)
+  const editorDraft = useEditorStore((s) => s.draft)
+  const editorEditingId = useEditorStore((s) => s.editingId)
+  const closeEditor = useEditorStore((s) => s.close)
+  const pipelinesError = usePipelinesStore((s) => s.error)
+  const [editorSaving, setEditorSaving] = useState(false)
+  const [validateResult, setValidateResult] = useState<ValidateResult | null>(null)
+
+  const savePipeline = useCallback(async () => {
+    if (!editorDraft) return
+    setEditorSaving(true)
+    setValidateResult(null)
+    try {
+      if (editorEditingId) {
+        await usePipelinesStore.getState().updatePipeline(editorEditingId, editorDraft)
+      } else {
+        await usePipelinesStore.getState().createPipeline(editorDraft)
+      }
+    } catch {
+      // Erro amigável já no pipelinesStore.error (exibido na barra).
+    }
+    setEditorSaving(false)
+  }, [editorDraft, editorEditingId])
+
+  const runValidate = useCallback(async () => {
+    if (!editorEditingId) {
+      setValidateResult({ valid: false, errors: ['Save the pipeline first to validate it.'] })
+      return
+    }
+    setValidateResult(await usePipelinesStore.getState().validatePipeline(editorEditingId))
+  }, [editorEditingId])
+
   // Região canvas + timeline flutuante — reusada no SplitPane (console com
   // conteúdo) e no fluxo plano (console colapsado). O wrapper flex-col garante
   // que a TimelineBar (h-0) ancore na base do canvas, acima do console.
@@ -189,6 +227,53 @@ export function App() {
     <div className={`relative flex min-h-0 flex-col ${fill ? 'h-full' : 'flex-1'}`}>
       <div className="relative min-h-0 flex-1 border-b border-[var(--border)]">
         <RunsWorkspace hideChrome={fullscreen} />
+        {/* Barra do editor (S3): só com editor aberto — toggle Edit/Live +
+            Save/Validate + Close. Overlay no canto superior do canvas. */}
+        {editorOpen && (
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)]/95 p-1.5 shadow-[var(--shadow-md)] backdrop-blur-sm">
+            <div
+              className="flex overflow-hidden rounded-md border border-[var(--border)]"
+              role="group"
+              aria-label="Editor mode"
+            >
+              <button
+                type="button"
+                aria-pressed={!editorLive}
+                onClick={() => setEditorLive(false)}
+                className={`px-2 py-1 text-xs font-medium transition-colors ${
+                  !editorLive ? 'bg-[var(--accent)]/15 text-[var(--accent-text)]' : 'text-[var(--text-dim)] hover:text-[var(--text)]'
+                }`}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                aria-pressed={editorLive}
+                onClick={() => setEditorLive(true)}
+                className={`px-2 py-1 text-xs font-medium transition-colors ${
+                  editorLive ? 'bg-[var(--accent)]/15 text-[var(--accent-text)]' : 'text-[var(--text-dim)] hover:text-[var(--text)]'
+                }`}
+              >
+                Live
+              </button>
+            </div>
+            <Button size="sm" variant="subtle" onClick={() => void savePipeline()} disabled={editorSaving}>
+              {editorSaving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={() => void runValidate()}>
+              Validate
+            </Button>
+            <Button size="sm" variant="subtle" onClick={closeEditor} title="Close editor">
+              ✕
+            </Button>
+            {(pipelinesError || (validateResult && !validateResult.valid)) && (
+              <span className="max-w-56 truncate text-xs text-[var(--err-text)]" role="alert">
+                {pipelinesError ??
+                  (validateResult?.errors.length ? validateResult.errors.join('; ') : 'Invalid pipeline')}
+              </span>
+            )}
+          </div>
+        )}
         {fullscreen && (
           <div className="pointer-events-none absolute bottom-2 right-2 z-10 rounded bg-[var(--bg-elev)] px-2 py-1 text-xs text-[var(--text-dim)] shadow-[var(--shadow-xs)]">
             Press Esc to exit fullscreen

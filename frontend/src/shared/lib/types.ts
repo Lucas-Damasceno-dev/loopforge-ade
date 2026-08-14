@@ -45,6 +45,12 @@ export type NodeType =
   | 'merge'
   | 'appsec'
   | 'devops'
+  // S3 (editor de pipelines): nós de pipeline que não são agentes. NUNCA
+  // chegam como eventos de execução (ws.ts NODE_MAP não os reconhece) e não
+  // entram em PIPELINE_ORDER/DISPLAY_ORDER — existem só no modo edição.
+  | 'input'
+  | 'output'
+  | 'gate'
 
 // Status da run: backend agora também emite queued (fila) e paused
 // (HITL/timeout) via run_updated/run_paused e GET /api/runs.

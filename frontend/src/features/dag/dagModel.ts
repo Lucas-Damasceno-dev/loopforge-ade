@@ -61,6 +61,10 @@ export const NODE_LABELS: Record<NodeType, string> = {
   merge: 'Merge',
   appsec: 'AppSec',
   devops: 'DevOps',
+  // S3 (editor de pipelines): renderizam com AgentNode no modo edição.
+  input: 'Input',
+  output: 'Output',
+  gate: 'Gate',
 }
 
 // Posições do modo grafo (2D): fluxo principal em linha horizontal reta (y=120),
@@ -96,6 +100,9 @@ export type DagNodeData = {
    *  inteiro junto com o passo de execução (semântica TimelineBar). */
   execIndex: number
   ghosted: boolean
+  /** Label de exibição (S3 — editor de pipelines): override do NODE_LABELS
+   *  para agentes da biblioteca (nome próprio). Nós do DAG live não usam. */
+  label?: string
   /** Custo do nó (Fase D/UC-04) — injetado pelo FlowCanvas via cost query;
    *  o buildNodes puro não o conhece (cost é dado de servidor, não de store). */
   cost?: CostNode

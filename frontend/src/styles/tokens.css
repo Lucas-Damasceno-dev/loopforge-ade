@@ -62,6 +62,12 @@
   --node-split: #78716c;   --node-split-text: #a8a29e;       /* stone-500/400 */
   --node-merge: #0f766e;   --node-merge-text: #5eead4;       /* teal-700/300 */
 
+  /* S3 — editor de pipelines (modo edição): input/output/gate — cores livres
+   * (blue/cyan/fuchsia não usadas nos agentes; fuchsia distinto do pink). */
+  --node-input: #2563eb;   --node-input-text: #93c5fd;       /* blue-600/300 */
+  --node-output: #0891b2;  --node-output-text: #67e8f9;      /* cyan-600/300 */
+  --node-gate: #a21caf;    --node-gate-text: #f0abfc;        /* fuchsia-600/300 */
+
   /* §2.7 — overlays (substituem black/40 e black/60 hardcoded) */
   --overlay: rgb(0 0 0 / 0.40);
   --overlay-strong: rgb(0 0 0 / 0.60);

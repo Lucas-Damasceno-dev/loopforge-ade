@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { usePipelinesStore } from '../../stores/pipelinesStore'
+import { useEditorStore } from './editorStore'
 import type { Pipeline, PipelineInput } from '../../shared/lib/types'
 import { Button } from '../../shared/ui/Button'
 import { Input } from '../../shared/ui/Input'
@@ -173,9 +174,16 @@ export function PipelinesPanel() {
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
           {selectedId && selectedId !== 'new' ? (
-            <div className="rounded-md border border-dashed border-[var(--border)] bg-[var(--bg-elev)] p-2 text-xs text-[var(--text-dim)]">
+            <button
+              type="button"
+              onClick={() => {
+                if (editing) useEditorStore.getState().openPipeline(editing.id, editing)
+              }}
+              disabled={!editing}
+              className="rounded-md border border-dashed border-[var(--border)] bg-[var(--bg-elev)] p-2 text-left text-xs text-[var(--text-dim)] transition-colors hover:border-[var(--border-hover)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
               Edit in canvas — the pipeline graph opens in the canvas editor.
-            </div>
+            </button>
           ) : null}
           <label className="flex flex-col gap-0.5">
             <span className="text-[var(--text-2xs)] font-medium uppercase tracking-wide text-[var(--text-dim)]">Name *</span>
