@@ -28,6 +28,9 @@
 // parallel_audit, sem nó próprio). entry/retry são VIRTUAIS de apresentação
 // (presentes no canvas, sem node_execution próprio; retry deriva de
 // attempt_count>0).
+// split/merge/appsec/devops são DISPLAY-ONLY (S4): derivados de
+// parallel_audit no sub-grafo visual — NUNCA chegam como eventos de execução
+// (ws.ts segue rejeitando appsec/devops; split/merge também são virtuais).
 export type NodeType =
   | 'entry'
   | 'cpo'
@@ -38,6 +41,10 @@ export type NodeType =
   | 'qa'
   | 'retry'
   | 'parallel_audit'
+  | 'split'
+  | 'merge'
+  | 'appsec'
+  | 'devops'
 
 // Status da run: backend agora também emite queued (fila) e paused
 // (HITL/timeout) via run_updated/run_paused e GET /api/runs.
