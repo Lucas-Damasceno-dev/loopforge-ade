@@ -9,6 +9,10 @@ import type { CreateRunInput, Run } from '../../shared/lib/types'
 
 export interface NewRunFormProps {
   onCreated: (run: Run) => void
+  /** Variante estreita (sub-sidebar 260px — T8 fix wave F1): controles
+   *  empilham em coluna (selects flex-wrap, model full-width) em vez da
+   *  linha única da toolbar; presets já quebram linha. */
+  narrow?: boolean
 }
 
 // Stack canônico (resolve_tech_stack / registry.py): python, java, rust, go, js.
@@ -35,7 +39,7 @@ export const QUICK_PROMPTS = [
 // RunCreate.model vence env/config por run) via POST /api/v1/runs.
 // mock_llm/interactive ficam nos defaults do client (false). TanStack Query
 // useMutation — loading desabilita o botão; erro inline (alert).
-export function NewRunForm({ onCreated }: NewRunFormProps) {
+export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
   const [idea, setIdea] = useState('')
   const [stack, setStack] = useState<string>(STACK_OPTIONS[0])
   const [routingMode, setRoutingMode] = useState<string>(ROUTING_OPTIONS[0])
@@ -84,28 +88,33 @@ export function NewRunForm({ onCreated }: NewRunFormProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-1.5">
-      <form onSubmit={submit} className="flex flex-1 items-center gap-2">
-        <Select aria-label="Stack" value={stack} onChange={(e) => setStack(e.target.value)}>
-          {STACK_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </Select>
-        <Select aria-label="Routing mode" value={routingMode} onChange={(e) => setRoutingMode(e.target.value)}>
-          {ROUTING_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </Select>
-        {/* Modelo LLM opcional (RunCreate.model — vence env/config por run).
-            Input compartilhado (mesmas classes do design system); vazio omite o
-            campo do body para manter o default do backend. */}
-        <Input
-          aria-label="Model"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          placeholder="Model (optional)"
-          title="Modelo LLM para a run — vazio usa o default (env/config)"
-          className="w-36 shrink-0"
-        />
+      <form onSubmit={submit} className={narrow ? 'flex flex-col gap-1.5' : 'flex flex-1 items-center gap-2'}>
+        {/* Seletores + modelo: na variante wide ficam inline no form (display:
+            contents preserva o layout atual); na narrow, linha própria com
+            flex-wrap (2 selects por linha) + model full-width. */}
+        <div className={narrow ? 'flex flex-wrap gap-1.5' : 'contents'}>
+          <Select aria-label="Stack" value={stack} onChange={(e) => setStack(e.target.value)} className={narrow ? 'min-w-0 flex-1' : undefined}>
+            {STACK_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </Select>
+          <Select aria-label="Routing mode" value={routingMode} onChange={(e) => setRoutingMode(e.target.value)} className={narrow ? 'min-w-0 flex-1' : undefined}>
+            {ROUTING_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </Select>
+          {/* Modelo LLM opcional (RunCreate.model — vence env/config por run).
+              Input compartilhado (mesmas classes do design system); vazio omite o
+              campo do body para manter o default do backend. */}
+          <Input
+            aria-label="Model"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder="Model (optional)"
+            title="Modelo LLM para a run — vazio usa o default (env/config)"
+            className={narrow ? 'w-full' : 'w-36 shrink-0'}
+          />
+        </div>
         {/* Grupo input + ação (Gemini): container único com borda/ring; o botão
             Run cola na extremidade direita do campo, sem borda interna. Textarea
             cru (sem o Textarea compartilhado) porque o grupo pede fundo/borda

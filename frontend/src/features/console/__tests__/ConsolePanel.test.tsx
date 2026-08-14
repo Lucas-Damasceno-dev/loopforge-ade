@@ -1,7 +1,14 @@
-import { vi, afterEach } from 'vitest'
+import { vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ConsolePanel } from '../ConsolePanel'
 import { useConsoleStore } from '../../../stores/consoleStore'
+
+// Estado do store é singleton — sem o efeito derivado no painel (fix wave F2),
+// o collapsed persiste entre testes; reset garante isolamento (default vazio
+// colapsado, como o boot real).
+beforeEach(() => {
+  useConsoleStore.setState({ entries: [], streams: {}, filters: { node: 'all', level: 'all', query: '' }, autoScroll: true, collapsed: true })
+})
 
 it('renders entries and filters by query', () => {
   useConsoleStore.setState({
@@ -12,6 +19,7 @@ it('renders entries and filters by query', () => {
     streams: {},
     filters: { node: 'all', level: 'all', query: '' },
     autoScroll: true,
+    collapsed: false,
   })
   render(<ConsolePanel />)
   expect(screen.getByText(/hello world/)).toBeInTheDocument()
@@ -24,7 +32,7 @@ it('filters by level select', () => {
   useConsoleStore.setState({ entries: [
     { id: '1', ts: 0, node: 'developer', level: 'info', message: 'info msg' },
     { id: '2', ts: 0, node: 'developer', level: 'error', message: 'err msg' },
-  ], streams: {}, filters: { node: 'all', level: 'error', query: '' }, autoScroll: true })
+  ], streams: {}, filters: { node: 'all', level: 'error', query: '' }, autoScroll: true, collapsed: false })
   render(<ConsolePanel />)
   expect(screen.getByText(/err msg/)).toBeInTheDocument()
   expect(screen.queryByText(/info msg/)).not.toBeInTheDocument()
@@ -36,6 +44,7 @@ it('renders streaming token buffer with cursor (ADR-0007)', () => {
     streams: { developer: { node: 'developer', content: 'Ola mundo', runId: 'r1', ts: 0 } },
     filters: { node: 'all', level: 'all', query: '' },
     autoScroll: true,
+    collapsed: false,
   })
   render(<ConsolePanel />)
   const stream = screen.getByTestId('console-stream')
@@ -69,9 +78,9 @@ it('auto-expands when the first log arrives', () => {
   render(<ConsolePanel />)
   expect(screen.getByText('No logs')).toBeInTheDocument()
   act(() => {
-    useConsoleStore.setState({
-      entries: [{ id: '1', ts: 0, node: 'developer', level: 'info', message: 'first log' }],
-    })
+    // Via AÇÃO (addEntry) — a derivação de transição vive no store (fix wave
+    // F2); setState direto bypassaria a regra.
+    useConsoleStore.getState().addEntry({ id: '1', ts: 0, node: 'developer', level: 'info', message: 'first log' })
   })
   expect(screen.getByText(/first log/)).toBeInTheDocument()
   expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument()
@@ -86,6 +95,7 @@ it('collapses and re-expands manually with content', () => {
     streams: {},
     filters: { node: 'all', level: 'all', query: '' },
     autoScroll: true,
+    collapsed: false,
   })
   render(<ConsolePanel />)
   expect(screen.getByText(/alpha/)).toBeInTheDocument()
@@ -116,12 +126,11 @@ it('auto-expands when content arrives even with saved=true (T7 F1 regression)', 
   useConsoleStore.setState({ ...baseState(), collapsed: true })
   render(<ConsolePanel />)
   expect(screen.getByText('No logs')).toBeInTheDocument()
-  // Novo log chega → transição vazio→cheio DEVE expandir (antes da T7
-  // expandia sempre; T7 quebrou ao aplicar saved no efeito derivado).
+  // Novo log chega → transição vazio→cheio DEVE expandir (T7 quebrou ao
+  // aplicar saved no efeito local; fix wave F2 moveu a derivação p/ o store,
+  // imune ao remount flat→SplitPane — adicionar via AÇÃO, como o runtime).
   act(() => {
-    useConsoleStore.setState({
-      entries: [{ id: '1', ts: 0, node: 'developer', level: 'info', message: 'fresh log' }],
-    })
+    useConsoleStore.getState().addEntry({ id: '1', ts: 0, node: 'developer', level: 'info', message: 'fresh log' })
   })
   expect(screen.getByText(/fresh log/)).toBeInTheDocument()
   expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument()

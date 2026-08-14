@@ -61,15 +61,6 @@ function renderHighlighted(text: string, query: string) {
 
 const STORAGE_KEY_CONSOLE_COLLAPSED = 'lf_console_collapsed'
 
-function getSavedCollapsed(): boolean | null {
-  try {
-    const val = localStorage.getItem(STORAGE_KEY_CONSOLE_COLLAPSED)
-    return val !== null ? val === 'true' : null
-  } catch {
-    return null
-  }
-}
-
 export function ConsolePanel({ className = '', onOpenTerminal }: { className?: string; onOpenTerminal?: () => void }) {
   const entries = useConsoleStore((s) => s.entries)
   const streams = useConsoleStore((s) => s.streams)
@@ -85,28 +76,13 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
   const hasContent = entries.length > 0 || Object.keys(streams).length > 0
   const errorCount = entries.filter((e) => e.level === 'error').length
 
-  // Colapso (T7): fonte do estado no consoleStore (command palette toggla sem
-  // montar o painel). Este efeito DERIVA o estado por TRANSIÇÃO de conteúdo:
-  //   - mount (sem transição): aplica a regra original (saved ?? !hasContent);
-  //   - vazio→cheio: SEMPRE expande (regressão T7 F1 — antes da T7, novo log
-  //     expandia mesmo com preferência manual de colapsar; logs não podem
-  //     ficar escondidos);
-  //   - cheio→vazio: colapsa (auto-collapse histórico).
-  // Preferência manual (toggle) permanece: setCollapsed + localStorage no
-  // toggleCollapse; derivação automática não sobrescreve estado estável.
-  const hadContent = useRef(hasContent)
-  useEffect(() => {
-    const prev = hadContent.current
-    hadContent.current = hasContent
-    if (prev !== hasContent) {
-      // Transição real de conteúdo: expande/collapsa sem olhar preferência.
-      setCollapsed(!hasContent)
-      return
-    }
-    // Sem transição → só o mount cai aqui (deps estáveis): regra original.
-    setCollapsed(getSavedCollapsed() ?? !hasContent)
-  }, [hasContent, setCollapsed])
-
+  // Colapso (T7 + fix wave F2): o estado VIVE no consoleStore — `collapsed`
+  // vem daqui (palette toggla sem montar o painel) e a DERIVAÇÃO por
+  // transição de conteúdo (vazio→cheio expande, cheio→vazio colapsa) roda nas
+  // ações do store (addEntry/appendStream/clear), imune a remount (o App
+  // troca a árvore flat→SplitPane quando hasContent muda — efeito local
+  // mascarava a transição e logs ficavam escondidos com saved=true). A
+  // preferência manual (toggle) continua: setCollapsed + localStorage aqui.
   const toggleCollapse = () => {
     const next = !collapsed
     setCollapsed(next)
@@ -157,9 +133,6 @@ export function ConsolePanel({ className = '', onOpenTerminal }: { className?: s
       return true
     })
   }, [streamList, filters])
-
-  // Auto-expand/collapse: derivado no effect acima ([hasContent]) — regra
-  // original (auditoria P0.5) preservada; colapso manual com conteúdo permanece.
 
   // Autoscroll: com autoScroll ligado, conteúdo/filtro novo rola ao fundo.
   useEffect(() => {

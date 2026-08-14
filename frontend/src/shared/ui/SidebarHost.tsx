@@ -80,7 +80,7 @@ export function SidebarHost({ active, onClose, onExpand }: SidebarHostProps) {
   if (isInline) {
     switch (active) {
       case 'prompt':
-        content = <NewRunForm onCreated={handleCreated} />
+        content = <NewRunForm onCreated={handleCreated} narrow />
         break
       case 'memory':
         content = <MemoryPanelContent />

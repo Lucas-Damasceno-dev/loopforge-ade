@@ -36,9 +36,13 @@ interface ConsoleState {
   streams: Record<string, ConsoleStream>
   filters: ConsoleFilters
   autoScroll: boolean
-  /** Colapso do painel (T7): fonte do estado movida do ConsolePanel p/ o
-   *  store — a command palette toggla via getState() sem montar o painel.
-   *  Persistência localStorage continua no ConsolePanel (efeito). */
+  /** Colapso do painel (T7): fonte do estado no store — a command palette
+   *  toggla via getState() sem montar o painel. Persistência localStorage
+   *  continua no ConsolePanel (toggle escreve). A DERIVAÇÃO por transição
+   *  de conteúdo vive AQUI (fix wave F2): addEntry/appendStream expandem na
+   *  transição vazio→cheio, imune a remount do painel (App troca a árvore
+   *  flat→SplitPane quando hasContent muda — um efeito local no painel
+   *  mascarava a transição e logs ficavam escondidos com saved=true). */
   collapsed: boolean
   addEntry: (e: ConsoleEntry) => void
   appendStream: (node: NodeType | 'system', content: string, runId?: string) => void
@@ -57,12 +61,23 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   autoScroll: true,
   collapsed: true,
 
-  addEntry: (e) => set((s) => ({ entries: [...s.entries, e] })),
+  addEntry: (e) =>
+    set((s) => {
+      // Transição vazio→cheio expande SEMPRE (logs nunca escondidos — T7 F1
+      // movido p/ o store p/ sobreviver a remount; preferência manual de
+      // colapsar não vale p/ transição, só p/ estado estável).
+      const wasEmpty = s.entries.length === 0 && Object.keys(s.streams).length === 0
+      return {
+        entries: [...s.entries, e],
+        ...(wasEmpty ? { collapsed: false } : {}),
+      }
+    }),
 
   // Streaming (V1.1/ADR-0007): acumula o chunk incremental no buffer do nó.
   appendStream: (node, content, runId) =>
     set((s) => {
       const prev = s.streams[node]
+      const wasEmpty = s.entries.length === 0 && Object.keys(s.streams).length === 0
       return {
         streams: {
           ...s.streams,
@@ -73,6 +88,7 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
             ts: Date.now(),
           },
         },
+        ...(wasEmpty ? { collapsed: false } : {}),
       }
     }),
 
@@ -99,7 +115,7 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
 
   toggleAutoScroll: () => set((s) => ({ autoScroll: !s.autoScroll })),
 
-  clear: () => set({ entries: [], streams: {} }),
+  clear: () => set({ entries: [], streams: {}, collapsed: true }),
 
   setCollapsed: (v) => set({ collapsed: v }),
 
