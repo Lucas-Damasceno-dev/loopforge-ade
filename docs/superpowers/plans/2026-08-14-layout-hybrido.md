@@ -202,3 +202,17 @@
 - **Spec coverage:** S1 completo (rail/sub-sidebar T2-3; topbar+trigger T4/T7; budget pill T4; inspector sem console T5; panel bottom ícone-only T6; palette MVP T7; RunTabs já existente — preservado, sem task); fase 0 = T1; fase 5 (palette avançada: registro extensível, atalhos completos) = planos futuros (nota: MVP incluído p/ trigger funcional).
 - **Não quebra:** 13 views/drawers, NewRunForm, consoleStore, HITL, TimelineBar, Focus — todos preservados por design; baseline 322 testes re-verificada na T1 e T8.
 - **Fora deste plano:** split paralelo visual (S4), CRUD agentes (S2), editor pipelines (S3) — planos próprios.
+
+---
+
+## Post-review deferred items (carry-over p/ S2-S4)
+
+Registrados na final review (oracle, APPROVE) — endereçar nas próximas fases:
+
+- **STATUS_TONE/statusLabel duplicados em 3 lugares** (RunTabs, RunInspector, InspectDrawer) → extrair `shared/lib/runStatus.ts` (S2)
+- **`#new-run-idea` duplicado** (NewRunForm na sidebar + no RunsWorkspace) — palette foca o 1º do DOM (sidebar); funcional, cleanup futuro
+- **Persistência `lf_console_collapsed` virou write-only** — boot não honra preferência salva; fix 2min: store init `collapsed: getSavedCollapsed() ?? true` ou drop do write
+- **consoleStore: guard `wasEmpty`** precisa replicar se console ganhar escrita fora das ações (convenção "só ações escrevem")
+- **App.test.tsx mocka 17 módulos** + vi.mock sem vi.hoisted (manutenção)
+- **YAGNI pulados na T8:** aria-activedescendant na palette, teste app-level ⌘K, mount console vazio+saved=false
+- **Bundle chunk >500kB** — code-split opcional
