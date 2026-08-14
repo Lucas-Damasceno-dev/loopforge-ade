@@ -25,6 +25,7 @@ import { ApiKeyGate } from '../features/auth/ApiKeyGate'
 import { ToastContainer } from '../shared/ui/ToastContainer'
 import { Drawer } from '../shared/ui/Drawer'
 import { Topbar } from '../shared/ui/Topbar'
+import { RunInspector } from '../features/dag/RunInspector'
 import { ActivityRail } from '../shared/ui/ActivityRail'
 import { SidebarHost } from '../shared/ui/SidebarHost'
 import { Button } from '../shared/ui/Button'
@@ -82,6 +83,9 @@ export function App() {
   // Override de budget (T4): BudgetPill abre o modal via store (mesmo fluxo
   // que o CostBar tinha; o modal agora vive dentro do BudgetPill).
   const openBudgetOverride = useBudgetOverrideStore((s) => s.openOverride)
+  // Inspetor de run (T5): coluna fixa à direita do main, colapsável internamente
+  // (chevrão); toggle no Topbar right. Estado local — T7 registra o atalho ⌘I.
+  const [inspectorOpen, setInspectorOpen] = useState(false)
   // Estado do canvas p/ política de drawers sobrepostos (P2): fechar o
   // Inspect quando a run pausa (HITL abre).
   const nodeStatus = useCanvasStore((s) => s.nodeStatus)
@@ -190,6 +194,17 @@ export function App() {
             }
             right={
               <>
+                {/* Inspetor de run (T5): painel direito colapsável com detalhes
+                    + custo da run ativa. Toggle; some junto no Focus mode. */}
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  aria-pressed={inspectorOpen}
+                  title="Toggle run inspector"
+                  onClick={() => setInspectorOpen((v) => !v)}
+                >
+                  Inspector
+                </Button>
                 {/* Focus mode (Fullscreen API): canvas + console sem chrome. */}
                 <Button size="sm" variant="subtle" title="Focus mode — canvas + console em fullscreen" onClick={toggleFullscreen}>
                   Focus
@@ -231,6 +246,9 @@ export function App() {
               </>
             )}
           </div>
+          {/* Inspetor de run (T5): coluna fixa à direita do main — w-[var(--inspector-w)],
+              NÃO portal (vive no fluxo); some no Focus mode junto com o chrome. */}
+          {!fullscreen && inspectorOpen && <RunInspector />}
         </div>
         {/* Drawer de inspeção (portal p/ body) — abre com nó selecionado no canvas. */}
         <InspectDrawer />
