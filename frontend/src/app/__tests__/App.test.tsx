@@ -16,7 +16,15 @@ vi.mock('../../stores/wsStore', () => ({
 }))
 
 vi.mock('../../features/runs/RunsWorkspace', () => ({ RunsWorkspace: () => <div data-testid="workspace" /> }))
-vi.mock('../../features/console/ConsolePanel', () => ({ ConsolePanel: () => null }))
+vi.mock('../../features/console/ConsolePanel', () => ({
+  // Stub com o wire exposto (T6 round 1, F1): a tab Terminal do console real
+  // chama onOpenTerminal — o App deve abrir o drawer sem mexer na sidebar.
+  ConsolePanel: ({ onOpenTerminal }: { onOpenTerminal?: () => void }) => (
+    <button type="button" onClick={onOpenTerminal}>
+      open terminal
+    </button>
+  ),
+}))
 vi.mock('../../features/dag/InspectDrawer', () => ({ InspectDrawer: () => null }))
 vi.mock('../../features/hitl/HitlDrawer', () => ({ HitlDrawer: () => null }))
 vi.mock('../../features/hitl/HitlGateBanner', () => ({ HitlGateBanner: () => null }))
@@ -80,5 +88,28 @@ describe('App shell — fix round 1 (F3)', () => {
     expect(screen.queryByTestId('drawer-artifacts')).not.toBeInTheDocument()
     // F3: a sidebar PERMANECE aberta com o resumo — closeView não é chamado.
     expect(screen.getByRole('heading', { name: 'Artifacts' })).toBeInTheDocument()
+  })
+})
+
+describe('App shell — T6 round 1 (F1: tab Terminal → drawer direto)', () => {
+  beforeEach(() => {
+    useViewStore.setState({ activeView: null })
+  })
+
+  it('abre o drawer do terminal sem ativar a sidebar; fechar volta ao estado anterior', () => {
+    render(<App />)
+    // Sem view ativa → sem sidebar; drawer fechado.
+    expect(screen.queryByTestId('drawer-terminal')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'open terminal' }))
+    // Drawer do TerminalPanel abre imediatamente (expandedView='terminal').
+    expect(screen.getByTestId('drawer-terminal')).toBeInTheDocument()
+    // Sidebar NÃO mudou: activeView segue null → sem heading de sidebar.
+    expect(screen.queryByRole('heading', { name: 'Terminal' })).not.toBeInTheDocument()
+
+    // Fecha o drawer (handleDrawerClose) → estado anterior intacto.
+    fireEvent.click(screen.getByRole('button', { name: 'close drawer' }))
+    expect(screen.queryByTestId('drawer-terminal')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Terminal' })).not.toBeInTheDocument()
   })
 })

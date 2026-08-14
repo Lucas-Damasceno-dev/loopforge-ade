@@ -235,14 +235,14 @@ export function App() {
                   maxSize={typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.7) : 560}
                   reversed
                 >
-                  <ConsolePanel className="h-full" onOpenTerminal={() => openView('terminal')} />
+                  <ConsolePanel className="h-full" onOpenTerminal={() => setExpandedView('terminal')} />
                   {canvasRegion(true)}
                 </SplitPane>
               </div>
             ) : (
               <>
                 {canvasRegion(false)}
-                <ConsolePanel onOpenTerminal={() => openView('terminal')} />
+                <ConsolePanel onOpenTerminal={() => setExpandedView('terminal')} />
               </>
             )}
           </div>

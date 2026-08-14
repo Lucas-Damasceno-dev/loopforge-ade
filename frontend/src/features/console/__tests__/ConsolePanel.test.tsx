@@ -110,16 +110,16 @@ it('renderiza tab bar ícone-only: Console ativo + badge de erros + Terminal', (
     autoScroll: true,
   })
   render(<ConsolePanel />)
-  const consoleTab = screen.getByRole('tab', { name: 'Console' })
-  expect(consoleTab).toHaveAttribute('aria-selected', 'true')
+  const consoleTab = screen.getByRole('button', { name: 'Console' })
+  expect(consoleTab).toHaveAttribute('aria-pressed', 'true')
   // Badge de count de erros (1 error → '1') no tab Console.
   expect(consoleTab.textContent).toContain('1')
-  expect(screen.getByRole('tab', { name: 'Terminal' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument()
 })
 
 it('clique na tab Terminal chama onOpenTerminal', () => {
   const onOpenTerminal = vi.fn()
   render(<ConsolePanel onOpenTerminal={onOpenTerminal} />)
-  fireEvent.click(screen.getByRole('tab', { name: 'Terminal' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
   expect(onOpenTerminal).toHaveBeenCalledTimes(1)
 })

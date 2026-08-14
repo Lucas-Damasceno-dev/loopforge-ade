@@ -19,18 +19,19 @@ export interface IconTabBarProps {
 
 // Barra de tabs ícone-only do panel bottom (T6): 32px (--tab-h), glifos
 // geométricos simples (sem VS Code), tooltip nativa via title+aria-label
-// (mesmo padrão do ActivityRail). Ativo = accent + barra top 2px (after:) +
-// bg-elev. Count em badge mono (erros) — erro/20 + err-text, como o hint
-// colapsado do console.
+// (mesmo padrão do ActivityRail). Botões nativos com aria-pressed (padrão do
+// repo: TopbarAction/QueueBadge/ActivityRail) — sem role=tab/tablist (ARIA
+// inválido: aria-pressed não existe em role=tab; a11y via button nativo,
+// Enter/Space nativos, sem exigência de roving tabindex). Ativo = accent +
+// barra top 2px (after:) + bg-elev. Count em badge mono (erros) — err/20 +
+// err-text, como o hint colapsado do console.
 export function IconTabBar({ items, ariaLabel = 'Panel tabs' }: IconTabBarProps) {
   return (
-    <div role="tablist" aria-label={ariaLabel} className="flex items-stretch">
+    <div aria-label={ariaLabel} className="flex items-stretch">
       {items.map((item) => (
         <button
           key={item.key}
           type="button"
-          role="tab"
-          aria-selected={item.active ?? false}
           aria-pressed={item.active ?? false}
           aria-label={item.label}
           title={item.label}

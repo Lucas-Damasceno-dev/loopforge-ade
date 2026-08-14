@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { IconTabBar } from '../IconTabBar'
 
 // Barra de tabs ícone-only (T6): aria-label, badge de count, clique e estado
-// ativo (aria-pressed) — contrato do brief da task.
+// ativo (aria-pressed) — contrato do brief da task. Botões nativos (sem
+// role=tab — a11y via button + aria-pressed, padrão do repo).
 describe('IconTabBar', () => {
   it('renderiza items com aria-label', () => {
     render(
@@ -14,8 +15,8 @@ describe('IconTabBar', () => {
         ]}
       />,
     )
-    expect(screen.getByRole('tab', { name: 'Console' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Terminal' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Console' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument()
   })
 
   it('mostra badge de count apenas quando > 0', () => {
@@ -27,14 +28,14 @@ describe('IconTabBar', () => {
         ]}
       />,
     )
-    expect(screen.getByRole('tab', { name: 'Console' }).textContent).toContain('3')
-    expect(screen.getByRole('tab', { name: 'Terminal' }).textContent).not.toContain('0')
+    expect(screen.getByRole('button', { name: 'Console' }).textContent).toContain('3')
+    expect(screen.getByRole('button', { name: 'Terminal' }).textContent).not.toContain('0')
   })
 
   it('clique chama onClick do item', () => {
     const onClick = vi.fn()
     render(<IconTabBar items={[{ key: 'console', label: 'Console', icon: 'console', onClick }]} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Console' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Console' }))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
@@ -47,7 +48,7 @@ describe('IconTabBar', () => {
         ]}
       />,
     )
-    expect(screen.getByRole('tab', { name: 'Console' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('tab', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Console' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'false')
   })
 })
