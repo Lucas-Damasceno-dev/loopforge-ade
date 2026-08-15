@@ -75,6 +75,8 @@ export interface Run {
   /** Pipeline usado na run (S3 T10 — backend emite pipeline_id/pipeline_name). */
   pipeline_id?: string | null
   pipeline_name?: string | null
+  /** Snapshot imutável do pipeline executado (S3) — name/description/nodes/edges. */
+  snapshot?: PipelineInput | null
 }
 
 export interface RunListResponse {
@@ -152,6 +154,8 @@ export interface CreateRunInput {
   model?: string | null
   /** Pipeline (S3 T10): ausente/null → fallback automático (pipeline default). */
   pipeline_id?: string | null
+  /** Override do snapshot do pipeline no create (S3) — validado no backend. */
+  snapshot?: PipelineInput | null
 }
 
 export interface AdeMcpServer {
