@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NewRunForm, STACK_OPTIONS, ROUTING_OPTIONS } from '../NewRunForm'
 import { createRun, listPipelines, ApiError } from '../../../shared/lib/api'
 import { usePipelinesStore } from '../../../stores/pipelinesStore'
+import { useAuthStore } from '../../../stores/authStore'
 
 vi.mock('../../../shared/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/lib/api')>()
@@ -41,6 +42,7 @@ describe('NewRunForm', () => {
     vi.mocked(listPipelines).mockReset()
     vi.mocked(listPipelines).mockResolvedValue([pipeline(), pipeline({ id: 'p2', name: 'Security audit' })])
     usePipelinesStore.setState({ pipelines: [], loading: false, error: null })
+    useAuthStore.setState({ principal: null })
   })
 
   it('renders stack and routing_mode selects with backend options', () => {
@@ -143,5 +145,12 @@ describe('NewRunForm', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('idea must be at least 10 characters')
     expect(alert).not.toHaveTextContent('Failed to start run')
+  })
+
+  it('viewer não vê o formulário (read-only notice)', () => {
+    useAuthStore.setState({ principal: { name: 'viewer', roles: ['viewer'] } })
+    renderForm()
+    expect(screen.queryByLabelText('Idea')).toBeNull()
+    expect(screen.getByText(/read-only/i)).toBeTruthy()
   })
 })

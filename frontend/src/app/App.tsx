@@ -59,6 +59,9 @@ export function App() {
   // (auth off/demo) o gate segue dispensável e a UI opera como antes.
   const principal = useAuthStore((s) => s.principal)
   const logout = useAuthStore((s) => s.logout)
+  // RBAC (T6): editor de pipelines (Save/Validate/Edit/Live) e budget override
+  // são admin-only. can() sem principal (auth off/demo) retorna true — BC.
+  const canAdmin = useAuthStore((s) => s.can('admin'))
   // Focus mode (01b §6.1): Fullscreen API real — oculta topbar + chrome das
   // runs; restam canvas e console. Indicador discreto no canto do canvas.
   const [fullscreen, setFullscreen] = useState(false)
@@ -247,9 +250,10 @@ export function App() {
     <div className={`relative flex min-h-0 flex-col ${fill ? 'h-full' : 'flex-1'}`}>
       <div className="relative min-h-0 flex-1 border-b border-[var(--border)]">
         <RunsWorkspace hideChrome={fullscreen} />
-        {/* Barra do editor (S3): só com editor aberto — toggle Edit/Live +
-            Save/Validate + Close. Overlay no canto superior do canvas. */}
-        {editorOpen && (
+        {/* Barra do editor (S3): só com editor aberto e role admin (RBAC T6) —
+            toggle Edit/Live + Save/Validate + Close. Overlay no canto superior
+            do canvas. */}
+        {editorOpen && canAdmin && (
           <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)]/95 p-1.5 shadow-[var(--shadow-md)] backdrop-blur-sm">
             <div
               className="flex overflow-hidden rounded-md border border-[var(--border)]"
@@ -310,7 +314,7 @@ export function App() {
         <BudgetPill
           runId={activeRunId}
           onOverride={() => {
-            if (activeRunId) openBudgetOverride(activeRunId)
+            if (canAdmin && activeRunId) openBudgetOverride(activeRunId)
           }}
         />
       ) : null}

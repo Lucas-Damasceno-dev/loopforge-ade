@@ -5,6 +5,7 @@ import { RunsWorkspace } from '../RunsWorkspace'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useCanvasStore } from '../../../stores/canvasStore'
 import { useHitlGateStore } from '../../../stores/hitlGateStore'
+import { useAuthStore } from '../../../stores/authStore'
 import { listRuns, createRun, resumeRun, cancelRun, ApiError } from '../../../shared/lib/api'
 
 vi.mock('../../../shared/lib/api', () => ({
@@ -54,6 +55,7 @@ beforeEach(() => {
   useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
   useHitlGateStore.setState({ gates: [] })
+  useAuthStore.setState({ principal: null })
 })
 afterEach(() => {
   vi.useRealTimers()
@@ -283,5 +285,20 @@ describe('RunsWorkspace', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/run not cancellable/i))
     // Estado preservado — run continua paused.
     expect(useRunsStore.getState().runs[0].status).toBe('paused')
+  })
+
+  it('viewer não vê Resume/Cancel (ações runner+)', () => {
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    useAuthStore.setState({ principal: { name: 'viewer', roles: ['viewer'] } })
+    renderWorkspace()
+    expect(screen.queryByText('Resume')).toBeNull()
+    expect(screen.queryByText('Cancel')).toBeNull()
   })
 })

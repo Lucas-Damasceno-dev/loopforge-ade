@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { usePipelinesStore } from '../../stores/pipelinesStore'
 import { useEditorStore } from './editorStore'
+import { useAuthStore } from '../../stores/authStore'
 import type { Pipeline, PipelineInput } from '../../shared/lib/types'
 import { Button } from '../../shared/ui/Button'
 import { Input } from '../../shared/ui/Input'
@@ -44,6 +45,11 @@ export function PipelinesPanel() {
   useEffect(() => {
     void usePipelinesStore.getState().fetchPipelines()
   }, [])
+
+  // RBAC (T6): CRUD de pipelines é admin-only. Viewer vê a biblioteca
+  // (read-only); can() sem principal (auth off/demo) retorna true — BC.
+  const can = useAuthStore((s) => s.can)
+  const canAdmin = can('admin')
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -124,9 +130,11 @@ export function PipelinesPanel() {
         <>
           <div className="flex items-center justify-between gap-2">
             <SectionTitle>Library</SectionTitle>
-            <Button size="sm" variant="primary" onClick={startNew}>
-              + New pipeline
-            </Button>
+            {canAdmin && (
+              <Button size="sm" variant="primary" onClick={startNew}>
+                + New pipeline
+              </Button>
+            )}
           </div>
           {pipelinesLoading ? (
             <p className="px-2 py-6 text-sm text-[var(--text-dim)]">Loading…</p>
@@ -136,9 +144,11 @@ export function PipelinesPanel() {
               title="No pipelines yet"
               description="Create reusable pipeline templates for the workspace."
               action={
-                <Button size="sm" variant="primary" onClick={startNew}>
-                  Create pipeline
-                </Button>
+                canAdmin ? (
+                  <Button size="sm" variant="primary" onClick={startNew}>
+                    Create pipeline
+                  </Button>
+                ) : undefined
               }
             />
           ) : (
@@ -147,7 +157,9 @@ export function PipelinesPanel() {
                 <li key={p.id}>
                   <button
                     type="button"
-                    onClick={() => startEdit(p)}
+                    onClick={() => {
+                      if (canAdmin) startEdit(p)
+                    }}
                     aria-pressed={selectedId === p.id}
                     className={[
                       'flex w-full items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-left transition-colors duration-[var(--dur-fast)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-elev-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
@@ -178,7 +190,7 @@ export function PipelinesPanel() {
         </>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
-          {selectedId && selectedId !== 'new' ? (
+          {canAdmin && selectedId && selectedId !== 'new' ? (
             <button
               type="button"
               onClick={() => {
@@ -199,14 +211,14 @@ export function PipelinesPanel() {
             <Input value={form.description} aria-label="Description" onChange={(e) => set({ description: e.target.value })} />
           </label>
 
-          {editing && !confirmDelete ? (
+          {canAdmin && editing && !confirmDelete ? (
             <div className="mt-1 border-t border-[var(--border)] pt-1.5">
               <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)} disabled={saving}>
                 Delete pipeline
               </Button>
             </div>
           ) : null}
-          {editing && confirmDelete ? (
+          {canAdmin && editing && confirmDelete ? (
             <div className="mt-1 flex flex-col gap-1 rounded-md border border-[var(--err)]/30 bg-[var(--err)]/15 p-2">
               <span className="text-xs text-[var(--err-text)]">Delete {editing.name}?</span>
               <span className="flex gap-1.5">
@@ -221,9 +233,11 @@ export function PipelinesPanel() {
           ) : null}
 
           <div className="mt-1 flex gap-1.5 border-t border-[var(--border)] pt-1.5">
-            <Button size="sm" variant="primary" type="submit" disabled={saving}>
-              Save
-            </Button>
+            {canAdmin && (
+              <Button size="sm" variant="primary" type="submit" disabled={saving}>
+                Save
+              </Button>
+            )}
             <Button size="sm" variant="ghost" type="button" onClick={cancel} disabled={saving}>
               Cancel
             </Button>

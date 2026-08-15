@@ -11,6 +11,7 @@ import { runDemo } from './demoMock'
 import { listRuns, resumeRun, cancelRun, ApiError } from '../../shared/lib/api'
 import { useBudgetOverrideStore } from '../costs/budgetOverrideStore'
 import { useHitlGateStore } from '../../stores/hitlGateStore'
+import { useAuthStore } from '../../stores/authStore'
 import { Alert } from '../../shared/ui/Alert'
 import type { Run } from '../../shared/lib/types'
 
@@ -89,6 +90,12 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
   const activeRunPaused = activeRun?.status === 'paused'
   const runCancellable = activeRun !== null && (activeRun.status === 'running' || activeRun.status === 'queued' || activeRun.status === 'paused')
 
+  // RBAC (T6): resume/cancel exigem runner+; budget override (banner) admin.
+  // can() sem principal (auth off/demo) retorna true — BC preservado.
+  const can = useAuthStore((s) => s.can)
+  const canRun = can('runner')
+  const canAdmin = can('admin')
+
   const handleCancel = () => {
     if (!runCancellable) return
     if (!confirmCancel) {
@@ -164,14 +171,14 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
             <QueueBadge />
             {/* Demo rebaixado (Gemini): secundário — a ação principal é o
                 prompt customizado (grupo do NewRunForm). */}
-            {activeRunPaused && (
+            {canRun && activeRunPaused && (
               <Button size="sm" variant="primary" onClick={handleResume} disabled={resuming}>
                 {resuming ? 'Resuming…' : 'Resume'}
               </Button>
             )}
             {/* Cancelar (item 1): 2 cliques — 1º arma "Confirm cancel?", 2º
                 dispara. Nunca aparece para completed/failed. */}
-            {runCancellable && (
+            {canRun && runCancellable && (
               <Button size="sm" variant="ghost" onClick={handleCancel} disabled={cancelling}>
                 {cancelling ? 'Cancelling…' : confirmCancel ? 'Confirm cancel?' : 'Cancel'}
               </Button>
@@ -207,12 +214,16 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
             <Alert tone="warn" data-testid="run-paused-banner">
               Run paused — budget hard-stop reached. Adjust budget or resume.
               <span className="ml-2 inline-flex gap-2">
-                <Button size="sm" variant="primary" onClick={handleResume} disabled={resuming}>
-                  {resuming ? 'Resuming…' : 'Resume'}
-                </Button>
-                <Button size="sm" variant="subtle" onClick={() => openOverride(activeRun.id)}>
-                  Budget override
-                </Button>
+                {canRun && (
+                  <Button size="sm" variant="primary" onClick={handleResume} disabled={resuming}>
+                    {resuming ? 'Resuming…' : 'Resume'}
+                  </Button>
+                )}
+                {canAdmin && (
+                  <Button size="sm" variant="subtle" onClick={() => openOverride(activeRun.id)}>
+                    Budget override
+                  </Button>
+                )}
               </span>
             </Alert>
           )

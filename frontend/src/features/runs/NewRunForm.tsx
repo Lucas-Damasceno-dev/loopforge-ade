@@ -6,6 +6,7 @@ import { Select } from '../../shared/ui/Select'
 import { Input } from '../../shared/ui/Input'
 import { showToast } from '../../stores/toastStore'
 import { usePipelinesStore } from '../../stores/pipelinesStore'
+import { useAuthStore } from '../../stores/authStore'
 import type { CreateRunInput, Run } from '../../shared/lib/types'
 
 export interface NewRunFormProps {
@@ -111,6 +112,17 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
     setStack(preset.stack)
     setRoutingMode(preset.mode)
     setShowPresets(false)
+  }
+
+  // RBAC (T6): criar run exige role runner+ (viewer é read-only). can() sem
+  // principal (auth off/demo) retorna true — BC preservado.
+  const can = useAuthStore((s) => s.can)
+  if (!can('runner')) {
+    return (
+      <p className="px-0.5 text-xs text-[var(--text-dim)]">
+        Read-only — role runner ou admin necessária para iniciar runs.
+      </p>
+    )
   }
 
   return (
