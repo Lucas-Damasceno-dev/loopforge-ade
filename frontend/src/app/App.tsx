@@ -123,6 +123,8 @@ export function App() {
       dispatchWsEvent,
       runs: () => useRunsStore.getState().runs,
       activeRunId: () => useRunsStore.getState().activeRunId,
+      setPrincipal: (p: { name: string; roles: string[] } | null) =>
+        useAuthStore.getState().setPrincipal(p),
     }
     ;(window as unknown as Record<string, unknown>).__lfTest = hook
   }, [])
