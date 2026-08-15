@@ -5,6 +5,7 @@ import { SidebarHost } from '../SidebarHost'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useAgentsStore } from '../../../stores/agentsStore'
 import { usePipelinesStore } from '../../../stores/pipelinesStore'
+import { useAuthStore } from '../../../stores/authStore'
 
 // Painéis inline fazem fetch no mount — listas vazias por default.
 vi.mock('../../../shared/lib/api', async (importOriginal) => {
@@ -98,5 +99,25 @@ describe('SidebarHost', () => {
     expect(screen.getByRole('button', { name: /create pipeline/i })).toBeInTheDocument()
     expect(screen.queryByText(/pipeline studio — coming in a later phase/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /open panel/i })).not.toBeInTheDocument()
+  })
+})
+
+// ─── RBAC: guard de view admin-only (mcp/settings → VIEW_ROLE) ──────────────
+
+describe('SidebarHost role guard (RBAC)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ principal: null })
+  })
+
+  it('sem principal (BC): view admin-only (mcp) renderiza normalmente', () => {
+    renderHost('mcp')
+    expect(screen.getByRole('heading', { name: 'MCP playground' })).toBeInTheDocument()
+  })
+
+  it('viewer: active=mcp → guard retorna null (nada renderizado)', () => {
+    useAuthStore.setState({ principal: { name: 'viewer', roles: ['viewer'] } })
+    renderHost('mcp')
+    expect(screen.queryByRole('aside')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'MCP playground' })).not.toBeInTheDocument()
   })
 })

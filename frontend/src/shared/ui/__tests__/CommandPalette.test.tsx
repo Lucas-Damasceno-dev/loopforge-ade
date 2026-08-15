@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CommandPalette } from '../CommandPalette'
 import { COMMANDS } from '../../lib/commands'
 import type { PaletteCtx } from '../../lib/commands'
+import { useAuthStore } from '../../../stores/authStore'
 
 function makeCtx(): PaletteCtx {
   return {
@@ -122,5 +123,44 @@ describe('CommandPalette (T7)', () => {
     } finally {
       trigger.remove()
     }
+  })
+})
+
+// ─── RBAC: filtro por role (budget-override=admin, new-run=runner) ──────────
+
+describe('CommandPalette role filtering (RBAC)', () => {
+  let ctx: PaletteCtx
+  let onClose: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    ctx = makeCtx()
+    onClose = vi.fn()
+    useAuthStore.setState({ principal: null })
+  })
+
+  it('sem principal (BC): budget-override (admin) e new-run (runner) visíveis', () => {
+    renderPalette(ctx, onClose)
+    expect(screen.getByRole('option', { name: /Budget override/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /New run/ })).toBeInTheDocument()
+  })
+
+  it('admin: budget-override e new-run visíveis', () => {
+    useAuthStore.setState({ principal: { name: 'admin', roles: ['admin'] } })
+    renderPalette(ctx, onClose)
+    expect(screen.getByRole('option', { name: /Budget override/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /New run/ })).toBeInTheDocument()
+  })
+
+  it('viewer: budget-override (admin) e new-run (runner) ocultos', () => {
+    useAuthStore.setState({ principal: { name: 'viewer', roles: ['viewer'] } })
+    renderPalette(ctx, onClose)
+    expect(screen.queryByRole('option', { name: /Budget override/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /New run/ })).not.toBeInTheDocument()
+  })
+
+  it('viewer: comando sem role (view-runs) permanece visível', () => {
+    useAuthStore.setState({ principal: { name: 'viewer', roles: ['viewer'] } })
+    renderPalette(ctx, onClose)
+    expect(screen.getByRole('option', { name: /Runs/ })).toBeInTheDocument()
   })
 })
