@@ -125,15 +125,73 @@ describe('NewRunForm', () => {
     })
   })
 
-  it('com seleção de pipeline → pipeline_id no payload', async () => {
+  it('com seleção de pipeline → modal de snapshot e pipeline_id no payload', async () => {
     renderForm()
     const select = await screen.findByLabelText(/pipeline/i)
     fireEvent.change(select, { target: { value: 'p2' } })
     fireEvent.change(screen.getByLabelText(/idea/i), { target: { value: 'build a cli' } })
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    // S3: pipeline selecionado → Run abre o preview do snapshot (não cria direto)
+    expect(await screen.findByText(/Snapshot do pipeline/i)).toBeTruthy()
+    fireEvent.click(screen.getByText('Criar run'))
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
-      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full', interactive: true, pipeline_id: 'p2' })
+      expect(args?.[0]).toEqual({
+        idea: 'build a cli',
+        stack: 'python',
+        routing_mode: 'full',
+        interactive: true,
+        pipeline_id: 'p2',
+        snapshot: expect.objectContaining({ name: 'Security audit', description: 'd' }),
+      })
+    })
+  })
+
+  it('com pipeline selecionado, Run abre modal de snapshot; confirmar envia snapshot', async () => {
+    usePipelinesStore.setState({
+      pipelines: [
+        {
+          id: 'p1',
+          name: 'SnapPipe',
+          description: 'desc original',
+          nodes: [{ id: 'n1', type: 'agent', agent_id: null, config: {} }],
+          edges: [],
+          created_at: '',
+          updated_at: '',
+        },
+      ],
+    })
+    renderForm()
+    fireEvent.change(screen.getByLabelText('Idea'), { target: { value: 'minha ideia' } })
+    fireEvent.change(screen.getByLabelText('Pipeline (optional)'), { target: { value: 'p1' } })
+    fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    // Modal de snapshot aparece
+    expect(await screen.findByText(/Snapshot do pipeline/i)).toBeTruthy()
+    // Edita a descrição e confirma
+    const desc = screen.getByLabelText('Descrição do snapshot')
+    fireEvent.change(desc, { target: { value: 'desc editada' } })
+    fireEvent.click(screen.getByText('Criar run'))
+    await waitFor(() => {
+      const args = vi.mocked(createRun).mock.calls[0]
+      expect(args?.[0]).toEqual(
+        expect.objectContaining({
+          idea: 'minha ideia',
+          pipeline_id: 'p1',
+          snapshot: expect.objectContaining({ description: 'desc editada', name: 'SnapPipe' }),
+        }),
+      )
+    })
+  })
+
+  it('sem pipeline selecionado, Run envia direto (sem modal, sem snapshot)', async () => {
+    renderForm()
+    fireEvent.change(screen.getByLabelText('Idea'), { target: { value: 'direta' } })
+    fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    await waitFor(() => {
+      const args = vi.mocked(createRun).mock.calls[0]
+      expect(args?.[0]).toEqual(
+        expect.not.objectContaining({ snapshot: expect.anything() }),
+      )
     })
   })
 
