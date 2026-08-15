@@ -1,4 +1,5 @@
-import { VIEWS_META, WORKSPACE_GROUPS } from '../lib/views'
+import { useAuthStore } from '../../stores/authStore'
+import { VIEW_ROLE, VIEWS_META, WORKSPACE_GROUPS } from '../lib/views'
 import type { ViewKey } from '../lib/views'
 import { Icon } from './icons'
 
@@ -16,15 +17,19 @@ export interface ActivityRailProps {
 // exceder a altura — scrollbar fina global (tokens.css) aparece quando
 // overflow (affordance; oculta aqui tornaria o fim da lista inalcançável).
 export function ActivityRail({ active, onSelect }: ActivityRailProps) {
+  const can = useAuthStore((s) => s.can)
   return (
     <nav
       aria-label="Activity"
       className="flex w-[var(--rail-w)] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg)] py-1"
     >
-      {WORKSPACE_GROUPS.map(({ group, views }, gi) => (
-        <div key={group}>
-          {gi > 0 && <div className="mx-1 my-1 h-px bg-[var(--border)]" aria-hidden="true" />}
-          {views.map((key) => {
+      {WORKSPACE_GROUPS.map(({ group, views }, gi) => {
+        const allowed = views.filter((key) => can(VIEW_ROLE[key] ?? 'viewer'))
+        if (allowed.length === 0) return null
+        return (
+          <div key={group}>
+            {gi > 0 && <div className="mx-1 my-1 h-px bg-[var(--border)]" aria-hidden="true" />}
+            {allowed.map((key) => {
             const meta = VIEWS_META[key]
             const isActive = active === key
             return (
@@ -53,9 +58,10 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
                 <Icon name={meta.icon} className="h-5 w-5 shrink-0" />
               </button>
             )
-          })}
-        </div>
-      ))}
+            })}
+          </div>
+        )
+      })}
     </nav>
   )
 }

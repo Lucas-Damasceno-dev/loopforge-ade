@@ -20,11 +20,13 @@ export interface Command {
   /** Atalho exibido à direita (registro global só do ⌘K no MVP). */
   kbd?: string
   keywords: string[]
+  /** Role mínima (RBAC). Ausente = qualquer principal. */
+  role?: string
   run: (ctx: PaletteCtx) => void
 }
 
 export const COMMANDS: Command[] = [
-  { id: 'new-run', title: 'New run', kbd: '⌘⏎', keywords: ['run', 'new', 'create', 'start', 'pipeline'], run: (ctx) => ctx.focusNewRunIdea() },
+  { id: 'new-run', title: 'New run', kbd: '⌘⏎', role: 'runner', keywords: ['run', 'new', 'create', 'start', 'pipeline'], run: (ctx) => ctx.focusNewRunIdea() },
   { id: 'view-runs', title: 'Runs', keywords: ['runs', 'queue', 'history', 'open'], run: (ctx) => ctx.openView('runs') },
   { id: 'view-prompt', title: 'Prompt', keywords: ['prompt', 'idea', 'prompting', 'open'], run: (ctx) => ctx.openView('prompt') },
   { id: 'view-memory', title: 'Memory', keywords: ['memory', 'lessons', 'open'], run: (ctx) => ctx.openView('memory') },
@@ -33,7 +35,7 @@ export const COMMANDS: Command[] = [
   { id: 'toggle-console', title: 'Toggle console', kbd: '⌘J', keywords: ['console', 'logs', 'panel', 'output', 'toggle'], run: (ctx) => ctx.toggleConsole() },
   { id: 'toggle-inspector', title: 'Toggle inspector', kbd: '⌘I', keywords: ['inspector', 'details', 'cost', 'toggle'], run: (ctx) => ctx.toggleInspector() },
   { id: 'focus-mode', title: 'Focus mode', kbd: '⌘⇧F', keywords: ['focus', 'fullscreen', 'canvas', 'zen'], run: (ctx) => ctx.toggleFocus() },
-  { id: 'budget-override', title: 'Budget override', kbd: '⌘⇧B', keywords: ['budget', 'override', 'cost', 'limit', 'spend'], run: (ctx) => ctx.openBudgetOverride() },
+  { id: 'budget-override', title: 'Budget override', kbd: '⌘⇧B', role: 'admin', keywords: ['budget', 'override', 'cost', 'limit', 'spend'], run: (ctx) => ctx.openBudgetOverride() },
   // Fechar é manipulado pela UI (Esc/overlay); o comando existe p/ busca.
   { id: 'palette-close', title: 'Close palette', keywords: ['close', 'dismiss', 'escape', 'cancel'], run: () => {} },
 ]

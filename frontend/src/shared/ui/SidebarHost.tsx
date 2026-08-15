@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { INLINE_VIEWS, PANEL_VIEWS, SUMMARY_VIEWS, VIEWS_META } from '../lib/views'
+import { INLINE_VIEWS, PANEL_VIEWS, SUMMARY_VIEWS, VIEW_ROLE, VIEWS_META } from '../lib/views'
 import type { ViewKey } from '../lib/views'
 import { RUN_SUMMARY_TONE } from '../lib/runStatus'
 import { CloseIcon } from './icons'
@@ -14,6 +14,7 @@ import { PromptPanelContent } from '../../features/prompts/PromptPanel'
 import { SettingsPanelContent } from '../../features/settings/SettingsPanel'
 import { GitPanelContent } from '../../features/git/GitPanel'
 import { useRunsStore } from '../../stores/runsStore'
+import { useAuthStore } from '../../stores/authStore'
 import { shortId } from '../../features/trajectories/shortId'
 import type { Run } from '../lib/types'
 
@@ -52,6 +53,7 @@ export function SidebarHost({ active, onClose, onExpand }: SidebarHostProps) {
   const runs = useRunsStore((s) => s.runs)
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const selectRun = useRunsStore((s) => s.selectRun)
+  const can = useAuthStore((s) => s.can)
 
   // Esc fecha (padrão Drawer): listener global enquanto a sidebar está aberta.
   useEffect(() => {
@@ -64,6 +66,7 @@ export function SidebarHost({ active, onClose, onExpand }: SidebarHostProps) {
   }, [active, onClose])
 
   if (!active) return null
+  if (!can(VIEW_ROLE[active] ?? 'viewer')) return null
 
   const label = VIEWS_META[active].label
   const isInline = INLINE_VIEWS.includes(active)

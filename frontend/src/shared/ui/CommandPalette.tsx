@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { COMMANDS, filterCommands } from '../lib/commands'
 import type { Command, PaletteCtx } from '../lib/commands'
+import { useAuthStore } from '../../stores/authStore'
 
 // ─── Command palette ⌘K (T7, MVP) ─────────────────────────────────────────
 // Overlay modal central (560px): input de filtro com auto-focus, lista de
@@ -18,7 +19,8 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
   const dialogRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
 
-  const results = useMemo(() => filterCommands(query), [query])
+  const can = useAuthStore((s) => s.can)
+  const results = useMemo(() => filterCommands(query).filter((c) => !c.role || can(c.role)), [query, can])
 
   // Ao abrir: guarda o elemento que tinha foco (trigger ⌘K), reseta query/
   // seleção e foca o input (após o overlay montar). Ao fechar/desmontar:

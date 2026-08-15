@@ -62,6 +62,12 @@ export const WORKSPACE_GROUPS: ViewGroup[] = [
   { group: 'System & Settings', views: ['git', 'health', 'prompts', 'settings'] },
 ]
 
+/** Role mínima p/ ver cada view (RBAC). Ausente = 'viewer' (default). */
+export const VIEW_ROLE: Partial<Record<ViewKey, string>> = {
+  mcp: 'admin',
+  settings: 'admin',
+}
+
 /** Views com painel próprio (drawer/sidebar) — usadas pelo App p/ derivar
  *  `open` dos painéis a partir do activeView. */
 export const PANEL_VIEWS: ViewKey[] = [
