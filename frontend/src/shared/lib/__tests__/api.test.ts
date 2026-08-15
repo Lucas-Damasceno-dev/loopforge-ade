@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents, listAgents, getAgent, createAgent, updateAgent, deleteAgent, listPipelines, getPipeline, createPipeline, updatePipeline, deletePipeline, validatePipeline } from '../api'
+import { createRun, listRuns, getRunCost, getRunArtifacts, getRunQueue, overrideRunBudget, apiFetch, ApiError, getApiKey, setApiKey, onUnauthorized, retryUnauthorizedRequests, rejectPendingUnauthorized, forkTrajectory, exportTrajectory, importTrajectory, getRunTimeline, threadIdForRun, callMcpTool, listLessons, createLesson, deleteLesson, getGitInfo, getHealth, getRunEvents, listAgents, getAgent, createAgent, updateAgent, deleteAgent, listPipelines, getPipeline, createPipeline, updatePipeline, deletePipeline, validatePipeline, cancelRun } from '../api'
 import type { ArtifactsResponse, Pipeline } from '../types'
 
 describe('api client', () => {
@@ -20,13 +20,59 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/runs'), expect.anything())
   })
 
-  it('createRun POSTs idea + stack + routing_mode (defaults mock_llm/interactive false)', async () => {
+  it('createRun POSTs idea + stack + routing_mode (mock_llm default false; interactive NÃO é forçado)', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'r2', idea: 'hi', status: 'pending' }), { status: 200 }))
     const run = await createRun({ idea: 'hi', stack: 'go', routing_mode: 'fast' })
     expect(run.id).toBe('r2')
     const [, init] = vi.mocked(fetch).mock.calls[0]
     expect(init?.method).toBe('POST')
-    expect(JSON.parse(String(init?.body))).toEqual({ idea: 'hi', stack: 'go', routing_mode: 'fast', mock_llm: false, interactive: false })
+    // A3: sem interactive no body quando o input não o traz (NewRunForm decide).
+    expect(JSON.parse(String(init?.body))).toEqual({ idea: 'hi', stack: 'go', routing_mode: 'fast', mock_llm: false })
+  })
+
+  it('createRun repassa interactive quando presente no input (A3)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'r2', idea: 'hi', status: 'pending' }), { status: 200 }))
+    await createRun({ idea: 'hi', stack: 'go', interactive: true })
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(String(init?.body))).toEqual({ idea: 'hi', stack: 'go', interactive: true, mock_llm: false })
+  })
+
+  it('cancelRun POSTs /runs/{id}/cancel (item 1)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'r1', idea: 'x', stack: 'python', status: 'failed' }), { status: 200 }))
+    const res = await cancelRun('r1')
+    expect(res.status).toBe('failed')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/v1/runs/r1/cancel')
+    expect(init?.method).toBe('POST')
+  })
+
+  it('cancelRun propaga 409 como erro de negócio (run não cancelável)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ detail: 'run not cancellable' }), { status: 409 }))
+    await expect(cancelRun('r1')).rejects.toThrow(/run not cancellable/)
+  })
+
+  it('apiFetch: erro de REDE vira ApiError legível (item 3)', async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError('Failed to fetch'))
+    await expect(apiFetch('/runs')).rejects.toMatchObject({
+      status: 0,
+      detail: expect.stringContaining('Engine inacessível'),
+    })
+  })
+
+  it('apiFetch: 429 com Retry-After vira ApiError com hint (item 4)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('rate limited', { status: 429, headers: { 'Retry-After': '7' } }))
+    await expect(apiFetch('/runs')).rejects.toMatchObject({
+      status: 429,
+      detail: expect.stringContaining('aguarde 7s'),
+    })
+  })
+
+  it('apiFetch: 429 sem Retry-After vira hint genérico (item 4)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('rate limited', { status: 429 }))
+    await expect(apiFetch('/runs')).rejects.toMatchObject({
+      status: 429,
+      detail: expect.stringContaining('Muitas requisições'),
+    })
   })
 
   it('getRunCost and overrideRunBudget use /runs/{id}/cost endpoints', async () => {

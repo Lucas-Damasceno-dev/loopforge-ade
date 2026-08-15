@@ -111,7 +111,15 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (init.body) headers['Content-Type'] = 'application/json'
   const key = getApiKey()
   if (key) headers['X-API-Key'] = key
-  const res = await fetch(`${BASE}${path}`, { ...init, headers })
+  // Erro de REDE (backend down, DNS, AbortError): o fetch cru rejeita com
+  // TypeError "Failed to fetch" — embrulha em ApiError legível p/ o caller
+  // exibir (boot/resume usam .detail). status 0 = sem resposta HTTP.
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, headers })
+  } catch {
+    throw new ApiError(0, 'Engine inacessível — verifique se o backend está rodando')
+  }
 
   if (res.status === 401) {
     // Enfileira a chamada pendente; o caller continua aguardando até o retry.
@@ -119,6 +127,18 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       retryQueue.push({ path, init, resolve: resolve as (v: unknown) => void, reject })
       unauthorizedListeners.forEach((fn) => fn())
     })
+  }
+
+  if (res.status === 429) {
+    // Rate limit (rate_limit.py): hint acionável com Retry-After (segundos)
+    // quando presente — a UI que mostra ApiError.detail exibe junto.
+    const retryAfter = res.headers.get('retry-after')
+    const wait = retryAfter ? parseInt(retryAfter, 10) : NaN
+    const hint =
+      Number.isFinite(wait) && wait > 0
+        ? `Muitas requisições — aguarde ${wait}s antes de tentar de novo`
+        : 'Muitas requisições — aguarde um instante e tente de novo'
+    throw new ApiError(429, hint)
   }
 
   if (!res.ok) {
@@ -131,14 +151,25 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 // ─── Endpoints v1 ───────────────────────────────────────────────────────────
 export const listRuns = (skip = 0, limit = 50) => apiFetch<RunListResponse>(`/runs?skip=${skip}&limit=${limit}`)
+// Run única (A2 — HitlDrawer recarrega o estado real após decisão/rejeição):
+// GET /runs/{id} → RunResponse (status/current_node/degraded atualizados).
+export const getRun = (id: string) => apiFetch<Run>(`/runs/${encodeURIComponent(id)}`)
 // Fila E3 (QueueBadge): GET /runs/queue → {max_concurrent, active_count, active, queued}.
 export const getRunQueue = () => apiFetch<RunQueueResponse>('/runs/queue')
 export const createRun = (input: CreateRunInput) =>
   apiFetch<Run>('/runs', {
     method: 'POST',
-    body: JSON.stringify({ mock_llm: false, interactive: false, ...input }),
+    // A3: `interactive` NÃO é mais forçado aqui — o NewRunForm decide via
+    // checkbox (HITL). mock_llm segue default false (produção real).
+    body: JSON.stringify({ mock_llm: false, ...input }),
   })
 export const resumeRun = (id: string) => apiFetch<Run>(`/runs/${id}/resume`, { method: 'POST' })
+// Cancelar run (item 1): POST /runs/{id}/cancel — queued remove da fila,
+// running/paused cancela a task; completed/failed → 409 "run not cancellable"
+// (vira ApiError de negócio — a UI mostra a mensagem sem quebrar). O status
+// final chega via WS run_updated (wsBridge); o client ainda faz upsert local
+// como fallback quando o evento não chega.
+export const cancelRun = (id: string) => apiFetch<Run>(`/runs/${encodeURIComponent(id)}/cancel`, { method: 'POST' })
 export const getDecisions = (id: string) => apiFetch<DecisionRecord[]>(`/runs/${id}/decisions`)
 // Decide retorna a decisão gravada (HumanDecisionResponse) — não a Run.
 export const decideRun = (id: string, body: Record<string, unknown>) => apiFetch<DecisionRecord>(`/runs/${id}/decide`, { method: 'POST', body: JSON.stringify(body) })
@@ -289,7 +320,9 @@ export const saveDockerConfig = (runId: string, payload: SaveDockerConfigRequest
 // ─── Agents (S2) — CRUD /api/v1/agents (src/lf/api/agents.py) ──────────────
 export const listAgents = () => apiFetch<Agent[]>('/agents')
 export const getAgent = (id: string) => apiFetch<Agent>(`/agents/${encodeURIComponent(id)}`)
-export const createAgent = (input: AgentInput) =>
+// createAgent aceita Partial (C8): o form omite campos vazios/opcionais —
+// backend aplica defaults e valida (timeout ge=1, temperature le=2).
+export const createAgent = (input: Partial<AgentInput>) =>
   apiFetch<Agent>('/agents', { method: 'POST', body: JSON.stringify(input) })
 export const updateAgent = (id: string, input: Partial<AgentInput>) =>
   apiFetch<Agent>(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })

@@ -8,9 +8,9 @@ test('DAG renders after demo run', async ({ page }) => {
   await page.goto('/')
   await dismissApiKeyGate(page)
   await page.getByRole('button', { name: /run demo/i }).click()
-  // Escopado ao canvas: o console (T8) repete os rótulos nos <option> do
-  // filter de nó — getByText solto viraria strict mode violation.
+  // Labels reais do canvas (o nó parallel_audit expande p/ split; o texto
+  // "Parallel Audit" solto só existe no filter do console, fora do workspace).
   const dag = page.getByTestId('runs-workspace')
-  await expect(dag.getByText('Parallel Audit')).toBeVisible()
+  await expect(dag.getByLabel('Split (parallel audit, Approved)')).toBeVisible()
   await expect(dag.getByText('Tech Lead')).toBeVisible()
 })

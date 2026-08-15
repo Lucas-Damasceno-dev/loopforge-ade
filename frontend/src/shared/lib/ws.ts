@@ -12,10 +12,10 @@ export interface WsEventBase {
   event: string
   /** Sequência por run (v1 — ordenação/recuperação; não consumida na UI). */
   seq?: number
-  /** id da run (uuid do backend; presente em todos os eventos v1). */
+  /** run_id: uuid do backend (presente em todos os eventos v1). */
   run_id?: string
-  /** Epoch ms do backend (v1; nunca `ts`). */
-  timestamp?: number
+  /** Timestamp ISO 8601 do backend (string — events.py emite ISO, não epoch). */
+  timestamp?: string
   payload: Record<string, unknown>
 }
 
@@ -66,7 +66,6 @@ export interface WsEventGeneric extends WsEventBase {
   event:
     | 'run_created'
     | 'run_updated'
-    | 'run_paused'
     | 'pipeline_finished'
     | 'pipeline_failed'
     | 'pipeline_error'
@@ -95,7 +94,8 @@ const KNOWN = new Set([
   'human_decision_submitted',
   'run_created',
   'run_updated',
-  'run_paused',
+  // NOTA: 'run_paused' não existe (backend nunca emitiu — o pausado real vem
+  // de hitl_gate_reached). Evento fora do KNOWN → normalize retorna null.
   'hitl_gate_reached',
   'fork_created',
   'token_delta',
@@ -177,7 +177,9 @@ export function normalizeWsEvent(raw: unknown): WsEvent | null {
   // task_id: NO v1 vive dentro do payload; no legado, no topo. Normaliza
   // sempre para dentro do payload.
   const taskId = str(hasPayload ? payload.task_id : r.task_id)
-  const { seq, run_id, timestamp } = { seq: num(r.seq), run_id: str(r.run_id), timestamp: num(r.timestamp) }
+  // timestamp é string ISO (backend) — preserva; seq continua numérico (drops
+  // strings que viriam de payload legado).
+  const { seq, run_id, timestamp } = { seq: num(r.seq), run_id: str(r.run_id), timestamp: str(r.timestamp) }
 
   if (r.event === 'node_execution') {
     // Só aceita nós de EXECUÇÃO (entry/retry/appsec/devops não têm evento

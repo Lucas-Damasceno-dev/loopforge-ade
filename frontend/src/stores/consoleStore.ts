@@ -34,6 +34,13 @@ export interface ConsoleStream {
 interface ConsoleState {
   entries: ConsoleEntry[]
   streams: Record<string, ConsoleStream>
+  /** Chaves `${runId ?? 'system'}:${node}` cujo stream já foi finalizado
+   *  (H3). Token_delta atrasado (backfill pós-reconnect, wsStore.ts) pode
+   *  chegar DEPOIS do node_execution live já ter promovido o buffer a log —
+   *  sem esse guard, o appendStream re-criaria um buffer órfão que nunca
+   *  flusheia. Nó só completa uma vez (retry HITL pausa antes de concluir),
+   *  então o marker nunca bloqueia um stream legítimo. */
+  finishedStreams: Record<string, true>
   filters: ConsoleFilters
   autoScroll: boolean
   /** Colapso do painel (T7): fonte do estado no store — a command palette
@@ -57,6 +64,7 @@ interface ConsoleState {
 export const useConsoleStore = create<ConsoleState>((set) => ({
   entries: [],
   streams: {},
+  finishedStreams: {},
   filters: { node: 'all', level: 'all', query: '' },
   autoScroll: true,
   collapsed: true,
@@ -76,6 +84,10 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   // Streaming (V1.1/ADR-0007): acumula o chunk incremental no buffer do nó.
   appendStream: (node, content, runId) =>
     set((s) => {
+      // H3: stream já finalizado (node_execution live já flusheou) → descarta
+      // chunk atrasado de backfill em vez de re-criar buffer órfão.
+      const key = `${runId ?? 'system'}:${node}`
+      if (s.finishedStreams[key]) return {}
       const prev = s.streams[node]
       const wasEmpty = s.entries.length === 0 && Object.keys(s.streams).length === 0
       return {
@@ -108,14 +120,20 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
       }
       const streams = { ...s.streams }
       delete streams[node]
-      return { streams, entries: [...s.entries, entry] }
+      return {
+        streams,
+        entries: [...s.entries, entry],
+        // H3: marca o stream como concluído (chave por runId:node) p/ o guard
+        // do appendStream descartar chunks atrasados.
+        finishedStreams: { ...s.finishedStreams, [`${buf.runId ?? 'system'}:${node}`]: true },
+      }
     }),
 
   setFilters: (partial) => set((s) => ({ filters: { ...s.filters, ...partial } })),
 
   toggleAutoScroll: () => set((s) => ({ autoScroll: !s.autoScroll })),
 
-  clear: () => set({ entries: [], streams: {}, collapsed: true }),
+  clear: () => set({ entries: [], streams: {}, finishedStreams: {}, collapsed: true }),
 
   setCollapsed: (v) => set({ collapsed: v }),
 

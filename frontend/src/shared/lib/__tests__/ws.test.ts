@@ -25,22 +25,22 @@ describe('normalizeWsEvent', () => {
       seq: 3,
       event: 'node_execution',
       run_id: 'uuid-1',
-      timestamp: 1234,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { node: 'developer', status: 'completed', next_agent: 'qa', attempt_count: 2, task_id: 't-9' },
     }
     expect(normalizeWsEvent(raw)).toMatchObject({
       seq: 3,
       event: 'node_execution',
       run_id: 'uuid-1',
-      timestamp: 1234,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { node: 'developer', status: 'completed', next_agent: 'qa', attempt_count: 2, task_id: 't-9' },
     })
   })
   it('keeps legacy flat dispatcher events working (task_id moved into payload)', () => {
-    const raw = { event: 'node_execution', task_id: 't', timestamp: 1, node: 'developer', status: 'completed' }
+    const raw = { event: 'node_execution', task_id: 't', timestamp: '2026-08-15T10:00:00Z', node: 'developer', status: 'completed' }
     expect(normalizeWsEvent(raw)).toMatchObject({
       event: 'node_execution',
-      timestamp: 1,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { node: 'developer', task_id: 't' },
     })
   })
@@ -67,30 +67,28 @@ describe('normalizeWsEvent', () => {
     expect(normalizeWsEvent({ event: 'mystery' })).toBeNull()
   })
   it('normalizes generic events: v1 run_updated payload and legacy flat run_created', () => {
-    const v1 = normalizeWsEvent({ seq: 1, event: 'run_updated', run_id: 'r1', timestamp: 5, payload: { status: 'paused', current_node: 'qa' } })
-    expect(v1).toMatchObject({ event: 'run_updated', run_id: 'r1', timestamp: 5, payload: { status: 'paused', current_node: 'qa' } })
+    const v1 = normalizeWsEvent({ seq: 1, event: 'run_updated', run_id: 'r1', timestamp: '2026-08-15T10:00:00Z', payload: { status: 'paused', current_node: 'qa' } })
+    expect(v1).toMatchObject({ event: 'run_updated', run_id: 'r1', timestamp: '2026-08-15T10:00:00Z', payload: { status: 'paused', current_node: 'qa' } })
     const legacy = normalizeWsEvent({ event: 'run_created', run_id: 'r2', idea: 'x', status: 'queued' })
     expect(legacy).toMatchObject({ event: 'run_created', run_id: 'r2', payload: { idea: 'x', status: 'queued' } })
   })
-  it('normalizes run_paused with status payload', () => {
-    expect(normalizeWsEvent({ event: 'run_paused', run_id: 'r1', payload: { status: 'paused' } })).toMatchObject({
-      event: 'run_paused',
-      run_id: 'r1',
-      payload: { status: 'paused' },
-    })
+  it('run_paused is not a known event anymore (backend never emitted it)', () => {
+    // C9/A1: 'run_paused' saiu do KNOWN — o pausado real chega via
+    // hitl_gate_reached. Envelope fora do KNOWN → null.
+    expect(normalizeWsEvent({ event: 'run_paused', run_id: 'r1', payload: { status: 'paused' } })).toBeNull()
   })
   it('normalizes hitl_gate_reached with typed payload (C3)', () => {
     const raw = {
       seq: 7,
       event: 'hitl_gate_reached',
       run_id: 'r1',
-      timestamp: 123,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { gate_node: 'qa', thread_id: 'run-r1', timeout_seconds: 300, on_timeout: 'continue', ts: 456 },
     }
     expect(normalizeWsEvent(raw)).toMatchObject({
       event: 'hitl_gate_reached',
       run_id: 'r1',
-      timestamp: 123,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { gate_node: 'qa', thread_id: 'run-r1', timeout_seconds: 300, on_timeout: 'continue', ts: 456 },
     })
   })
@@ -121,11 +119,11 @@ describe('normalizeWsEvent', () => {
     // Sem node no snapshot → envelope desconhecido.
     expect(normalizeWsEvent({ event: 'node_execution', payload: 'oops' })).toBeNull()
   })
-  it('drops non-numeric seq/timestamp/attempt_count instead of coercing', () => {
-    const raw = { seq: '3', event: 'node_execution', run_id: 'r1', timestamp: '1234', payload: { node: 'qa', attempt_count: '2' } }
+  it('preserva timestamp string ISO (backend) e dropa seq/attempt_count não-numéricos', () => {
+    const raw = { seq: '3', event: 'node_execution', run_id: 'r1', timestamp: '2026-08-15T10:00:00Z', payload: { node: 'qa', attempt_count: '2' } }
     const ev = normalizeWsEvent(raw)
     expect(ev?.seq).toBeUndefined()
-    expect(ev?.timestamp).toBeUndefined()
+    expect(ev?.timestamp).toBe('2026-08-15T10:00:00Z')
     expect(ev && 'attempt_count' in ev.payload ? ev.payload.attempt_count : undefined).toBeUndefined()
     expect(ev).toMatchObject({ event: 'node_execution', payload: { node: 'qa' } })
   })
@@ -147,14 +145,14 @@ describe('normalizeWsEvent', () => {
       seq: 9,
       event: 'token_delta',
       run_id: 'r1',
-      timestamp: 123,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { node: 'developer', content: 'Ola' },
     }
     expect(normalizeWsEvent(raw)).toMatchObject({
       seq: 9,
       event: 'token_delta',
       run_id: 'r1',
-      timestamp: 123,
+      timestamp: '2026-08-15T10:00:00Z',
       payload: { node: 'developer', content: 'Ola' },
     })
   })

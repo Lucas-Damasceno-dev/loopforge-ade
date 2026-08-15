@@ -52,8 +52,8 @@ export type NodeType =
   | 'output'
   | 'gate'
 
-// Status da run: backend agora também emite queued (fila) e paused
-// (HITL/timeout) via run_updated/run_paused e GET /api/runs.
+// Status da run: backend também emite queued (fila) e paused (HITL/budget) via
+// run_updated, hitl_gate_reached e GET /api/runs.
 export type RunStatus = 'pending' | 'queued' | 'running' | 'paused' | 'completed' | 'failed'
 
 export interface Run {

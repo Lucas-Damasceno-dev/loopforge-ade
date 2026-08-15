@@ -12,6 +12,8 @@ vi.mock('../../../shared/lib/api', () => ({
   getDecisions: vi.fn().mockResolvedValue([]),
   getCheckpoints: vi.fn().mockResolvedValue([]),
   getCheckpoint: vi.fn(),
+  // A2: drawer recarrega o estado real da run após a decisão (best-effort).
+  getRun: vi.fn().mockResolvedValue({ id: 'r1', idea: 'x', stack: '', status: 'running' }),
 }))
 
 // Reset dos stores + mocks entre testes (os `not.toHaveBeenCalled()` de
@@ -100,4 +102,30 @@ it('abort requires destructive confirmation before sending', async () => {
   expect(dialog).toBeInTheDocument()
   await userEvent.click(within(dialog).getByRole('button', { name: /^abort$/i }))
   expect(decideRun).toHaveBeenCalledWith('r1', expect.objectContaining({ action: 'abort', gate_node: 'qa' }))
+})
+it('enviar feedback (categoria + mensagem) no payload do decideRun (item 3)', async () => {
+  useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
+  useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
+  render(<HitlDrawer />)
+  await userEvent.selectOptions(screen.getByLabelText('Categoria do feedback'), 'bug')
+  await userEvent.type(screen.getByLabelText('Mensagem de feedback (opcional)'), 'O código quebrou no caso de borda X')
+  await userEvent.click(screen.getByRole('button', { name: /approve/i }))
+  expect(decideRun).toHaveBeenCalledWith(
+    'r1',
+    expect.objectContaining({
+      action: 'approve',
+      gate_node: 'qa',
+      feedback_category: 'bug',
+      feedback_message: 'O código quebrou no caso de borda X',
+    }),
+  )
+})
+it('sem feedback preenchido, envia categoria default general (item 3)', async () => {
+  useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
+  useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
+  render(<HitlDrawer />)
+  await userEvent.click(screen.getByRole('button', { name: /approve/i }))
+  expect(decideRun).toHaveBeenCalledWith('r1', expect.objectContaining({ action: 'approve', gate_node: 'qa', feedback_category: 'general' }))
+  // Mensagem vazia → campo ausente do payload.
+  expect(decideRun).not.toHaveBeenCalledWith('r1', expect.objectContaining({ feedback_message: '' }))
 })

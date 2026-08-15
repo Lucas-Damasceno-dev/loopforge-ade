@@ -28,6 +28,9 @@ const EMPTY_FORM: FormState = { name: '', description: '' }
 // aria-live via Alert err (role=alert).
 export function PipelinesPanel() {
   const pipelines = usePipelinesStore((s) => s.pipelines)
+  // Fetch inicial em andamento (store.loading) → indicador em vez do
+  // EmptyState prematuro ("No pipelines yet" flash durante o GET).
+  const pipelinesLoading = usePipelinesStore((s) => s.loading)
   const [view, setView] = useState<'list' | 'form'>('list')
   const [editing, setEditing] = useState<Pipeline | null>(null)
   // Wire T9 (editorStore.open): nesta task o clique só marca a seleção
@@ -125,7 +128,9 @@ export function PipelinesPanel() {
               + New pipeline
             </Button>
           </div>
-          {pipelines.length === 0 ? (
+          {pipelinesLoading ? (
+            <p className="px-2 py-6 text-sm text-[var(--text-dim)]">Loading…</p>
+          ) : pipelines.length === 0 ? (
             <EmptyState
               compact
               title="No pipelines yet"

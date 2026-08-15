@@ -82,9 +82,48 @@ describe('handleWsEvent edge cases', () => {
     expect(gates[0]).toMatchObject({ gateNode: '?', runId: undefined, threadId: undefined })
   })
 
-  it('run_paused without run_id is a no-op', () => {
-    expect(() => dispatchWsEvent({ event: 'run_paused', payload: { status: 'paused' } })).not.toThrow()
+  it('run_paused não existe mais — evento desconhecido vira no-op (sem crash)', () => {
+    // A1: backend nunca emitiu run_paused; o handler foi removido. Dispatch de
+    // um evento com esse nome (nunca normalizado pelo client) não pode quebrar.
+    expect(() => dispatchWsEvent({ event: 'run_paused' as never, payload: { status: 'paused' } })).not.toThrow()
     expect(useRunsStore.getState().runs).toHaveLength(0)
+    expect(useCanvasStore.getState().nodeStatus).toEqual({})
+  })
+
+  it('hitl_gate_reached marca o nó do gate como paused + run paused (A1)', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'x', stack: 'python', status: 'running' })
+    dispatchWsEvent({ event: 'hitl_gate_reached', run_id: 'r1', payload: { gate_node: 'qa', timeout_seconds: 300 } })
+    // Nó paused → HitlDrawer abre (primeiro nó paused na PIPELINE_ORDER).
+    expect(useCanvasStore.getState().nodeStatus.qa?.status).toBe('paused')
+    // Run paused → badge + botão Resume na UI de runs.
+    expect(useRunsStore.getState().runs.find((r) => r.id === 'r1')?.status).toBe('paused')
+    // Banner do hitlGateStore segue complementar.
+    expect(useHitlGateStore.getState().gates).toHaveLength(1)
+  })
+
+  it('hitl_gate_reached com gate_node desconhecido não toca o canvas (só run)', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'x', stack: 'python', status: 'running' })
+    dispatchWsEvent({ event: 'hitl_gate_reached', run_id: 'r1', payload: { gate_node: 'mystery' } })
+    expect(useCanvasStore.getState().nodeStatus).toEqual({})
+    expect(useRunsStore.getState().runs.find((r) => r.id === 'r1')?.status).toBe('paused')
+  })
+
+  it('human_decision_submitted limpa o paused do nó (approve → approved)', () => {
+    useCanvasStore.getState().setNodeStatus('qa', 'paused')
+    dispatchWsEvent({ event: 'human_decision_submitted', run_id: 'r1', payload: { action: 'approve', gate_node: 'qa' } })
+    expect(useCanvasStore.getState().nodeStatus.qa?.status).toBe('approved')
+  })
+
+  it('human_decision_submitted abort → rejected', () => {
+    useCanvasStore.getState().setNodeStatus('qa', 'paused')
+    dispatchWsEvent({ event: 'human_decision_submitted', run_id: 'r1', payload: { action: 'abort', gate_node: 'qa' } })
+    expect(useCanvasStore.getState().nodeStatus.qa?.status).toBe('rejected')
+  })
+
+  it('pipeline_finished paused mantém a run paused (B4 — não vira completed)', () => {
+    useRunsStore.getState().addRun({ id: 'r1', idea: 'x', stack: 'python', status: 'paused' })
+    dispatchWsEvent({ event: 'pipeline_finished', run_id: 'r1', payload: { status: 'paused', duration_seconds: 10 } })
+    expect(useRunsStore.getState().runs.find((r) => r.id === 'r1')?.status).toBe('paused')
   })
 
   it('pipeline_started logs info without touching stores', () => {

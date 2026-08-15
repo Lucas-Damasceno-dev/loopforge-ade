@@ -94,14 +94,8 @@ export function handleWsEvent(e: WsEvent): void {
       log('info', e.event === 'run_created' ? `run created: ${idea || id}` : `run updated: ${status}`, undefined, id)
       break
     }
-    case 'run_paused': {
-      // Backend emite run_paused (payload {status}) quando a run pausa
-      // (HITL/timeout) — reflete no status da run (badge da aba).
-      const id = str(e.run_id)
-      if (id) useRunsStore.getState().updateStatus(id, 'paused')
-      log('warn', 'run paused', undefined, id)
-      break
-    }
+    // NOTE: 'run_paused' foi removido — o backend nunca emitiu esse evento
+    // (código morto). O pausado real chega via hitl_gate_reached (A1).
     case 'human_decision_expired': {
       const p = e.payload
       const node = normalizeNodeName(p.node)
@@ -111,20 +105,25 @@ export function handleWsEvent(e: WsEvent): void {
       break
     }
     case 'human_decision_submitted': {
+      // A1: decisão registrada → limpa o paused do nó (abort rejeita, demais
+      // aprovam). O retorno ao running vem do pipeline_resumed (backend).
       const p = e.payload
       const action = str(p.action) ?? '?'
-      const gate_node = str(p.gate_node) ?? '?'
-      log('info', `decision: ${action} on ${gate_node}`)
+      const gate_node = str(p.gate_node)
+      const node = gate_node ? normalizeNodeName(gate_node) : null
+      if (node) useCanvasStore.getState().setNodeStatus(node, action === 'abort' ? 'rejected' : 'approved')
+      log('info', `decision: ${action} on ${gate_node ?? '?'}`, node ?? 'system', str(e.run_id))
       break
     }
     case 'pipeline_finished': {
       // App real (app.py _execute_pipeline_in_background) envia via envelope
-      // {run_id, payload: {status: 'completed'|'failed', duration_seconds}} —
-      // única fonte WS da run chegar a completed/failed.
+      // {run_id, payload: {status: 'completed'|'paused'|'failed', duration_seconds}} —
+      // única fonte WS da run chegar a completed/failed. B4: paused não pode
+      // virar completed (run pausada por budget/HITL ficaria "terminada" na UI).
       const id = str(e.run_id)
       if (id) {
-        const status = toRunStatus(str(e.payload.status)) === 'failed' ? 'failed' : 'completed'
-        useRunsStore.getState().updateStatus(id, status)
+        const status = toRunStatus(str(e.payload.status))
+        useRunsStore.getState().updateStatus(id, status === 'failed' ? 'failed' : status === 'paused' ? 'paused' : 'completed')
       }
       log('info', 'pipeline finished', undefined, id)
       break
@@ -148,19 +147,24 @@ export function handleWsEvent(e: WsEvent): void {
       break
     }
     case 'hitl_gate_reached': {
-      // C3 (M-12): gate HITL alcançado → banner informativo não-bloqueante
-      // (hitlGateStore) + log. O drawer HITL continua abrindo pelo
-      // canvasStore (run_paused/node paused) — o banner é complementar.
+      // A1 (gate abre o drawer de verdade): o backend NUNCA emitiu run_paused —
+      // a fonte real do pausado é hitl_gate_reached. Marca o nó do gate como
+      // paused no canvasStore (é isso que o HitlDrawer usa p/ abrir, primeiro
+      // PIPELINE_ORDER com status paused) + reflete no status da run (badge).
       const p = e.payload
+      const id = str(e.run_id)
+      const node = normalizeNodeName(str(p.gate_node) ?? '')
+      if (node) useCanvasStore.getState().setNodeStatus(node, 'paused')
+      if (id) useRunsStore.getState().updateStatus(id, 'paused')
       useHitlGateStore.getState().push({
         gateNode: str(p.gate_node) ?? '?',
-        runId: str(e.run_id),
+        runId: id,
         threadId: str(p.thread_id),
         timeoutSeconds: num(p.timeout_seconds),
         onTimeout: str(p.on_timeout),
         ts: num(p.ts),
       })
-      log('warn', `HITL gate reached: ${str(p.gate_node) ?? '?'}`, 'system', str(e.run_id))
+      log('warn', `HITL gate reached: ${str(p.gate_node) ?? '?'}`, node ?? 'system', id)
       break
     }
     case 'fork_created':

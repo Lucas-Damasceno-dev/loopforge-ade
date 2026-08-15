@@ -2,7 +2,7 @@ import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NewRunForm, STACK_OPTIONS, ROUTING_OPTIONS } from '../NewRunForm'
-import { createRun, listPipelines } from '../../../shared/lib/api'
+import { createRun, listPipelines, ApiError } from '../../../shared/lib/api'
 import { usePipelinesStore } from '../../../stores/pipelinesStore'
 
 vi.mock('../../../shared/lib/api', async (importOriginal) => {
@@ -63,7 +63,7 @@ describe('NewRunForm', () => {
     // (contexto do client) — valida apenas o payload (1º argumento).
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
-      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'go', routing_mode: 'fast' })
+      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'go', routing_mode: 'fast', interactive: true })
     })
   })
 
@@ -79,7 +79,7 @@ describe('NewRunForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
-      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full' })
+      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full', interactive: true })
       expect(args?.[0]).not.toHaveProperty('model')
     })
   })
@@ -95,6 +95,7 @@ describe('NewRunForm', () => {
         idea: 'build a cli',
         stack: 'python',
         routing_mode: 'full',
+        interactive: true,
         model: 'opencode-go/deepseek-v4-flash',
       })
     })
@@ -117,7 +118,7 @@ describe('NewRunForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
-      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full' })
+      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full', interactive: true })
       expect(args?.[0]).not.toHaveProperty('pipeline_id')
     })
   })
@@ -130,7 +131,17 @@ describe('NewRunForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
-      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full', pipeline_id: 'p2' })
+      expect(args?.[0]).toEqual({ idea: 'build a cli', stack: 'python', routing_mode: 'full', interactive: true, pipeline_id: 'p2' })
     })
+  })
+
+  it('falha 422 mostra o detail real do ApiError (não mensagem genérica)', async () => {
+    vi.mocked(createRun).mockRejectedValue(new ApiError(422, 'idea must be at least 10 characters'))
+    renderForm()
+    fireEvent.change(screen.getByLabelText(/idea/i), { target: { value: 'abc' } })
+    fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('idea must be at least 10 characters')
+    expect(alert).not.toHaveTextContent('Failed to start run')
   })
 })

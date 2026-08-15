@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createWsClient } from '../shared/lib/ws'
+import { createWsClient, normalizeWsEvent } from '../shared/lib/ws'
 import type { WsEvent } from '../shared/lib/ws'
 import { getApiKey, getRunEvents } from '../shared/lib/api'
 import { dispatchWsEvent } from './wsBridge'
@@ -23,9 +23,9 @@ interface WsState {
 
 let client: ReturnType<typeof createWsClient> | null = null
 
-// E4 (backfill): true quando a conexão já abriu antes — o primeiro open não
-// faz catch-up (nada a recuperar); opens subsequentes (reconnect) sim.
-let hadOpen = false
+// E4 (backfill): o PRIMEIRO open também faz catch-up — um reload da página
+// perde os eventos do gap (B5). A base do after_seq é lastSeqByRun (persistido
+// em memória do store) ou 0 para runs nunca vistas nesta sessão.
 
 // Watermark por run por reconnect (E4 fix round 3): MENOR seq despachado LIVE
 // após o último onopen, CHAVEADO POR run_id — seq é por run (tabela event_seq,
@@ -44,14 +44,19 @@ const BACKFILL_LIMIT = 200
 function backfillRun(runId: string, afterSeq: number): void {
   getRunEvents(runId, afterSeq, BACKFILL_LIMIT)
     .then(({ events, next_after_seq }) => {
-      for (const ev of events) {
+      for (const raw of events) {
+        // B6: mesmo caminho do live (createWsClient normaliza antes do onEvent)
+        // — backfill precisa normalizar ANTES de despachar, senão eventos v1
+        // com payload flat (task_id fora do payload) quebram os handlers.
+        const ev = normalizeWsEvent(raw)
+        if (!ev) continue
         // Dedupe por WATERMARK por run, não high-water mark: o mapa pode ter
         // avançado por eventos live durante o fetch; guardar por >= seq do mapa
         // false-skip o batch inteiro (o cenário que o backfill existe p/ recuperar).
         // Só pula o que chega live em ordem (seq >= primeiro live deste reconnect
         // NA MESMA RUN).
-        if (ev.seq !== undefined && firstLiveSeqByRun[runId] !== undefined && (ev.seq as number) >= firstLiveSeqByRun[runId]) continue
-        if (ev.run_id !== undefined && ev.seq !== undefined) setLastSeq(ev.run_id as string, ev.seq as number)
+        if (ev.seq !== undefined && firstLiveSeqByRun[runId] !== undefined && ev.seq >= firstLiveSeqByRun[runId]) continue
+        if (ev.run_id !== undefined && ev.seq !== undefined) setLastSeq(ev.run_id, ev.seq)
         dispatchWsEvent(ev)
       }
       if (events.length === BACKFILL_LIMIT && next_after_seq !== null) {
@@ -98,18 +103,17 @@ export const useWsStore = create<WsState>((set) => ({
       onStatus: (s) => {
         set({ status: s, connected: s === 'open' })
         if (s === 'open') {
-          // Novo reconnect → watermark por run reset (eventos live de um
-          // reconnect anterior não valem). lastSeqByRun persiste (after_seq).
+          // TODO open (primeiro OU reconnect) → watermark por run reset
+          // (eventos live de um open anterior não valem) e backfill das runs
+          // ATIVAS a partir do último seq conhecido (B5: reload perde eventos
+          // do gap; runs encerradas não têm o que recuperar).
           firstLiveSeqByRun = {}
-          if (hadOpen) {
-            // Reconnect: busca o backlog de cada run ativa e re-despacha os
-            // eventos perdidos (já normalizados v1). Falha silenciosa (offline).
-            const runs = useRunsStore.getState().runs
-            for (const run of runs) {
+          const runs = useRunsStore.getState().runs
+          for (const run of runs) {
+            if (run.status === 'running' || run.status === 'queued' || run.status === 'paused') {
               backfillRun(run.id, useWsStore.getState().lastSeqByRun[run.id] ?? 0)
             }
           }
-          hadOpen = true
         }
       },
     })
@@ -121,10 +125,9 @@ export const useWsStore = create<WsState>((set) => ({
 }))
 
 // Reset usado APENAS em testes: zera o flag module-level de reconnect e o mapa
-// de seq — o store singleton persiste entre testes e o hadOpen viciaria o 1º
-// open (backfill espúrio). Produção nunca chama.
+// de seq — o store singleton persiste entre testes e o lastSeqByRun viciaria o
+// 1º open (backfill espúrio). Produção nunca chama.
 export function __resetWsStoreForTest(): void {
-  hadOpen = false
   firstLiveSeqByRun = {}
   client = null
   useWsStore.setState({ lastSeqByRun: {}, connected: false, status: 'connecting', lastEventAt: null })

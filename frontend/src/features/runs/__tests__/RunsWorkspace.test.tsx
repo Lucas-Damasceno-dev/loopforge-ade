@@ -4,13 +4,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../RunsWorkspace'
 import { useRunsStore } from '../../../stores/runsStore'
 import { useCanvasStore } from '../../../stores/canvasStore'
-import { listRuns, createRun, resumeRun } from '../../../shared/lib/api'
+import { useHitlGateStore } from '../../../stores/hitlGateStore'
+import { listRuns, createRun, resumeRun, cancelRun, ApiError } from '../../../shared/lib/api'
 
 vi.mock('../../../shared/lib/api', () => ({
   listRuns: vi.fn(),
   createRun: vi.fn(),
   resumeRun: vi.fn(),
+  cancelRun: vi.fn(),
   getRunQueue: vi.fn(),
+  // RunsWorkspace usa `e instanceof ApiError` no catch do cancel (item 1).
+  ApiError: class ApiError extends Error {
+    constructor(public status: number, public detail: unknown) {
+      super(`API ${status}: ${JSON.stringify(detail)}`)
+    }
+  },
 }))
 
 // Stubs jsdom para o React Flow (só necessários se FlowCanvas renderizar).
@@ -45,11 +53,13 @@ beforeEach(() => {
   vi.useFakeTimers()
   useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
   useCanvasStore.setState({ nodeStatus: {}, ghostToStep: null })
+  useHitlGateStore.setState({ gates: [] })
 })
 afterEach(() => {
   vi.useRealTimers()
   vi.mocked(listRuns).mockReset()
   vi.mocked(resumeRun).mockReset()
+  vi.mocked(cancelRun).mockReset()
 })
 
 describe('RunsWorkspace', () => {
@@ -111,6 +121,52 @@ describe('RunsWorkspace', () => {
     renderWorkspace()
     await waitFor(() => expect(listRuns).toHaveBeenCalled())
     expect(screen.getByText('No active run')).toBeInTheDocument()
+  })
+
+  it('boot: falha mostra aviso legível e Tentar novamente re-lista (item 2)', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ items: [{ id: 'r1', idea: 'x', stack: 'python', status: 'running' }], total: 1 } as never)
+    renderWorkspace()
+    await waitFor(() => expect(screen.getByTestId('boot-error')).toHaveTextContent(/não foi possível carregar runs/i))
+    fireEvent.click(screen.getByRole('button', { name: /tentar novamente/i }))
+    await waitFor(() => expect(listRuns).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByTestId('boot-error')).not.toBeInTheDocument())
+    expect(useRunsStore.getState().activeRunId).toBe('r1')
+  })
+
+  it('resume: falha mostra erro visível e mantém paused (item 2)', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    vi.mocked(resumeRun).mockRejectedValue(new ApiError(500, 'engine down'))
+    renderWorkspace()
+    fireEvent.click(screen.getAllByRole('button', { name: /^resume$/i })[0])
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/engine down/i))
+    expect(useRunsStore.getState().runs[0].status).toBe('paused')
+  })
+
+  it('paused com gate HITL pendente mostra banner de espera, sem Budget override (item 1)', () => {
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useHitlGateStore.setState({ gates: [{ id: 'g1', gateNode: 'qa', runId: 'r1' }] })
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    renderWorkspace()
+    expect(screen.getByTestId('run-hitl-banner')).toHaveTextContent(/waiting for your decision at gate qa/i)
+    expect(screen.queryByTestId('run-paused-banner')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /budget override/i })).not.toBeInTheDocument()
   })
 
   it('E3: criar 2ª run com a 1ª ativa seleciona a nova (abas paralelas)', async () => {
@@ -185,5 +241,47 @@ describe('RunsWorkspace', () => {
       expect(resumeRun).toHaveBeenCalledWith('r1')
       expect(useRunsStore.getState().runs[0].status).toBe('running')
     })
+  })
+
+  it('Cancelar: 2 cliques confirmam, chama cancelRun e faz fallback local (item 1)', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'running' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    vi.mocked(cancelRun).mockResolvedValue({ id: 'r1', idea: 'x', stack: 'python', status: 'failed' })
+    renderWorkspace()
+    // 1º clique arma a confirmação; 2º dispara.
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    expect(screen.getByRole('button', { name: /confirm cancel/i })).toBeInTheDocument()
+    expect(cancelRun).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /confirm cancel/i }))
+    await waitFor(() => {
+      expect(cancelRun).toHaveBeenCalledWith('r1')
+      expect(useRunsStore.getState().runs[0].status).toBe('failed')
+    })
+  })
+
+  it('Cancelar: erro 409 mostra mensagem do backend sem quebrar (item 1)', async () => {
+    vi.useRealTimers()
+    vi.mocked(listRuns).mockResolvedValue({ items: [], total: 0 } as never)
+    useRunsStore.setState({
+      runs: [{ id: 'r1', idea: 'x', stack: 'python', status: 'paused' }],
+      activeRunId: 'r1',
+      queue: [],
+      past: [],
+      future: [],
+    })
+    vi.mocked(cancelRun).mockRejectedValue(new Error('API 409: {"detail":"run not cancellable"}'))
+    renderWorkspace()
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm cancel/i }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/run not cancellable/i))
+    // Estado preservado — run continua paused.
+    expect(useRunsStore.getState().runs[0].status).toBe('paused')
   })
 })

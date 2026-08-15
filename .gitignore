@@ -15,3 +15,9 @@ build/
 
 # Git worktrees
 .worktrees/
+
+# Artifacts locais de dev/auditoria (não versionar)
+console-errors.log
+.playwright-mcp/
+frontend/frontend/
+lf-*.png

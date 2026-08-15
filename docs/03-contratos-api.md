@@ -21,13 +21,14 @@
 
 | Método | Path | Descrição | Body → Resposta |
 |---|---|---|---|
-| POST | `/api/v1/runs` | Cria run e enfileira (E3/M-21: fila até `max_concurrent_runs`, default 2) | `{idea, stack="python", routing_mode="full", mock_llm=false, interactive=false}` → `201 Run` |
+| POST | `/api/v1/runs` | Cria run e enfileira (E3/M-21: fila até `max_concurrent_runs`, default 2) | `{idea, stack="python", routing_mode="full", mock_llm=false, interactive=false}` → `201 Run`. ⚠️ **`interactive` tem 2 defaults**: API = `false` (`schemas.py:16`); SPA = **`true`** — o NewRunForm envia o checkbox "Modo interativo (HITL)" default ON (`NewRunForm.tsx:51`) |
 | GET | `/api/v1/runs` | Lista paginada | → `{items: [Run], total}` |
 | GET | `/api/v1/runs/queue` | **Estado da fila E3** (implementado pós-MVP) | → `{max_concurrent, active_count, active: [Run], queued: [Run]}` |
 | GET | `/api/v1/runs/{id}` | Detalhe | → `Run` |
 | DELETE | `/api/runs/{id}` | Remove run (não toca checkpoints) — **só legado** (sem variante v1; 204) | → `204` |
 | POST | `/api/runs/{id}/execute` | (Re)dispara run `pending`/`failed` — **só legado** (sem variante v1) | → `202 Run` |
-| POST | `/api/v1/runs/{id}/resume` | Resume do último checkpoint (usa `thread_id` persistido — M-01) | → `202 Run` |
+| POST | `/api/v1/runs/{id}/resume` | Resume do último checkpoint (usa `thread_id` persistido — M-01); passa pela **fila E3** (não roda fora dela); `mock_llm` vem do **checkpoint** (run mock persiste `mock_llm=true` no estado); re-entra em gates HITL pendentes; preserva `degraded` e usa o `pipeline_snapshot` imutável | → `202 Run` |
+| POST | `/api/v1/runs/{id}/cancel` | **Cancela run** (C8): `queued` → remove da fila + `failed`; `running` → cancela a task asyncio + `failed`; `paused` → `failed`; `completed`/`failed` → `409` `run not cancellable`; run inexistente → `404`; emite `run_updated` `{status:"failed", reason:"cancelado pelo usuário"}` | → `200 Run` (status `failed`) |
 | GET | `/api/v1/runs/{id}/events` | **Backfill do journal** (M-06) | `?after_seq=0&limit=200` → `{run_id, events: [Envelope], next_after_seq}` |
 | GET | `/api/v1/runs/{id}/timeline` | **Timeline unificada** (C5/M-02): eventos + checkpoints intercalados | `?after_seq=0&limit=100` → `{run_id, timeline: [{seq, type, timestamp, node, data}], total_count, has_more, next_after_seq}` |
 | GET | `/api/v1/runs/{id}/cost` | **Agregado de custo** (M-08) + **breakdown por nó** (D1) | → `CostResponse` (abaixo) |
@@ -37,15 +38,26 @@
 // Run (response)
 {
   "id": "…", "idea": "…", "stack": "python",
-  "status": "pending|queued|running|waiting_decision|decision_expired|budget_exceeded|paused|completed|failed|aborted",
+  "status": "pending|queued|running|paused|completed|failed",
   "current_node": "developer|null",
-  "thread_id": "run-…",            // ADR-0003
+  "thread_id": "run-…",            // ADR-0003 — aditivo (schemas.py:38)
   "parent_run_id": null,           // preenchido em forks (M-13)
   "logs": "…", "duration_seconds": 0.0,
   "created_at": "…", "updated_at": "…"
 }
-// `queued`: criada e na fila E3 (M-21); `paused`: hard-stop de budget (M-10) —
-// a run NÃO falha; o grafo fica interrompido no nó pendente (checkpoint com next != []).
+// Status PERSISTIDO (PipelineRun): `pending` (default DB, models.py:28) |
+// `queued` | `running` | `paused` | `completed` | `failed`. Legados
+// `waiting_decision|decision_expired|budget_exceeded|aborted` NÃO são status
+// de run no código atual — `decision_expired` só aparece como `run_status` no
+// payload do evento `human_decision_expired` (task_dispatcher.py:1133) e
+// `budget_exceeded` é flag do CircuitBreaker (circuit_breaker.py:123); a SPA
+// modela apenas `pending/queued/running/paused/completed/failed` e trata
+// status desconhecido como `pending` (wsBridge.ts:40-53).
+// `queued`: criada e na fila E3 (M-21).
+// `paused`: DUAS ORIGENS — (1) hard-stop de budget (M-10): a run NÃO falha; o
+// grafo fica interrompido no nó pendente (checkpoint com next != []); (2) gate
+// HITL (interactive=true): a run pausa no gate esperando decisão humana
+// (evento `hitl_gate_reached` → drawer abre; dedup por (run, nó)).
 
 // CostResponse (GET /cost e POST /cost/override — verificado em costs.py/schemas.py)
 {
@@ -76,7 +88,7 @@
 {
   "gate_node": "developer",
   "action": "approve | retry | adjust_prompt | adjust_state | abort",
-  "feedback_category": "bug|style|missing_feature|general",  // adjust_prompt
+  "feedback_category": "bug|style|missing_feature|general",  // enviado em TODAS as actions (SPA envia default 'general' — HitlDrawer.tsx:179)
   "feedback_message": "…",
   "state_patch": { "error": null, "…": "…" },                // adjust_state (merge sobre channel_values)
   "user": "human_operator"
@@ -86,6 +98,16 @@
 Regras: decisão tardia (após `decision_expired`) é aceita e logada; `abort` encerra
 a run; `adjust_state` valida que as chaves existem no `GraphState` antes de aplicar
 via `aupdate_state` (422 caso contrário).
+
+Validação no POST `/decide` (verificado — `app.py:_record_decision_impl`):
+- `404` se a run não existe (`app.py:747-748`).
+- `409` se a run não está em `running`/`paused` (`app.py:750-754`) **ou** se
+  `gate_node` não é um gate REALMENTE pendente no checkpoint (`app.py:759-764` —
+  antes aceitava qualquer gate e poluía o audit trail).
+- Consumo por **(run_id, gate_node)**: o polling do dispatcher busca
+  `consumed=0 AND run_id=? AND gate_node=?` (`task_dispatcher.py:560-605`) e
+  marca `consumed=1` ao aplicar (`task_dispatcher.py:607-622`) — decisão stale
+  não re-aplica em gate subsequente.
 
 ## 4. REST — Trajectories (time-travel)
 
@@ -174,8 +196,11 @@ apenas a requisições HTTP (não a WebSockets); limite excedido → `429`.
 
 - `/ws/runs/{run_id}` — canal **filtrado** da run (M-06).
 - `/ws/streaming` — feed global (lista de runs, todos os eventos).
-- Heartbeat: cliente `{"type":"ping"}` → servidor `{"type":"pong"}` (mensagens de
-  controle, fora do envelope).
+- Heartbeat: o servidor envia `{"type":"ping"}` após ~30s de inatividade do
+  cliente (`WS_HEARTBEAT_INTERVAL = 30.0`, `asyncio.wait_for(receive_json, ...)`
+  em `app.py`); o cliente responde `{"type":"pong"}` (`ws.ts:275-276`). O cliente
+  também pode pingar: `{"type":"ping"}` → servidor responde `{"type":"pong"}`
+  (`app.py:287-288`). Mensagens de controle, fora do envelope.
 - Fluxo de conexão da SPA: `GET events?after_seq=0` → conecta WS → descarta live
   com `seq <= last_seq` do backfill → aplica o resto em ordem. Em reconexão:
   `GET events?after_seq=<último seq conhecido>` → repete.
@@ -217,7 +242,7 @@ Regras de reconciliação (M-19):
 | event | payload | emissor |
 |---|---|---|
 | `run_created` | `{idea, stack, status}` | API |
-| `run_updated` | `{status, current_node}` | dispatcher (M-07) |
+| `run_updated` | `{status, current_node, degraded?, degraded_reason?}` | dispatcher (M-07) / **API** (cancel `app.py:871-875`; crash recovery no startup `app.py:91-97`) |
 | `pipeline_started` | `{idea, node}` | dispatcher |
 | `node_execution` | `{node, status:"completed", next_agent, attempt_count, duration_s?, cost_usd?}` | dispatcher |
 | `pipeline_finished` | `{status, duration_seconds}` | dispatcher |
@@ -228,7 +253,7 @@ Regras de reconciliação (M-19):
 | `human_decision_expired` | `{node, timeout_seconds, run_status}` | dispatcher |
 | `fork_created` | `{parent_run_id, fork_run_id, checkpoint_id}` | API (M-13) |
 | `circuit_breaker_changed` | snapshot do CB: `{state, max_total_cost, spent_usd, consecutive_failures, iteration, reset_at, …}` (~10 campos) | dispatcher (implementado pós-MVP — surfacing CB na SPA) |
-| `token_delta` | `{node?, tokens, …}` — **callback `on_token_delta`** no provider nativo (`runner/opencode/llm.py`); **UI V1 não consome** | runner (ADR-0007) |
+| `token_delta` | `{node?, tokens, …}` — **callback `on_token_delta`** no provider nativo (`runner/opencode/llm.py`); backend publica via `llm_factory.py:480`; **UI V1 CONSUME**: `wsBridge.ts:67-71` → `consoleStore.appendStream` (buffer por nó, flush no `node_execution` — ADR-0007) | runner (ADR-0007) |
 
 > **Budget não emite evento WS**: `budget_warning`/`budget_exceeded` (M-10) não
 > existem como eventos — o estado vem do `GET /runs/{id}/cost` (`budget_warning`

@@ -172,10 +172,12 @@ describe('runsStore', () => {
     expect(useRunsStore.getState().queue).toEqual([])
     expect(useRunsStore.getState().runs.find((r) => r.id === 'r2')?.status).toBe('running')
   })
-  it('run_paused updates run status to paused', () => {
+  it('hitl_gate_reached marks the run as paused (A1 — backend nunca emite run_paused)', () => {
     useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })
-    dispatchWsEvent({ event: 'run_paused', run_id: 'r1', payload: { status: 'paused' } })
+    dispatchWsEvent({ event: 'hitl_gate_reached', run_id: 'r1', payload: { gate_node: 'qa' } })
     expect(useRunsStore.getState().runs.find(r => r.id === 'r1')?.status).toBe('paused')
+    // Nó do gate paused no canvas → HitlDrawer abre.
+    expect(useCanvasStore.getState().nodeStatus.qa?.status).toBe('paused')
   })
   it('pipeline terminal events without run_id (dispatcher variant) skip store update', () => {
     useRunsStore.getState().addRun({ id: 'r1', idea: 'a', status: 'running' })

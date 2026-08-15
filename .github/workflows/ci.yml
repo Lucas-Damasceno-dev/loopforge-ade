@@ -1,0 +1,54 @@
+# CI do repo loopforge-ade (wrapper Python fino + frontend React/Vite).
+# Roda apenas o que diz respeito ao frontend: lint (não bloqueia), testes
+# unitários (vitest) e build (tsc -b && vite build). O e2e (playwright) NÃO
+# roda aqui: exige o engine LoopForge + dist embutido em src/lf/ade/static/dist
+# (roda localmente via `make test-e2e` com `lf serve` na porta 8787).
+
+name: CI — loopforge-ade frontend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node 22: o rolldown-vite 7.x (dependência "vite": "npm:rolldown-vite@7.1.12")
+      # exige node ^20.19.0 || >=22.12.0. Node 22 é LTS e satisfaz o requisito
+      # (docs do projeto pedem "Node 20+"; não há .nvmrc).
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci (não npm install): package-lock.json existe (lockfileVersion 3)
+      # e a instalação determinística é obrigatória em CI.
+      - name: Instalar dependências (npm ci)
+        working-directory: frontend
+        run: npm ci
+
+      # continue-on-error: 7 erros de lint PRÉ-EXISTENTES e documentados
+      # (FlowCanvas.tsx react-refresh, RunTabs.tsx `_queue` não usado,
+      # Select.tsx no-empty-object-type, ArtifactsPanel.tsx warnings,
+      # wsStore.test.ts `_input`/`_init`). Serão corrigidos em PR separado;
+      # o CI não pode bloquear por eles. Nenhum arquivo novo introduz erro.
+      - name: Lint (eslint) — não bloqueia
+        continue-on-error: true
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Testes unitários (vitest) — bloqueia
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build (tsc -b && vite build) — bloqueia
+        working-directory: frontend
+        run: npm run build

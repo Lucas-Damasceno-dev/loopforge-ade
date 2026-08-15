@@ -50,6 +50,15 @@ describe('PipelinesPanel', () => {
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
   })
 
+  it('store.loading → indicador de carregamento em vez do EmptyState', async () => {
+    usePipelinesStore.setState({ pipelines: [], loading: true, error: null })
+    // Fetch inicial pendente (nunca resolve) → loading permanece true durante o mount.
+    vi.mocked(listPipelines).mockReturnValue(new Promise(() => {}))
+    render(<PipelinesPanel />)
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    expect(screen.queryByText('No pipelines yet')).not.toBeInTheDocument()
+  })
+
   it('"+ New pipeline" abre form; submit cria e volta para a lista', async () => {
     vi.mocked(createPipeline).mockResolvedValue({ ...pipeline, id: 'p2', name: 'Deploy' } as never)
     render(<PipelinesPanel />)

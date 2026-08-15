@@ -28,6 +28,10 @@ cd $ADE/frontend && echo "VITE_API_KEY=dev-local-key" > .env && npm run dev   # 
 # Auth: a key pode ir via env (VITE_API_KEY) OU ser digitada na tela 401 da SPA
 # (ApiKeyGate) — fica em localStorage 'lf_api_key'. Sem VITE_API_KEY e com o
 # gate dispensado, as chamadas a /api/v1/* voltam a tomar 401.
+
+# Atalho Makefile (mesma key fixa, sem digitar env à mão): `make dev-backend`
+# injeta LF_API_API_KEY=$(API_KEY) com API_KEY=dev-local-key (Makefile:22,57-59) e
+# `make dev-web` grava VITE_API_KEY=dev-local-key no .env (Makefile:62).
 ```
 
 Modo produção local (SPA empacotada): build + sync do dist para o pacote embutido

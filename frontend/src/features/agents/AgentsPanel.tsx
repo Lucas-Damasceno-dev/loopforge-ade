@@ -48,6 +48,15 @@ function textFromList(list: string[]): string {
   return list.join(', ')
 }
 
+// C8: campo numérico opcional — string vazia/NaN → undefined (campo OMITIDO
+// do payload; backend aplica default e valida ge/le). Clamp aplicado pelo
+// consumidor (timeout ge=1, temperature le=2 — ver handleSubmit).
+function optionalNumber(v: string): number | undefined {
+  if (v.trim() === '') return undefined
+  const n = Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
+
 interface FormState {
   name: string
   description: string
@@ -103,6 +112,9 @@ function formFromAgent(a: Agent): FormState {
 // inline (estado, não window.confirm).
 export function AgentsPanel() {
   const agents = useAgentsStore((s) => s.agents)
+  // Fetch inicial em andamento (store.loading) → indicador em vez do
+  // EmptyState prematuro ("No agents yet" flash durante o GET).
+  const agentsLoading = useAgentsStore((s) => s.loading)
   const [view, setView] = useState<'list' | 'form'>('list')
   const [editing, setEditing] = useState<Agent | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -156,20 +168,25 @@ export function AgentsPanel() {
     }
     setError(null)
     setSaving(true)
-    const input: AgentInput = {
+    const input: Partial<AgentInput> = {
       name: form.name.trim(),
       description: form.description.trim(),
       prompt: form.prompt.trim(),
       model: form.model.trim(),
       stack: form.stack,
-      temperature: Number(form.temperature) || 0,
       max_retries: Number(form.max_retries) || 0,
-      timeout_seconds: Number(form.timeout_seconds) || 0,
       budget_usd: Number(form.budget_usd) || 0,
       env_vars: envFromText(form.env_vars),
       tools_allowlist: listFromText(form.tools_allowlist),
       permissions: listFromText(form.permissions),
     }
+    // C8: timeout_seconds/temperature são opcionais — campo limpo NÃO vira 0
+    // (backend rejeita timeout 0 com ge=1; temperatura fora de [0,2] também).
+    // Vazio → omite (default do backend); com valor → clamp nos limites.
+    const temperature = optionalNumber(form.temperature)
+    if (temperature !== undefined) input.temperature = Math.min(2, Math.max(0, temperature))
+    const timeoutSeconds = optionalNumber(form.timeout_seconds)
+    if (timeoutSeconds !== undefined) input.timeout_seconds = Math.max(1, timeoutSeconds)
     try {
       if (editing) await useAgentsStore.getState().updateAgent(editing.id, input)
       else await useAgentsStore.getState().createAgent(input)
@@ -199,12 +216,13 @@ export function AgentsPanel() {
   }
 
   const fieldCls = 'flex flex-wrap items-center gap-1.5'
-  const numInput = (label: string, value: string, onChange: (v: string) => void, min = 0, step = 'any') => (
+  const numInput = (label: string, value: string, onChange: (v: string) => void, min = 0, step = 'any', max?: number) => (
     <label className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="text-[var(--text-2xs)] font-medium uppercase tracking-wide text-[var(--text-dim)]">{label}</span>
       <Input
         type="number"
         min={min}
+        max={max}
         step={step}
         value={value}
         aria-label={label}
@@ -227,7 +245,9 @@ export function AgentsPanel() {
               + New agent
             </Button>
           </div>
-          {agents.length === 0 ? (
+          {agentsLoading ? (
+            <p className="px-2 py-6 text-sm text-[var(--text-dim)]">Loading…</p>
+          ) : agents.length === 0 ? (
             <EmptyState
               compact
               title="No agents yet"
@@ -305,7 +325,7 @@ export function AgentsPanel() {
           </div>
 
           <div className={fieldCls}>
-            {numInput('Temperature', form.temperature, (v) => set({ temperature: v }), 0)}
+            {numInput('Temperature', form.temperature, (v) => set({ temperature: v }), 0, 'any', 2)}
             {numInput('Max retries', form.max_retries, (v) => set({ max_retries: v }), 0, '1')}
           </div>
           <div className={fieldCls}>

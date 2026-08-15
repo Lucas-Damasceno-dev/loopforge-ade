@@ -59,6 +59,15 @@ describe('AgentsPanel', () => {
     expect(screen.getByLabelText('Prompt')).toBeInTheDocument()
   })
 
+  it('store.loading → indicador de carregamento em vez do EmptyState', async () => {
+    useAgentsStore.setState({ agents: [], loading: true, error: null })
+    // Fetch inicial pendente (nunca resolve) → loading permanece true durante o mount.
+    vi.mocked(listAgents).mockReturnValue(new Promise(() => {}))
+    render(<AgentsPanel />)
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    expect(screen.queryByText('No agents yet')).not.toBeInTheDocument()
+  })
+
   it('"+ New agent" abre form; submit cria e volta para a lista', async () => {
     vi.mocked(createAgent).mockResolvedValue({ ...agent, id: 'a2', name: 'Tester', prompt: 'Write tests.' } as never)
     render(<AgentsPanel />)

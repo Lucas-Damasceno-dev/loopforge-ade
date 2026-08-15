@@ -1,0 +1,86 @@
+# Sync/validação do dist da SPA com o engine LoopForge (workflow_dispatch manual).
+#
+# CONTEXTO DO CONTRATO (por que NÃO há push pro engine):
+#   - O dist da SPA é sincronizado pro engine via `make sync-dist`, que roda
+#     scripts/sync_dist.py copiando para src/lf/ade/static/dist/ NO WORKTREE
+#     LOCAL do engine (pasta em disco) — nunca para o git.
+#   - O workflow spa-drift.yml do engine FALHA se qualquer arquivo do dist
+#     estiver versionado no git do engine (exceto .gitkeep). Logo, commitar/
+#     pushar o dist pro engine quebraria o drift-check e o contrato
+#     "dist não versionado no engine" (o engine embute a SPA no WHEEL em tempo
+#     de build via resolve_spa_dist()).
+#   - Por isso este workflow NÃO automatiza push cross-repo: builda o frontend
+#     e, se o secret LF_SYNC_TOKEN existir, valida que scripts/sync_dist.py do
+#     engine executa contra o dist real (no worktree efêmero do runner —
+#     nada persiste, nada é commitado). Sinaliza que o sync local manual
+#     (`make sync-dist`) está pronto para rodar.
+#
+# SECRET NECESSÁRIO (opcional para o workflow rodar):
+#   LF_SYNC_TOKEN — PAT do dono com contents:write nos 2 repos
+#   (Lucas-Damasceno-dev/loopforge-ade e Lucas-Damasceno-dev/LoopForge).
+#   Sem ele o job AVISA e sai com sucesso (guard HAS_TOKEN).
+
+name: Sync SPA dist (validação)
+
+on:
+  workflow_dispatch:
+    inputs:
+      descricao:
+        description: 'Descrição opcional (ex.: versão ou motivo do sync)'
+        required: false
+        type: string
+        default: ''
+
+env:
+  # Guard: workflow existe mesmo antes de o usuário configurar o secret.
+  HAS_TOKEN: ${{ secrets.LF_SYNC_TOKEN != '' }}
+
+jobs:
+  build-e-validar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout loopforge-ade
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22 (rolldown-vite exige ^20.19.0 || >=22.12.0)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências (npm ci)
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build da SPA (tsc -b && vite build → frontend/dist)
+        working-directory: frontend
+        run: npm run build
+
+      - name: Aviso — LF_SYNC_TOKEN não configurado (sem validação do engine)
+        if: env.HAS_TOKEN != 'true'
+        run: |
+          echo "::warning::LF_SYNC_TOKEN não configurado. Build do frontend validado, "
+          echo "mas a validação do sync com o engine foi pulada. Configure o secret "
+          echo "LF_SYNC_TOKEN (PAT com contents:write nos 2 repos) e re-despache o "
+          echo "workflow. Enquanto isso, `make sync-dist` local segue o fluxo manual."
+
+      - name: Checkout do engine (main) — requer LF_SYNC_TOKEN
+        if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: Lucas-Damasceno-dev/LoopForge
+          ref: main
+          path: engine
+          token: ${{ secrets.LF_SYNC_TOKEN }}
+
+      - name: Validar scripts/sync_dist.py contra o dist buildado
+        if: env.HAS_TOKEN == 'true'
+        run: |
+          # sync_dist.py copia para o worktree do engine (aqui: efêmero do runner)
+          # e ignora sourcemaps (.map). Nenhum commit/push é feito.
+          python engine/scripts/sync_dist.py --help
+          python engine/scripts/sync_dist.py frontend/dist
+          echo "--- Arquivos sincronizados no worktree efêmero do engine: ---"
+          find engine/src/lf/ade/static/dist -type f | sort
+          echo "--- (nada foi commitado/pushado; dist continua fora do git do engine) ---"

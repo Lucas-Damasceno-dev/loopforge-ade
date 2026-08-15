@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { createRun } from '../../shared/lib/api'
+import { ApiError, createRun } from '../../shared/lib/api'
 import { Button } from '../../shared/ui/Button'
 import { Select } from '../../shared/ui/Select'
 import { Input } from '../../shared/ui/Input'
@@ -38,17 +38,23 @@ export const QUICK_PROMPTS = [
 
 // Form de nova run (B2/M-20): idea + stack + routing_mode (+ model opcional —
 // RunCreate.model vence env/config por run) via POST /api/v1/runs.
-// mock_llm/interactive ficam nos defaults do client (false). TanStack Query
-// useMutation — loading desabilita o botão; erro inline (alert).
+// mock_llm fica no default do client (false). `interactive` (HITL) é decisão
+// do usuário via checkbox — default TRUE: é o que faz os gates HITL existirem
+// (A3; antes era forçado false no client). TanStack Query useMutation —
+// loading desabilita o botão; erro inline (alert).
 export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
   const [idea, setIdea] = useState('')
   const [stack, setStack] = useState<string>(STACK_OPTIONS[0])
   const [routingMode, setRoutingMode] = useState<string>(ROUTING_OPTIONS[0])
   const [model, setModel] = useState('')
   const [pipelineId, setPipelineId] = useState('')
+  const [interactive, setInteractive] = useState(true)
   const [showPresets, setShowPresets] = useState(false)
   const ideaRef = useRef<HTMLTextAreaElement>(null)
   const pipelines = usePipelinesStore((s) => s.pipelines)
+  // Pipeline selecionado (item 2): só para a nota de snapshot — o backend
+  // copia pipeline.model_dump() no POST /runs; execução usa sempre o snapshot.
+  const selectedPipeline = pipelines.find((p) => p.id === pipelineId) ?? null
 
   // S3 T10 (decisão 10-A): pipeline opcional no New Run — fallback automático
   // quando ausente (backend roda o pipeline default). Carrega a biblioteca no
@@ -78,11 +84,20 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
     },
   })
 
+  // Mensagem de erro real do backend (ex.: 422 com detail) — fallback
+  // genérico quando não há ApiError. Padrão RunsWorkspace/resumeError.
+  const runError =
+    mutation.error instanceof ApiError && typeof mutation.error.detail === 'string'
+      ? mutation.error.detail
+      : mutation.error instanceof Error
+        ? mutation.error.message
+        : 'Failed to start run'
+
   const submit = (e?: FormEvent) => {
     if (e) e.preventDefault()
     const text = idea.trim()
     if (!text || mutation.isPending) return
-    const payload: CreateRunInput = { idea: text, stack, routing_mode: routingMode }
+    const payload: CreateRunInput = { idea: text, stack, routing_mode: routingMode, interactive }
     // Model vazio → omitido do body (default do backend por run).
     const m = model.trim()
     if (m) payload.model = m
@@ -140,6 +155,24 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
             title="Modelo LLM para a run — vazio usa o default (env/config)"
             className={narrow ? 'w-full' : 'w-36 shrink-0'}
           />
+          {/* Modo interativo (HITL): default ON — com interactive=true a run
+              pausa em gates para decisão humana (drawer HITL). Desligar roda
+              a pipeline sem paradas. */}
+          <label
+            className={narrow ? 'flex items-center gap-1.5 px-0.5' : 'flex shrink-0 items-center gap-1.5 px-0.5'}
+            title="Modo interativo (HITL): a run pausa em pontos críticos para decisão humana"
+          >
+            <input
+              type="checkbox"
+              checked={interactive}
+              onChange={(e) => setInteractive(e.target.checked)}
+              aria-label="Modo interativo (HITL)"
+              className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-[var(--border)] accent-[var(--accent)]"
+            />
+            <span className="cursor-pointer text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+              HITL
+            </span>
+          </label>
         </div>
         {/* Grupo input + ação (Gemini): container único com borda/ring; o botão
             Run cola na extremidade direita do campo, sem borda interna. Textarea
@@ -184,9 +217,24 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
           </Button>
         </div>
         {mutation.isError ? (
-          <p role="alert" className="text-xs text-[var(--err-text)]">Failed to start run</p>
+          <p role="alert" className="text-xs text-[var(--err-text)]">{runError}</p>
         ) : null}
       </form>
+
+      {/* Snapshot do pipeline (item 2): display-only — o pipeline é copiado
+          (pipeline.model_dump()) no momento da criação da run; edições
+          posteriores NÃO afetam runs já criadas. Sem campos de edição. */}
+      {pipelineId !== '' && (
+        <div className="rounded-md border border-[var(--border)] bg-[var(--bg-elev)]/50 px-2.5 py-1.5 ade-fade-in">
+          <p className="text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">Snapshot do pipeline</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-[var(--text-dim)]">
+            {selectedPipeline
+              ? `${selectedPipeline.name} (${selectedPipeline.nodes.length} nós, ${selectedPipeline.edges.length} arestas) é copiado`
+              : 'O pipeline selecionado é copiado'}
+            {' '}no momento da criação — edições posteriores no pipeline não afetam runs já criadas.
+          </p>
+        </div>
+      )}
 
       {showPresets && (
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5 ade-fade-in">

@@ -96,6 +96,86 @@ Onda 1: n1 (A1+A9), n2a (A3-standalone), n5 (A7). Onda 2: n3 (A5+A8), n4 (A6), n
 - **Surfacing CB + degraded + fila E3** (`bedf68f`, `8a09d74`): badge de circuit breaker com iters/custo + meta no `cbByRun`.
 - **Polish pass P0** (spec `db7ba46`, plano `2ef02b5`, 5 tasks; commits de style `06689d4`..`1ea9bec`): tokens únicos (durações/easing), glow accent, variantes `-text` por nó (AA), ring de erro em paridade, CloseIcon único, EmptyState compact, pulso running em cascade, aresta retry accent. **Em andamento** — working tree com style tasks P0 não commitadas.
 
+## Pós-MVP — wave de correções (2026-08-15) — estado REAL verificado no código
+
+Auditoria docs×código após wave de correções. Cada item cita a verificação (grep/read no fonte).
+
+**Backend (engine `agentes/LoopForge/src/lf/`):**
+
+- **Cancel de run (C8)** — `POST /api/v1/runs/{id}/cancel` implementado
+  (`api/app.py:878-886`): `queued` → remove da fila FIFO + `failed`; `running` →
+  cancela a task asyncio (`run_tasks` registry, `app.py:860-862`) + `failed`;
+  `paused` → `failed`; `completed`/`failed` → `409 run not cancellable`
+  (`app.py:847-848`); run inexistente → `404`; emite `run_updated` com
+  `{status:"failed", reason:"cancelado pelo usuário"}` (`app.py:871-875`).
+- **decide validado** — `_record_decision_impl` (`app.py:736-806`): `404` run
+  inexistente (`747-748`); `409` run fora de `running`/`paused` (`750-754`) e
+  `409` se `gate_node` não é gate pendente no checkpoint (`759-764`).
+- **Consumo de decisão por (run_id, gate_node)** — polling do dispatcher filtra
+  `consumed=0 AND run_id=? AND gate_node=?` (`task_dispatcher.py:560-605`); marca
+  `consumed=1` ao aplicar (`607-622`) — decisão stale não re-aplica em gate
+  subsequente (era append-only por run_id).
+- **Resume via fila E3** — `_resume_run_impl` (`app.py:410-452`) passa pelo MESMO
+  `_execute_pipeline_in_background` da run nova (promovido até
+  `max_concurrent`); `mock_llm` lido do **checkpoint** (`432-433`, run mock
+  persiste `mock_llm=true`); preserva `degraded`/`degraded_reason` (B7,
+  `task_dispatcher.py:624-628` + `app.py:1375-1386`); usa `pipeline_snapshot`
+  imutável (`448`); re-entra em gates HITL pendentes (`resume=True` →
+  `dispatcher.resume`, `app.py:1276-1277`).
+- **Crash recovery no startup** — `_recover_interrupted_runs` (`app.py:76-97`):
+  runs `running`/`queued` órfãs (fila E3 é in-memory) → `failed` com
+  "Servidor reiniciou; use resume para retomar a execução"; `paused` PRESERVADA
+  (checkpoint persiste — intenção M-10); emite `run_updated` para cada uma.
+- **`RunResponse.thread_id`** — aditivo (`schemas.py:38`), ADR-0003; FE usa em
+  HitlDrawer/TimelineBar/RunInspector.
+- **HITL remoto sem stdin** — `adjust_prompt` aplica `feedback_category`/
+  `feedback_message` direto da decisão remota SEM re-prompt (`task_dispatcher.py:1161-1169`);
+  sem TTY e sem feedback remoto → default `general` sem bloquear (`1170-1173`,
+  antes travava 60s+ headless).
+
+**Frontend (SPA `web/loopforge-ade/frontend/`):**
+
+- **createRun repassa `interactive`** — `api.ts:158-166` (comentário A3: NÃO
+  força mais; NewRunForm decide). **NewRunForm checkbox "Modo interativo (HITL)"
+  default TRUE** (`NewRunForm.tsx:51`, `useState(true)`; checkbox `149-164`).
+  ⚠️ Divergência proposital: API default `false` (`schemas.py:16`), UI default
+  `true` — documentado em `docs/03`.
+- **HITL real (drawer)** — `hitl_gate_reached` → `wsBridge.ts:151-165`: marca nó
+  `paused` (canvasStore) + run `paused` + push no hitlGateStore (dedup por
+  (run, nó)). Drawer abre com **primeiro nó paused na ordem do pipeline**
+  (`HitlDrawer.tsx:88`) e reabre quando o gate muda (`92-101`).
+- **paused ≠ completed** — `pipeline_finished` com status `paused` mantém
+  `paused` (não vira `completed`; `wsBridge.ts:106-110`); budget pause mostra
+  botão Resume (`RunsWorkspace.tsx:136-140`) + banner (`157-159`).
+- **Backfill WS no 1º open** — `wsStore.ts:26-66`: primeiro `onopen` faz
+  catch-up via `GET events?after_seq=` (base `lastSeqByRun`), normaliza ANTES de
+  despachar (`normalizeWsEvent`, `wsStore.ts:49-51`), dedupe por watermark por
+  run (`firstLiveSeqByRun`), paginação com `next_after_seq` (200/limite).
+- **degraded chega live** — `run_updated` carrega `degraded`/`degraded_reason`
+  (D12, `app.py:1068-1074`) → `wsBridge.ts:104-106` atualiza a run em tempo real.
+- **cancelRun UI** — botão Cancelar para `running`/`queued`/`paused`
+  (`RunsWorkspace.tsx:64`), confirmação de 2 cliques com timeout 3s (`66-75`),
+  `409` com mensagem real do backend sem fechar nada (`88-93`), fallback local
+  via `upsertRun` (`83-87`).
+- **Snapshot no create-run** — NewRunForm mostra seção informativa "Snapshot do
+  pipeline" (`NewRunForm.tsx:215-224`): pipeline copiado no momento da criação
+  (`pipeline.model_dump()`, `app.py:_create_run_impl`).
+- **feedback em TODAS as actions HITL** — `HitlDrawer.tsx:177-182`:
+  `feedback_category` sempre enviado (default `'general'`), `feedback_message`
+  só quando preenchida — não apenas no `adjust_prompt`.
+
+**CI (repo ADE):**
+
+- `.github/workflows/ci.yml` — lint `continue-on-error: true` com **7 erros
+  pré-existentes documentados** (FlowCanvas react-refresh, RunTabs `_queue`,
+  Select `no-empty-object-type`, ArtifactsPanel warnings, wsStore.test
+  `_input`/`_init`); vitest e build BLOQUEIAM; Node 22 (rolldown-vite exige
+  ^20.19.0 || >=22.12.0); e2e playwright NÃO roda no CI (exige engine + dist).
+- `.github/workflows/sync-dist.yml` — `workflow_dispatch` MANUAL; builda a SPA e,
+  se `LF_SYNC_TOKEN` existir (guard `HAS_TOKEN`), valida
+  `scripts/sync_dist.py` do engine contra o dist real no worktree efêmero (nada
+  persiste/commita). Sem secret → avisa e sai com sucesso.
+
 ## Histórico de commits
 
 - ADE main: `7807bcc` (docs 19 arquivos), `b21e068` (status Fase A+B2/B3), **`21c2dda`** (merge feature/ade-fase2 — SPA completa B1–B6), `17750c4` (status Fase C backend), **`834dea1`** (merge feature/ade-fase2 — SPA Fase C completa), `b79075a` (status Fase C completa), **`a0ee0c2`** (merge feature/ade-fase2 — Fase D D1–D3), `7709e3e` (docs Fase D [D4]), **`2cbc612`** (merge feature/ade-fase2 — Fase D D4 testes), `2fa3ca1` (fix SPA: WS reusa API key como token [M-03]), `81cd9bb` (docs 08: dev com key fixa [M-03]), `5d8a1d9` (fix SPA: boot busca runs existentes e auto-seleciona a ativa), `fac391d` (docs: status Fase D completa, MVP completo), **`c149c66`** (fix SPA: pendências do MVP — demo cancelada completa, shortId, errorMsg shape, guard HitlDrawer), **`85a28cb`** (fix SPA: E8 strings de UI em EN + suíte zero warnings), **`05da796`** (refactor SPA: nodeStatusMeta compartilhado).

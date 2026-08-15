@@ -12,7 +12,9 @@ interface AgentsState {
   loading: boolean
   error: string | null
   fetchAgents: () => Promise<void>
-  createAgent: (input: AgentInput) => Promise<Agent>
+  // C8: createAgent aceita Partial — o form omite campos vazios (defaults do
+  // backend); updateAgent já era Partial (PUT mescla).
+  createAgent: (input: Partial<AgentInput>) => Promise<Agent>
   updateAgent: (id: string, input: Partial<AgentInput>) => Promise<Agent>
   deleteAgent: (id: string) => Promise<void>
 }

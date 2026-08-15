@@ -47,8 +47,8 @@ describe('wsStore', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket)
     vi.stubGlobal('fetch', vi.fn())
     useRunsStore.setState({ runs: [], activeRunId: null, queue: [], past: [], future: [] })
-    // Reset completo: hadOpen (flag module-level) + lastSeqByRun + watermark —
-    // senão o 1º open de cada teste faria backfill espúrio (estado persiste).
+    // Reset completo: lastSeqByRun + watermark + client (module-level) — senão o
+    // 1º open de cada teste faria backfill com estado residual (estado persiste).
     __resetWsStoreForTest()
   })
   afterEach(() => {
@@ -86,22 +86,10 @@ describe('wsStore', () => {
     expect(ws.closed).toBe(true)
   })
 
-  it('primeiro open NÃO dispara backfill (sem runs de onde buscar)', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-    setActiveRun('r1')
-    useWsStore.getState().connect()
-    const ws = FakeWebSocket.instances[0]
-    ws.open()
-    // Espera microtasks (backfill é assíncrono) e confirma que nada foi buscado.
-    await new Promise((r) => setTimeout(r, 0))
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('reconnect faz backfill a partir do último seq visto (após live seq 5)', async () => {
+  it('primeiro open dispara backfill das runs ativas (B5 — reload recupera o gap)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       run_id: 'r1',
-      events: [{ seq: 9, event: 'pipeline_started', run_id: 'r1', payload: { idea: 'x', node: 'cpo' } }],
+      events: [pipelineEvent(9)],
       next_after_seq: 9,
     }))
     vi.stubGlobal('fetch', fetchMock)
@@ -110,23 +98,87 @@ describe('wsStore', () => {
     const spy = vi.fn()
     const unsub = registerWsHandler(spy)
 
-    // 1ª conexão: open + evento live seq 5 (sem backfill — hadOpen false).
+    useWsStore.getState().connect()
+    const ws = FakeWebSocket.instances[0]
+    ws.open()
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [url] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/api/v1/runs/r1/events?after_seq=0&limit=200')
+    // Evento do backfill despachado normalizado no barramento.
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 9, event: 'pipeline_started', run_id: 'r1' })))
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(9)
+    unsub()
+  })
+
+  it('primeiro open sem runs ativas não busca nada', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    useWsStore.getState().connect()
+    const ws = FakeWebSocket.instances[0]
+    ws.open()
+    // Espera microtasks (backfill é assíncrono) e confirma que nada foi buscado.
+    await new Promise((r) => setTimeout(r, 0))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('backfill normaliza ANTES de despachar (B6): evento não-normalizável é pulado', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      run_id: 'r1',
+      events: [
+        pipelineEvent(3),
+        // 'run_paused' saiu do KNOWN → normalize retorna null → nunca despacha.
+        { seq: 4, event: 'run_paused', run_id: 'r1', payload: { status: 'paused' } },
+      ],
+      next_after_seq: 4,
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    setActiveRun('r1')
+
+    const spy = vi.fn()
+    const unsub = registerWsHandler(spy)
+
+    useWsStore.getState().connect()
+    const ws = FakeWebSocket.instances[0]
+    ws.open()
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 3 })))
+    expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ seq: 4 }))
+    // lastSeq avança até o último evento NORMALIZADO (3), não o 4 rejeitado.
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(3)
+    unsub()
+  })
+
+  it('reconnect faz backfill a partir do último seq conhecido (após 1º open + live)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      run_id: 'r1',
+      events: [pipelineEvent(9)],
+      next_after_seq: 9,
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    setActiveRun('r1')
+
+    const spy = vi.fn()
+    const unsub = registerWsHandler(spy)
+
+    // 1ª conexão: primeiro open JÁ faz catch-up (B5) — busca from 0.
     useWsStore.getState().connect()
     const ws1 = FakeWebSocket.instances[0]
     ws1.open()
-    ws1.emit({ seq: 5, event: 'run_updated', run_id: 'r1', payload: { status: 'running' } })
-    expect(useWsStore.getState().lastSeqByRun.r1).toBe(5)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/runs/r1/events?after_seq=0&limit=200')
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 9 })))
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(9)
 
-    // 2ª conexão (reconnect): open → backfill busca after_seq=5.
+    // Evento live com seq ANTERIOR (5, já coberto pelo backfill) não regride o mapa.
+    ws1.emit({ seq: 5, event: 'run_updated', run_id: 'r1', payload: { status: 'running' } })
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(9)
+
+    // 2ª conexão (reconnect): backfill busca a partir do último seq conhecido (9).
+    fetchMock.mockClear()
     useWsStore.getState().connect()
     const ws2 = FakeWebSocket.instances[1]
     ws2.open()
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
-    const [url] = fetchMock.mock.calls[0]
-    expect(String(url)).toContain('/api/v1/runs/r1/events?after_seq=5&limit=200')
-    // Evento do backfill despachado no barramento.
-    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ seq: 9, event: 'pipeline_started', run_id: 'r1' })))
-    expect(useWsStore.getState().lastSeqByRun.r1).toBe(9)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/runs/r1/events?after_seq=9&limit=200')
     unsub()
   })
 
@@ -140,11 +192,11 @@ describe('wsStore', () => {
 
     useWsStore.getState().connect()
     const ws1 = FakeWebSocket.instances[0]
-    ws1.open() // hadOpen → true
+    ws1.open() // 1º open também dispara backfill (B5) — fetch fica pendente (deferred)
 
     useWsStore.getState().connect()
     const ws2 = FakeWebSocket.instances[1]
-    ws2.open() // reconnect → backfill dispara, mas fetch fica PENDENTE (deferred)
+    ws2.open() // reconnect → backfill dispara de novo, fetch continua PENDENTE (deferred)
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
     // Evento live chega DURANTE o fetch: watermark vira 10 (e mapa vai a 10).
@@ -174,7 +226,7 @@ describe('wsStore', () => {
 
     useWsStore.getState().connect()
     const ws1 = FakeWebSocket.instances[0]
-    ws1.open() // hadOpen → true
+    ws1.open() // 1º open também dispara backfill (B5) — fetch pendente
 
     useWsStore.getState().connect()
     const ws2 = FakeWebSocket.instances[1]
@@ -215,12 +267,13 @@ describe('wsStore', () => {
 
     useWsStore.getState().connect()
     const ws1 = FakeWebSocket.instances[0]
-    ws1.open() // hadOpen → true
+    ws1.open() // 1º open → backfill rA + rB (dois fetches pendentes)
 
     useWsStore.getState().connect()
     const ws2 = FakeWebSocket.instances[1]
-    ws2.open() // reconnect → backfill rA + rB (dois fetches pendentes)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    ws2.open() // reconnect → backfill rA + rB de novo (mais dois fetches pendentes)
+    // B5: 1º open JÁ dispara backfill — as duas primeiras chamadas são do ws1.
+    await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2))
     expect(String(fetchMock.mock.calls[0][0])).toContain('/runs/rA/events')
     expect(String(fetchMock.mock.calls[1][0])).toContain('/runs/rB/events')
 
@@ -258,14 +311,19 @@ describe('wsStore', () => {
 
     useWsStore.getState().connect()
     const ws1 = FakeWebSocket.instances[0]
-    ws1.open() // hadOpen → true; sem backfill no primeiro open
+    ws1.open() // 1º open já pagina: call 1 (after_seq=0) + call 2 (after_seq=200)
+    await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(String(fetchMock.mock.calls[0][0])).toContain('after_seq=0&limit=200')
+    expect(String(fetchMock.mock.calls[1][0])).toContain('after_seq=200&limit=200')
+    expect(useWsStore.getState().lastSeqByRun.r1).toBe(201)
 
+    // Reconnect: base passa a ser o último seq (201) — mock esgotado → fetch
+    // retorna undefined → apiFetch lança → catch silencioso do backfill.
     useWsStore.getState().connect()
     const ws2 = FakeWebSocket.instances[1]
     ws2.open()
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    expect(String(fetchMock.mock.calls[0][0])).toContain('after_seq=0&limit=200')
-    expect(String(fetchMock.mock.calls[1][0])).toContain('after_seq=200&limit=200')
+    await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3))
+    expect(String(fetchMock.mock.calls[2][0])).toContain('after_seq=201&limit=200')
     expect(useWsStore.getState().lastSeqByRun.r1).toBe(201)
   })
 })

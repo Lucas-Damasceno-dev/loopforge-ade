@@ -36,6 +36,7 @@ import { PANEL_VIEWS } from '../shared/lib/views'
 import type { ViewKey } from '../shared/lib/views'
 import { useWsStore } from '../stores/wsStore'
 import { useRunsStore } from '../stores/runsStore'
+import { dispatchWsEvent } from '../stores/wsBridge'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useConsoleStore } from '../stores/consoleStore'
 import { useViewStore } from '../stores/viewStore'
@@ -102,6 +103,20 @@ export function App() {
     if (connected.current) return
     connected.current = true
     useWsStore.getState().connect()
+  }, [])
+
+  // Hook E2E (contrato novo — item 6): em dev (dev server do Playwright),
+  // expõe o caminho REAL do WS (dispatchWsEvent → wsBridge → stores) p/ os
+  // specs simularem eventos sem backend — mesmo padrão do runDemo. Nunca em
+  // produção (import.meta.env.DEV false no build).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const hook = {
+      dispatchWsEvent,
+      runs: () => useRunsStore.getState().runs,
+      activeRunId: () => useRunsStore.getState().activeRunId,
+    }
+    ;(window as unknown as Record<string, unknown>).__lfTest = hook
   }, [])
 
   // Command palette (T7): listener global ⌘K/Ctrl+K abre (preventDefault —

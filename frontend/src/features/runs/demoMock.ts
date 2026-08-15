@@ -55,11 +55,11 @@ export function runDemo(): void {
     const delay = NODE_DELAY_MS * (i + 1)
     const nextAgent = PIPELINE_ORDER[PIPELINE_ORDER.indexOf(node) + 1]
     demoTimers.push(setTimeout(() => {
-      dispatchWsEvent({ event: 'pipeline_started', run_id: id, timestamp: Date.now(), seq: i + 1, payload: { idea: 'Demo task', node } })
+      dispatchWsEvent({ event: 'pipeline_started', run_id: id, timestamp: new Date().toISOString(), seq: i + 1, payload: { idea: 'Demo task', node } })
       dispatchWsEvent({
         event: 'node_execution',
         run_id: id,
-        timestamp: Date.now(),
+        timestamp: new Date().toISOString(),
         seq: i + 2,
         payload: { node, status: 'completed', next_agent: nextAgent, attempt_count: 1, task_id: `demo-${id}-${node}` },
       })
@@ -70,7 +70,7 @@ export function runDemo(): void {
   // (sem ativa vira ativa; com ativa vai para a fila).
   const total = NODE_DELAY_MS * EXECUTION_ORDER.length
   demoTimers.push(setTimeout(() => {
-    dispatchWsEvent({ event: 'pipeline_finished', run_id: id, timestamp: Date.now(), payload: { status: 'completed', duration_seconds: total / 1000 } })
+    dispatchWsEvent({ event: 'pipeline_finished', run_id: id, timestamp: new Date().toISOString(), payload: { status: 'completed', duration_seconds: total / 1000 } })
     const state = useRunsStore.getState()
     if (state.activeRunId === null) state.selectRun(id)
     else if (state.activeRunId !== id) state.enqueue(id)

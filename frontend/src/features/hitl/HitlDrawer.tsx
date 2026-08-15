@@ -14,7 +14,7 @@ import { Select } from '../../shared/ui/Select'
 import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { Alert } from '../../shared/ui/Alert'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
-import { decideRun, getDecisions, getCheckpoints, getCheckpoint } from '../../shared/lib/api'
+import { decideRun, getDecisions, getRun, getCheckpoints, getCheckpoint } from '../../shared/lib/api'
 import type { DecisionRecord } from '../../shared/lib/types'
 import { isDemoRunId } from '../runs/demoMock'
 import { NODE_LABELS, PIPELINE_ORDER } from '../dag/dagModel'
@@ -72,6 +72,18 @@ export function HitlDrawer() {
   const [decisionsLoading, setDecisionsLoading] = useState(true)
   const [dismissed, setDismissed] = useState(false)
 
+  // Feedback (item 3): categorias do backend (HumanDecisionCreate) — com
+  // feedback o dispatcher aplica direto no adjust_prompt sem bloquear; sem
+  // feedback e sem TTY, aplica default. Default 'general' = sem categoria.
+  const FEEDBACK_CATEGORIES: Array<{ value: string; label: string }> = [
+    { value: 'general', label: 'Geral' },
+    { value: 'bug', label: 'Bug' },
+    { value: 'style', label: 'Estilo' },
+    { value: 'missing_feature', label: 'Funcionalidade ausente' },
+  ]
+  const [feedbackCategory, setFeedbackCategory] = useState('general')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+
   // Gate = primeiro nó paused na ordem do pipeline.
   const gateNode = useMemo(() => PIPELINE_ORDER.find((n) => nodeStatus[n]?.status === 'paused') ?? null, [nodeStatus])
   const run = runs.find((r) => r.id === activeRunId) ?? null
@@ -84,6 +96,8 @@ export function HitlDrawer() {
     setJsonText('{}')
     setJsonError(null)
     setBeforeValues(null)
+    setFeedbackCategory('general')
+    setFeedbackMessage('')
   }, [gateNode])
 
   // Valores atuais dos campos (diff antes→depois): último checkpoint da
@@ -139,12 +153,35 @@ export function HitlDrawer() {
 
   const label = NODE_LABELS[gateNode]
 
+  // A2 (não-otimista): após uma decisão (sucesso OU rejeição 404/409), o
+  // backend pode ter mudado current_node/status/degraded ou registrado decisão
+  // de outro agente — recarrega o estado real da run e o histórico. Best-effort:
+  // falha de GET mantém o snapshot atual do store. Função simples (não hook —
+  // definida após o early return acima; hooks não podem ser condicionais).
+  const refreshRun = async () => {
+    if (!run?.id || isDemoRunId(run.id)) return
+    try {
+      const fresh = await getRun(run.id)
+      useRunsStore.getState().upsertRun(fresh)
+    } catch { /* best-effort — segue com o snapshot atual */ }
+    try {
+      const ds = await getDecisions(run.id)
+      setDecisions(ds)
+    } catch { /* sem histórico → mantém o atual */ }
+  }
+
   const runAction = async (action: Action, body?: Record<string, unknown>) => {
     setPendingAction(action)
     setError(null)
     try {
-      await decideRun(run.id, { action, gate_node: gateNode, ...body })
-      // Sucesso: o gate sai do paused — o drawer fecha automaticamente.
+      // Feedback (item 3): categoria sempre enviada (default 'general');
+      // mensagem só quando preenchida. `body` (ex.: state_patch) fica por último.
+      const feedbackBody: Record<string, unknown> = { feedback_category: feedbackCategory }
+      const msg = feedbackMessage.trim()
+      if (msg) feedbackBody.feedback_message = msg
+      await decideRun(run.id, { action, gate_node: gateNode, ...feedbackBody, ...body })
+      // Sucesso: o backend VALIDOU e gravou a decisão — só agora libera o nó
+      // (o gate sai do paused → o drawer fecha automaticamente).
       const next: NodeStatus =
         action === 'approve' || action === 'adjust_prompt' || action === 'adjust_state'
           ? 'approved'
@@ -152,8 +189,13 @@ export function HitlDrawer() {
             ? 'rejected'
             : 'pending'
       setNodeStatus(gateNode, next)
+      await refreshRun()
     } catch (e) {
+      // 404/409: backend rejeitou (run encerrada/decision divergente) — mostra
+      // o erro NO drawer, NÃO fecha (o nó segue paused) e recarrega o estado
+      // real (a run pode ter mudado por fora).
       setError(e instanceof Error ? e.message : 'Decision failed')
+      await refreshRun()
     } finally {
       setPendingAction(null)
     }
@@ -217,6 +259,33 @@ export function HitlDrawer() {
         {error && (
           <Alert tone="err" className="mb-4">{error}</Alert>
         )}
+
+        {/* Feedback (item 3): opcional, aplicável a qualquer ação — com
+            categoria+mensagem o dispatcher guia o ajuste sem bloquear. */}
+        <div className="mb-4 rounded-md border border-[var(--border)] bg-[var(--bg)] p-3">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">Feedback</span>
+          <label htmlFor="hitl-feedback-category" className="mb-0.5 block text-(--text-2xs) text-[var(--text-dim)]">Categoria do feedback</label>
+          <Select
+            id="hitl-feedback-category"
+            aria-label="Categoria do feedback"
+            value={feedbackCategory}
+            onChange={(e) => setFeedbackCategory(e.target.value)}
+            className="w-full"
+          >
+            {FEEDBACK_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </Select>
+          <label htmlFor="hitl-feedback-message" className="mb-0.5 mt-2 block text-(--text-2xs) text-[var(--text-dim)]">Mensagem de feedback (opcional)</label>
+          <Textarea
+            id="hitl-feedback-message"
+            aria-label="Mensagem de feedback (opcional)"
+            value={feedbackMessage}
+            onChange={(e) => setFeedbackMessage(e.target.value)}
+            placeholder="Ex.: ajuste o prompt para cobrir o caso de borda…"
+            className="h-16 text-xs"
+          />
+        </div>
 
         <div className="mb-4 grid grid-cols-2 gap-2">
           <Button variant="primary" size="sm" disabled={pendingAction !== null} onClick={() => runAction('approve')}>
