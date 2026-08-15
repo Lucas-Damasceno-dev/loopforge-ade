@@ -80,6 +80,10 @@ export function PipelinesPanel() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    // RBAC (fix round 1): defesa em profundidade — Save está oculto p/ não-admin
+    // e startNew/startEdit são gateados, mas submit via Enter no input Name/
+    // Description burlaria a UI; o backend já 403a (fim da linha).
+    if (!canAdmin) return
     if (!form.name.trim()) {
       setError('Name is required.')
       return
