@@ -124,6 +124,20 @@ export function RunInspector() {
                   ) : null}
                   <DetailRow label="Thread" value={run.thread_id ? shortId(run.thread_id) : '—'} mono />
                 </dl>
+                {/* S3 (T4): snapshot persistido da run — read-only. A run executa
+                    SEMPRE esta versão do pipeline, mesmo que o template mude. */}
+                {run.snapshot ? (
+                  <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--bg-elev)]/50 px-2.5 py-2">
+                    <SectionTitle className="mb-1">Pipeline snapshot</SectionTitle>
+                    <p className="text-xs font-medium text-[var(--text)]">{run.snapshot.name}</p>
+                    {run.snapshot.description ? (
+                      <p className="mt-0.5 text-xs leading-4 text-[var(--text-dim)]">{run.snapshot.description}</p>
+                    ) : null}
+                    <p className="mt-1 text-(--text-2xs) text-[var(--text-dim)]">
+                      {run.snapshot.nodes?.length ?? 0} nós · {run.snapshot.edges?.length ?? 0} arestas
+                    </p>
+                  </div>
+                ) : null}
               </section>
 
               <section>

@@ -92,4 +92,30 @@ describe('RunInspector', () => {
     expect(await screen.findByText('Run details')).toBeInTheDocument()
     expect(screen.queryByText(/pipeline:/i)).not.toBeInTheDocument()
   })
+
+  it('exibe seção de snapshot quando run tem snapshot', () => {
+    useRunsStore.setState({
+      runs: [
+        {
+          id: 'r1',
+          idea: 'ideia',
+          stack: 'python',
+          status: 'completed',
+          pipeline_id: 'p1',
+          pipeline_name: 'SnapPipe',
+          snapshot: {
+            name: 'SnapPipe',
+            description: 'desc snapshot',
+            nodes: [{ id: 'n1', type: 'agent', agent_id: null, config: {} }],
+            edges: [],
+          },
+        },
+      ],
+      activeRunId: 'r1',
+    })
+    renderInspector()
+    expect(screen.getByText('Pipeline snapshot')).toBeTruthy()
+    expect(screen.getByText('SnapPipe')).toBeTruthy()
+    expect(screen.getByText(/desc snapshot/)).toBeTruthy()
+  })
 })
