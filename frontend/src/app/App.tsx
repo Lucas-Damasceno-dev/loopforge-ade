@@ -43,7 +43,7 @@ import { useConsoleStore } from '../stores/consoleStore'
 import { useViewStore } from '../stores/viewStore'
 import { usePipelinesStore } from '../stores/pipelinesStore'
 import { useEditorStore } from '../features/pipelines/editorStore'
-import type { ValidateResult } from '../shared/lib/types'
+import type { Pipeline, ValidateResult } from '../shared/lib/types'
 import { shortId } from '../features/trajectories/shortId'
 
 const queryClient = new QueryClient()
@@ -125,6 +125,13 @@ export function App() {
       activeRunId: () => useRunsStore.getState().activeRunId,
       setPrincipal: (p: { name: string; roles: string[] } | null) =>
         useAuthStore.getState().setPrincipal(p),
+      // E2E (plan 2 T5): injeta a biblioteca de pipelines direto no store —
+      // sem backend, o select do NewRunForm precisa de opções reais
+      // (fetchPipelines falharia com ECONNREFUSED). Setter p/ aceitar a
+      // atribuição `__lfTest.pipelines = [...]` dos specs.
+      set pipelines(v: Pipeline[] | undefined) {
+        usePipelinesStore.setState({ pipelines: v ?? [] })
+      },
     }
     ;(window as unknown as Record<string, unknown>).__lfTest = hook
   }, [])
