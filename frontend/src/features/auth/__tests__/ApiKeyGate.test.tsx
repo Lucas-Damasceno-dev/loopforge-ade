@@ -3,13 +3,18 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ApiKeyGate } from '../ApiKeyGate'
 import { useAuthStore } from '../../../stores/authStore'
 
-vi.mock('../../../shared/lib/api', () => ({
-  getApiKey: vi.fn(() => undefined),
-  setApiKey: vi.fn(),
-  onUnauthorized: vi.fn(() => () => {}),
-  retryUnauthorizedRequests: vi.fn(),
-  rejectPendingUnauthorized: vi.fn(),
-}))
+vi.mock(import('../../../shared/lib/api'), async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../../shared/lib/api')>()
+  return {
+    ...mod,
+    getApiKey: vi.fn(() => undefined),
+    setApiKey: vi.fn(),
+    onUnauthorized: vi.fn(() => () => {}),
+    retryUnauthorizedRequests: vi.fn(),
+    rejectPendingUnauthorized: vi.fn(),
+    getAuthMe: vi.fn().mockRejectedValue(new mod.ApiError(401, 'Unauthorized')),
+  }
+})
 
 vi.mock(import('../../../stores/authStore'), async (importOriginal) => {
   const actual = await importOriginal()
