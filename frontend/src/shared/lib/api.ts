@@ -4,6 +4,7 @@ import type {
   AgentInput,
   ArtifactsResponse,
   AstAnalysisResponse,
+  AuthMe,
   BudgetOverrideRequest,
   Checkpoint,
   CostResponse,
@@ -354,3 +355,8 @@ export async function getHealth(): Promise<HealthStatus> {
   }
   return (await res.json()) as HealthStatus
 }
+
+// ─── Auth (RBAC) — GET /api/v1/auth/me ─────────────────────────────────────
+// Identidade do principal (name + roles) para o login da SPA. 401 → retry
+// queue padrão (o gate reabre); auth desativada → anonymous/admin.
+export const getAuthMe = () => apiFetch<AuthMe>('/auth/me')

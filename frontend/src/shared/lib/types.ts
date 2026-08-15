@@ -82,6 +82,12 @@ export interface RunListResponse {
   total: number
 }
 
+/** GET /api/v1/auth/me — identidade do principal (name + roles). */
+export interface AuthMe {
+  name: string
+  roles: string[]
+}
+
 // ─── Fila E3 (QueueBadge) — GET /api/v1/runs/queue ──────────────────────────
 // Espelha o response do engine: {max_concurrent, active_count, active, queued}.
 
