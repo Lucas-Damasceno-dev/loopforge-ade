@@ -35,6 +35,7 @@ import { SplitPane } from '../shared/ui/SplitPane'
 import { PANEL_VIEWS } from '../shared/lib/views'
 import type { ViewKey } from '../shared/lib/views'
 import { useWsStore } from '../stores/wsStore'
+import { useAuthStore } from '../stores/authStore'
 import { useRunsStore } from '../stores/runsStore'
 import { dispatchWsEvent } from '../stores/wsBridge'
 import { useCanvasStore } from '../stores/canvasStore'
@@ -54,6 +55,10 @@ const queryClient = new QueryClient()
 // Conecta o WS uma única vez (guard ref p/ StrictMode double-effect).
 export function App() {
   const connected = useRef(false)
+  // Identidade do principal (RBAC T4): chip na topbar + logout. Sem principal
+  // (auth off/demo) o gate segue dispensável e a UI opera como antes.
+  const principal = useAuthStore((s) => s.principal)
+  const logout = useAuthStore((s) => s.logout)
   // Focus mode (01b §6.1): Fullscreen API real — oculta topbar + chrome das
   // runs; restam canvas e console. Indicador discreto no canto do canvas.
   const [fullscreen, setFullscreen] = useState(false)
@@ -336,6 +341,28 @@ export function App() {
             }
             right={
               <>
+                {/* Chip do principal (RBAC T4): nome + roles + logout. Só com
+                    principal real (backend autenticado); `anonymous` (auth off)
+                    não aparece — UI continua como antes sem backend. */}
+                {principal && principal.name !== 'anonymous' && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-0.5">
+                    <span className="max-w-28 truncate text-xs text-[var(--text)]" title={principal.name}>
+                      {principal.name}
+                    </span>
+                    <span className="text-(--text-2xs) uppercase tracking-wide text-[var(--text-dim)]">
+                      {principal.roles.join('/')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={logout}
+                      title="Logout"
+                      aria-label="Logout"
+                      className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-dim)] hover:bg-[var(--bg-elev-2)] hover:text-[var(--text)]"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
                 {/* Inspetor de run (T5): painel direito colapsável com detalhes
                     + custo da run ativa. Toggle; some junto no Focus mode. */}
                 <Button

@@ -2,48 +2,47 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Modal } from '../../shared/ui/Modal'
 import { Input } from '../../shared/ui/Input'
 import { Button } from '../../shared/ui/Button'
-import {
-  getApiKey,
-  setApiKey,
-  onUnauthorized,
-  retryUnauthorizedRequests,
-  rejectPendingUnauthorized,
-} from '../../shared/lib/api'
+import { onUnauthorized } from '../../shared/lib/api'
+import { useAuthStore } from '../../stores/authStore'
 
 // Gate de API key (B2/M-20): overlay quando QUALQUER chamada retorna 401 ou
-// quando não há key salva ao entrar. Salvar reexecuta a chamada pendente
-// (retryUnauthorizedRequests); dispensar sem key rejeita as pendentes — o
-// modo demo (runDemo, sem backend) segue funcional sem chave.
+// quando não há identidade salva ao entrar (RBAC T4: valida a key via
+// /auth/me no submit — login() do store persiste o principal e reexecuta as
+// pendentes; erro inline em 401/403). Dispensar sem key rejeita as pendentes
+// via logout() — o modo demo (runDemo, sem backend) segue funcional.
 export function ApiKeyGate() {
   const [open, setOpen] = useState(false)
   const [key, setKey] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Sem key salva → mostra a tela ao entrar (dispensável p/ demo).
-    if (!getApiKey()) setOpen(true)
+    // Sem principal salvo → mostra a tela ao entrar (dispensável p/ demo).
+    if (!useAuthStore.getState().principal) setOpen(true)
     return onUnauthorized(() => setOpen(true))
   }, [])
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const trimmed = key.trim()
     if (!trimmed) {
       setError('Informe a API key')
       return
     }
-    setApiKey(trimmed)
-    setOpen(false)
-    setKey('')
     setError(null)
-    retryUnauthorizedRequests() // reexecuta a chamada pendente com a nova key
+    try {
+      await useAuthStore.getState().login(trimmed)
+      setOpen(false)
+      setKey('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'API key inválida')
+    }
   }
 
   const dismiss = () => {
     setOpen(false)
     setKey('')
     setError(null)
-    rejectPendingUnauthorized() // sem key → pendentes falham (modo demo/sem backend)
+    useAuthStore.getState().logout() // sem key → limpa credencial e rejeita pendentes (modo demo/sem backend)
   }
 
   return (
