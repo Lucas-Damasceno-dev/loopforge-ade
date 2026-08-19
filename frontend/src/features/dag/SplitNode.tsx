@@ -52,7 +52,10 @@ function SplitNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'spl
     >
       <Handle type="target" position={Position.Left} style={{ background: 'var(--border)' }} />
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-semibold" style={{ color: accentText }}>Split</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="text-xs select-none" aria-hidden="true">🔀</span>
+          <span className="truncate text-sm font-semibold" style={{ color: accentText }}>Split</span>
+        </div>
         {/* Badge "2× parallel" (mockup item 7): pulsa enquanto o bloco roda. */}
         <span
           title="Runs branches in parallel"

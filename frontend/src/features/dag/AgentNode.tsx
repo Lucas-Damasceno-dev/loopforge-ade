@@ -8,6 +8,23 @@ import { NODE_LABELS, DISPLAY_PARENT, type DagNodeData } from './dagModel'
 import { nodeAccentTextVar, nodeAccentVar } from './nodeAccent'
 import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
 
+const PERSONA_ICONS: Record<string, string> = {
+  cpo: '👑',
+  pm: '📋',
+  tech_lead: '⚡',
+  test_writer: '🧪',
+  developer: '💻',
+  dev: '💻',
+  qa: '🛡️',
+  appsec: '🔒',
+  devops: '🚀',
+  parallel_audit: '🔍',
+  retry: '🔄',
+  input: '📥',
+  output: '📤',
+  gate: '🚪',
+}
+
 function useRunningTimer(isRunning: boolean): number {
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
@@ -54,6 +71,8 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
   const isStreaming = useConsoleStore((s) => Boolean(s.streams[node]))
   const glow = (status === 'running' || isStreaming) && !ghosted
 
+  const icon = PERSONA_ICONS[node] ?? '🤖'
+
   return (
     <button
       type="button"
@@ -73,15 +92,21 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
     >
       <Handle type="target" position={Position.Left} style={{ background: 'var(--border)' }} />
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-semibold" style={{ color: accentText }}>{label}</span>
-        {attemptCount > 1 && (
-          <span
-            title={`retry ×${attemptCount}`}
-            className="rounded bg-[var(--err)]/15 px-1 text-xs font-bold text-[var(--err-text)]"
-          >
-            ×{attemptCount}
-          </span>
-        )}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="text-xs select-none" aria-hidden="true">{icon}</span>
+          <span className="truncate text-sm font-semibold" style={{ color: accentText }}>{label}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {glow && <span className="ade-live-dot mr-0.5" />}
+          {attemptCount > 1 && (
+            <span
+              title={`retry ×${attemptCount}`}
+              className="rounded bg-[var(--err)]/15 px-1 text-xs font-bold text-[var(--err-text)]"
+            >
+              ×{attemptCount}
+            </span>
+          )}
+        </div>
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">

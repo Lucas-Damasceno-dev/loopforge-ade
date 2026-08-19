@@ -39,16 +39,21 @@ const nodeTypes = { agent: AgentNode, split: SplitNode, merge: MergeNode }
 // - markerEnd: err quando dashed (retry filho devops->split), accent quando
 //   animada (loop retry->developer), border nos demais.
 // - sourcePosition/targetPosition (bottom no retry filho) já fluem via spread.
-export function decorateEdges(edges: DagEdge[]) {
-  return edges.map((e) => ({
-    ...e,
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: e.dashed ? 'var(--err)' : e.animated ? 'var(--accent)' : 'var(--border)',
-    },
-    animated: e.animated,
-    style: e.style ?? (e.animated ? { stroke: 'var(--accent)', strokeWidth: 2 } : { stroke: 'var(--border)', strokeWidth: 1.5 }),
-  }))
+export function decorateEdges(edges: DagEdge[], nodeStatus?: Record<string, { status: string }>) {
+  return edges.map((e) => {
+    const isSourceRunning = nodeStatus?.[e.source]?.status === 'running'
+    const isAnimated = Boolean(e.animated || isSourceRunning)
+    return {
+      ...e,
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: e.dashed ? 'var(--err)' : isAnimated ? 'var(--accent)' : 'var(--border)',
+      },
+      animated: isAnimated,
+      className: isAnimated ? 'animated' : '',
+      style: e.style ?? (isAnimated ? { stroke: 'var(--accent)', strokeWidth: 2 } : { stroke: 'var(--border)', strokeWidth: 1.5 }),
+    }
+  })
 }
 
 export interface FlowCanvasProps {
@@ -181,7 +186,7 @@ function CanvasContent({ onNodeClick }: FlowCanvasProps) {
         selected: selectedNodeId === n.id || DISPLAY_PARENT[n.id] === selectedNodeId,
       })),
     )
-    setEdges(decorateEdges(buildEdges(dagNodes)))
+    setEdges(decorateEdges(buildEdges(dagNodes), nodeStatus))
   }, [editMode, draft, positions, mode, nodeStatus, ghostToStep, selectedNodeId, cost, agentNameById, setNodes, setEdges])
 
   // F3 (fix wave): editor abre herdando zoom/pan da run anterior (hadNodes já
