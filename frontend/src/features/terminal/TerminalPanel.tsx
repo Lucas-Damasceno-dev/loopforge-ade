@@ -184,15 +184,15 @@ export function TerminalPanel({ open, onClose, runId }: TerminalPanelProps) {
             <div className="space-y-4">
               {history.map((item) => (
                 <div key={item.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-[var(--text-dim)] border-b border-[var(--border)] pb-1">
-                    <span className="flex items-center gap-1.5 font-semibold text-[var(--accent-text)]">
-                      <span>$</span>
-                      <span>{item.command}</span>
+                  <div className="flex items-center justify-between text-[var(--text-dim)] border-b border-white/5 pb-1">
+                    <span className="flex items-center gap-1.5 font-semibold text-[var(--ok-text)]">
+                      <span className="text-[var(--ok)] select-none">❯</span>
+                      <span className="text-[var(--text)]">{item.command}</span>
                     </span>
                     <div className="flex items-center gap-2 text-[10px]">
-                      <span>{item.durationSeconds}s</span>
+                      <span className="text-[var(--text-dim)]">{item.durationSeconds}s</span>
                       <span
-                        className={`rounded px-1 font-bold ${
+                        className={`rounded px-1.5 py-0.5 font-bold ${
                           item.exitCode === 0 ? 'bg-[var(--ok)]/20 text-[var(--ok-text)]' : 'bg-[var(--err)]/20 text-[var(--err-text)]'
                         }`}
                       >
