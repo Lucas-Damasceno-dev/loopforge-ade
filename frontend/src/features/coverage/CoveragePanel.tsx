@@ -20,9 +20,9 @@ function getCoverageTone(pct: number): 'ok' | 'warn' | 'err' {
 }
 
 function getProgressColor(pct: number): string {
-  if (pct >= 80) return 'bg-[var(--ok)]'
-  if (pct >= 50) return 'bg-[var(--warn)]'
-  return 'bg-[var(--err)]'
+  if (pct >= 80) return 'bg-gradient-to-r from-emerald-500 to-teal-400'
+  if (pct >= 50) return 'bg-gradient-to-r from-amber-500 to-yellow-400'
+  return 'bg-gradient-to-r from-red-600 to-rose-400'
 }
 
 export function CoveragePanel({ open, onClose, runId }: CoveragePanelProps) {

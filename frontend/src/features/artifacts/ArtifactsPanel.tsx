@@ -17,24 +17,24 @@ export interface ArtifactsPanelProps {
 function getFileIcon(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase()
   switch (ext) {
-    case 'py': return 'P'
+    case 'py': return '🐍'
     case 'ts':
-    case 'tsx': return 'T'
+    case 'tsx': return '🔷'
     case 'js':
-    case 'jsx': return 'J'
-    case 'java': return 'J'
-    case 'rs': return 'R'
-    case 'go': return 'G'
-    case 'md': return 'M'
+    case 'jsx': return '🟨'
+    case 'java': return '☕'
+    case 'rs': return '🦀'
+    case 'go': return '🐹'
+    case 'md': return '📝'
     case 'json':
     case 'yaml':
     case 'yml':
-    case 'toml': return 'C'
+    case 'toml': return '⚙️'
     case 'html':
-    case 'css': return 'W'
-    case 'sql': return 'S'
-    case 'sh': return 'S'
-    default: return 'F'
+    case 'css': return '🌐'
+    case 'sql': return '🗄️'
+    case 'sh': return '🐚'
+    default: return '📄'
   }
 }
 

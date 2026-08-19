@@ -154,23 +154,30 @@ export function GitPanelContent({ runId, enabled = true }: { runId: string; enab
           <section>
             <SectionTitle className="mb-2">Log</SectionTitle>
             {info.log.length > 0 ? (
-              <ul className="space-y-1.5">
-                {info.log.map((entry) => (
-                  <li
+              <div className="relative border-l border-[var(--border)] ml-2.5 pl-4 space-y-3">
+                {info.log.map((entry, idx) => (
+                  <div
                     key={entry.hash}
                     data-testid={`git-log-${entry.hash}`}
-                    className="rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1.5"
+                    className="relative rounded-md border border-[var(--border)] bg-[var(--bg-elev)]/80 p-2.5 transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-elev-2)]"
                   >
+                    {/* Timeline dot */}
+                    <span
+                      aria-hidden="true"
+                      className={`absolute -left-[21px] top-3.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--bg)] ${
+                        idx === 0 ? 'bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]' : 'bg-[var(--border)]'
+                      }`}
+                    />
                     <p className="font-mono text-xs text-[var(--text)]">
-                      <span className="text-[var(--accent-text)]">{entry.hash}</span>{' '}
-                      <span className="text-[var(--text-dim)]">{entry.subject}</span>
+                      <span className="font-semibold text-[var(--accent-text)]">{entry.hash}</span>{' '}
+                      <span className="text-[var(--text)]">{entry.subject}</span>
                     </p>
-                    <p className="mt-0.5 text-[10px] text-[var(--text-dim)]">
+                    <p className="mt-1 text-[10px] font-medium text-[var(--text-dim)]">
                       {entry.author} · {entry.when}
                     </p>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
               <p data-testid="git-log-empty" className="text-sm text-[var(--text-dim)]">No commits yet</p>
             )}
