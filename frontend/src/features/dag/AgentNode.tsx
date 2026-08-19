@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from 'react'
 import { Handle, Position, type Node as FlowNode, type NodeProps } from '@xyflow/react'
 import { useCanvasStore } from '../../stores/canvasStore'
+import { useConsoleStore } from '../../stores/consoleStore'
 import { Badge } from '../../shared/ui/Badge'
 import { formatUsd } from '../costs/costModel'
 import { NODE_LABELS, DISPLAY_PARENT, type DagNodeData } from './dagModel'
@@ -50,14 +51,15 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
 
   // Glow no estado running (01b §4): sombra accent suave substitui a shadow
   // padrão do nó — sombra estática (sem pulse p/ não piscar o texto do nó).
-  const glow = status === 'running' && !ghosted
+  const isStreaming = useConsoleStore((s) => Boolean(s.streams[node]))
+  const glow = (status === 'running' || isStreaming) && !ghosted
 
   return (
     <button
       type="button"
       tabIndex={ghosted ? -1 : 0}
       aria-disabled={ghosted || undefined}
-      aria-label={`${label} (${NODE_STATUS_LABEL[status]})`}
+      aria-label={`${label} (${isStreaming ? 'streaming' : NODE_STATUS_LABEL[status]})`}
       onClick={select}
       className={[
         'w-44 cursor-pointer rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
@@ -83,7 +85,9 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <Badge tone={NODE_STATUS_TONE[status]}>{NODE_STATUS_LABEL[status]}</Badge>
+          <Badge tone={isStreaming ? 'info' : NODE_STATUS_TONE[status]}>
+            {isStreaming ? 'streaming' : NODE_STATUS_LABEL[status]}
+          </Badge>
           {status === 'running' && !ghosted && elapsed > 0 && (
             <span className="font-mono text-(--text-2xs) font-semibold text-[var(--accent-text)] animate-pulse">
               {formatDuration(elapsed)}

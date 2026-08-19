@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider, type Node as FlowNode, type NodeProps } from '@xyflow/react'
 import { AgentNode } from '../AgentNode'
 import { useCanvasStore } from '../../../stores/canvasStore'
+import { useConsoleStore } from '../../../stores/consoleStore'
 import type { DagNodeData } from '../dagModel'
 
 // Handle exige no mínimo o ReactFlowProvider (SplitNode.test: mesmo padrão).
@@ -23,6 +24,7 @@ function props(
 describe('AgentNode', () => {
   beforeEach(() => {
     useCanvasStore.setState({ selectedNodeId: null })
+    useConsoleStore.setState({ streams: {} })
     vi.restoreAllMocks()
   })
 
@@ -52,5 +54,13 @@ describe('AgentNode', () => {
     render(wrap(<AgentNode {...props('developer', { ghosted: true })} />))
     fireEvent.click(screen.getByRole('button'))
     expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('exibe badge streaming quando há stream ativo no consoleStore (ADR-0007)', () => {
+    useConsoleStore.setState({
+      streams: { developer: { node: 'developer', content: 'generating...', ts: 0 } },
+    })
+    render(wrap(<AgentNode {...props('developer', { status: 'running' })} />))
+    expect(screen.getByText(/streaming/i)).toBeInTheDocument()
   })
 })
