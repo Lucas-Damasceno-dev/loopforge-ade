@@ -324,3 +324,73 @@ kbd {
   stroke: var(--border);
   stroke-width: 1.5;
 }
+
+/* ─── Glassmorphism, Live Dots & Flow Overhaul ───────────────────────── */
+.ade-glass {
+  background: rgba(24, 24, 27, 0.80);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ade-glass-subtle {
+  background: rgba(9, 9, 11, 0.80);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ade-live-dot {
+  position: relative;
+  display: inline-flex;
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background-color: var(--accent);
+}
+.ade-live-dot::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background-color: var(--accent);
+  opacity: 0.75;
+  animation: ade-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ade-ping {
+  75%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.ade-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+@keyframes ade-edge-flow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6 6;
+  animation: ade-edge-flow 1s linear infinite;
+  stroke: var(--accent-text);
+}
