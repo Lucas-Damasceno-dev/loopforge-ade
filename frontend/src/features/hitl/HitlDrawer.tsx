@@ -240,6 +240,12 @@ export function HitlDrawer() {
 
   const editedKeys = Object.keys(patch)
 
+  const isDoomLoop = Boolean(
+    run?.degraded_reason?.toLowerCase().includes('doom_loop') ||
+      run?.degraded_reason?.toLowerCase().includes('doom-loop') ||
+      entries.some((e) => e.message.toLowerCase().includes('doom-loop') || e.message.toLowerCase().includes('doom_loop')),
+  )
+
   return (
     <>
       {expiredEntry && (
@@ -255,6 +261,12 @@ export function HitlDrawer() {
           <span className="text-sm font-semibold" style={{ color: 'var(--accent-text)' }}>{label}</span>
           <Badge tone="warn">Waiting for decision</Badge>
         </div>
+
+        {isDoomLoop && (
+          <Alert tone="warn" title="Doom-Loop Guard Ativo" className="mb-4">
+            Duas tentativas consecutivas falharam com o mesmo erro sem evolução no código. Você pode ajustar o prompt, editar o estado ou abortar a execução.
+          </Alert>
+        )}
 
         {error && (
           <Alert tone="err" className="mb-4">{error}</Alert>

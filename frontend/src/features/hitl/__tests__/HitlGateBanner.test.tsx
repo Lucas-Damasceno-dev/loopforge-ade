@@ -32,4 +32,10 @@ describe('HitlGateBanner (C3)', () => {
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
     expect(screen.getByTestId('hitl-gate-banner')).toHaveTextContent('Gate HITL: qa')
   })
+  it('renders distinct doom-loop alert when gateNode is doom_loop', () => {
+    useHitlGateStore.getState().push({ gateNode: 'doom_loop', runId: 'r3' })
+    render(<HitlGateBanner />)
+    const banner = screen.getByTestId('hitl-gate-banner')
+    expect(banner).toHaveTextContent(/doom-loop detectado/i)
+  })
 })

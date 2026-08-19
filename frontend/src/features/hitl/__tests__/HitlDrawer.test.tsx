@@ -53,6 +53,12 @@ it('shows expired timeout banner', async () => {
   render(<HitlDrawer />)
   expect(await screen.findByText(/decision expired/i)).toBeInTheDocument()
 })
+it('renders doom-loop guard alert when run or console indicates doom loop', async () => {
+  useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 2 } } })
+  useRunsStore.setState({ runs: [{ ...pausedRun, degraded_reason: 'doom_loop_detected' } as Run], activeRunId: 'r1' })
+  render(<HitlDrawer />)
+  expect(await screen.findByTitle(/doom-loop guard ativo/i)).toBeInTheDocument()
+})
 it('adjust state (C3) sends adjust_state with state_patch from guided fields', async () => {
   useCanvasStore.setState({ nodeStatus: { qa: { status: 'paused', attemptCount: 1 } } })
   useRunsStore.setState({ runs: [pausedRun], activeRunId: 'r1' })
