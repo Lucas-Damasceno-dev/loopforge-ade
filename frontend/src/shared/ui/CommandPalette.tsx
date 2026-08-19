@@ -108,12 +108,12 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="ade-modal-card-in mx-auto mt-[15vh] flex w-[560px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] shadow-[var(--shadow-modal)]"
+        className="ade-modal-card-in ade-glass mx-auto mt-[15vh] flex w-[560px] max-w-[90vw] flex-col overflow-hidden rounded-xl border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)]"
         onKeyDown={onKeyDown}
       >
         {/* Input de filtro com glifo de busca (inline, sem ícone dedicado). */}
-        <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2.5">
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 stroke-[var(--text-dim)] fill-none stroke-[1.5]">
+        <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-3 bg-zinc-950/40">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 stroke-[var(--text-dim)] fill-none stroke-[2]">
             <circle cx="11" cy="11" r="7" />
             <line x1="16.5" y1="16.5" x2="21" y2="21" />
           </svg>
@@ -127,11 +127,11 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
             onChange={(e) => setQuery(e.target.value)}
             className="min-w-0 flex-1 bg-transparent text-sm text-[var(--text)] outline-none placeholder:text-[var(--text-dim)]"
           />
-          <kbd className={kbdCls}>esc</kbd>
+          <kbd className="ade-kbd">esc</kbd>
         </div>
 
         {/* Lista de comandos filtrados. */}
-        <div role="listbox" aria-label="Commands" className="max-h-[40vh] overflow-y-auto py-1 [scrollbar-gutter:stable]">
+        <div role="listbox" aria-label="Commands" className="max-h-[40vh] overflow-y-auto p-1.5 [scrollbar-gutter:stable]">
           {results.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-[var(--text-dim)]">No commands match “{query}”</p>
           ) : (
@@ -145,12 +145,12 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
                   aria-selected={isActive}
                   onMouseEnter={() => setIndex(results.indexOf(cmd))}
                   onClick={() => runItem(cmd)}
-                  className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-sm transition-colors duration-(--dur-fast) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] ${
-                    isActive ? 'bg-[var(--bg-elev-2)] text-[var(--text)]' : 'text-[var(--text-dim)]'
+                  className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm rounded-md transition-colors duration-(--dur-fast) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] ${
+                    isActive ? 'bg-[var(--accent)] text-white shadow-xs' : 'text-[var(--text-dim)] hover:bg-[var(--bg-elev-2)] hover:text-[var(--text)]'
                   }`}
                 >
-                  <span className="truncate">{cmd.title}</span>
-                  {cmd.kbd ? <kbd className={kbdCls}>{cmd.kbd}</kbd> : null}
+                  <span className="truncate font-medium">{cmd.title}</span>
+                  {cmd.kbd ? <kbd className={isActive ? 'font-mono text-(--text-2xs) text-white/80 bg-white/20 px-1.5 py-0.5 rounded' : 'ade-kbd'}>{cmd.kbd}</kbd> : null}
                 </button>
               )
             })
@@ -158,8 +158,8 @@ export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose:
         </div>
 
         {/* Footer com hints. */}
-        <div className="flex items-center justify-between border-t border-[var(--border)] px-3 py-1.5 text-(--text-2xs) text-[var(--text-dim)]">
-          <span>{COMMANDS.length} commands</span>
+        <div className="flex items-center justify-between border-t border-white/10 px-4 py-2 text-(--text-2xs) text-[var(--text-dim)] bg-zinc-950/40">
+          <span className="font-mono">{COMMANDS.length} commands</span>
           <span className="flex items-center gap-3">
             <span>↑↓ navigate</span>
             <span>↵ select</span>

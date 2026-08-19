@@ -41,15 +41,15 @@ export function Topbar({ center, right }: TopbarProps) {
   return (
     <header
       data-testid="topbar"
-      className="flex h-11 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg)] px-4"
+      className="ade-glass-subtle sticky top-0 z-40 flex h-11 shrink-0 items-center gap-3 border-b border-[var(--border)]/60 px-4"
     >
-      <h1 className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text)]">
+      <h1 className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
         {/* Marca (P2-1): favicon reusado no header antes do nome. */}
-        <img src="/favicon.svg" alt="" aria-hidden="true" className="h-4 w-4" />
-        LoopForge ADE
+        <img src="/favicon.svg" alt="" aria-hidden="true" className="h-4 w-4 drop-shadow-[0_0_8px_rgba(79,70,229,0.5)]" />
+        <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">LoopForge ADE</span>
       </h1>
       {activeRun ? (
-        <span className="font-mono text-xs text-[var(--text-dim)]">{shortId(activeRun.id)}</span>
+        <span className="font-mono text-xs font-medium text-[var(--accent-text)] bg-[var(--accent)]/10 border border-[var(--accent)]/20 px-2 py-0.5 rounded-md">{shortId(activeRun.id)}</span>
       ) : null}
 
       {center ? <div className="flex min-w-0 flex-1 justify-center px-2">{center}</div> : null}
@@ -58,10 +58,10 @@ export function Topbar({ center, right }: TopbarProps) {
         <span
           aria-label={`Connection status: ${conn.label}`}
           title={conn.label}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-0.5"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-elev)]/80 px-2.5 py-0.5 backdrop-blur-xs"
         >
-          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${DOT[conn.tone]}`} />
-          <span className="text-xs text-[var(--text-dim)]">{conn.label}</span>
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${DOT[conn.tone]} shadow-[0_0_6px_currentColor]`} />
+          <span className="text-xs font-medium text-[var(--text-dim)]">{conn.label}</span>
         </span>
         {right}
       </div>

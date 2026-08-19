@@ -21,14 +21,14 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
   return (
     <nav
       aria-label="Activity"
-      className="flex w-[var(--rail-w)] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg)] py-1"
+      className="ade-glass flex w-[var(--rail-w)] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)]/60 py-1"
     >
       {WORKSPACE_GROUPS.map(({ group, views }, gi) => {
         const allowed = views.filter((key) => can(VIEW_ROLE[key] ?? 'viewer'))
         if (allowed.length === 0) return null
         return (
           <div key={group}>
-            {gi > 0 && <div className="mx-1 my-1 h-px bg-[var(--border)]" aria-hidden="true" />}
+            {gi > 0 && <div className="mx-2 my-1.5 h-px bg-[var(--border)]/40" aria-hidden="true" />}
             {allowed.map((key) => {
             const meta = VIEWS_META[key]
             const isActive = active === key
@@ -42,17 +42,17 @@ export function ActivityRail({ active, onSelect }: ActivityRailProps) {
                 data-active={isActive}
                 onClick={() => onSelect(key)}
                 className={[
-                  'relative flex h-12 w-full items-center justify-center transition-colors duration-[var(--dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]',
+                  'relative flex h-12 w-full items-center justify-center transition-all duration-[var(--dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]',
                   isActive
-                    ? 'bg-[var(--bg-elev)] text-[var(--accent-text)]'
+                    ? 'bg-[var(--bg-elev-2)] text-[var(--accent-text)] shadow-inner'
                     : 'text-[var(--text-dim)] hover:bg-[var(--bg-elev)] hover:text-[var(--text)]',
                 ].join(' ')}
               >
-                {/* Barra ativa 2px à esquerda (spec §2). */}
+                {/* Barra ativa 2px à esquerda com glow suave. */}
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-[var(--accent)]"
+                    className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]"
                   />
                 )}
                 <Icon name={meta.icon} className="h-5 w-5 shrink-0" />
