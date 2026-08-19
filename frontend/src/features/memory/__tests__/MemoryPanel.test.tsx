@@ -2,7 +2,7 @@ import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryPanel } from '../MemoryPanel'
+import { MemoryPanelContent } from '../MemoryPanel'
 import { createLesson, deleteLesson, listLessons } from '../../../shared/lib/api'
 import type { Lesson } from '../../../shared/lib/types'
 
@@ -38,9 +38,14 @@ function makeClient() {
 function renderPanel() {
   return render(
     <QueryClientProvider client={makeClient()}>
-      <MemoryPanel open onClose={() => {}} />
+      <MemoryPanelContent />
     </QueryClientProvider>,
   )
+}
+
+// Form de criação é colapsado por default — abre no toggle "New lesson".
+async function openCreateForm() {
+  await userEvent.click(screen.getByRole('button', { name: 'New lesson' }))
 }
 
 beforeEach(() => {
@@ -95,6 +100,7 @@ describe('MemoryPanel (lições aprendidas)', () => {
     vi.mocked(createLesson).mockResolvedValue(LESSONS[0])
     renderPanel()
     await screen.findByText('No lessons yet')
+    await openCreateForm()
     await userEvent.type(screen.getByLabelText('Stack'), 'python')
     await userEvent.type(screen.getByLabelText('Idea'), 'API REST')
     await userEvent.type(screen.getByLabelText('Lesson text'), 'Valide com Pydantic v2.')
@@ -114,6 +120,7 @@ describe('MemoryPanel (lições aprendidas)', () => {
     vi.mocked(createLesson).mockResolvedValue(LESSONS[0])
     renderPanel()
     await screen.findByText('No lessons yet')
+    await openCreateForm()
     await userEvent.type(screen.getByLabelText('Run ID'), 'run-42')
     await userEvent.type(screen.getByLabelText('Lesson text'), 'Li\u00e7\u00e3o nova.')
     await userEvent.click(screen.getByRole('button', { name: /^add lesson$/i }))
@@ -145,6 +152,7 @@ describe('MemoryPanel (lições aprendidas)', () => {
     vi.mocked(listLessons).mockResolvedValue([])
     renderPanel()
     await screen.findByText('No lessons yet')
+    await openCreateForm()
     expect(screen.getByRole('button', { name: /^add lesson$/i })).toBeDisabled()
   })
 })

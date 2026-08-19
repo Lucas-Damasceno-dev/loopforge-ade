@@ -4,16 +4,17 @@ import { createLesson, deleteLesson, listLessons } from '../../shared/lib/api'
 import type { Lesson } from '../../shared/lib/types'
 import { Badge } from '../../shared/ui/Badge'
 import { Button } from '../../shared/ui/Button'
-import { Drawer } from '../../shared/ui/Drawer'
 import { Input } from '../../shared/ui/Input'
 import { Textarea } from '../../shared/ui/Textarea'
 import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { Alert } from '../../shared/ui/Alert'
 
-// Memory (MemoryPanel): CRUD de lições aprendidas do LoopForge (lê a tabela
-// `lessons` do telemetry.sqlite via /api/v1/memory/lessons). Lista com badge de
-// stack, ideia, texto truncado e data; busca por query + filtro de stack;
-// formulário de criação e botão de exclusão por lição.
+// Memory (MemoryPanelContent): CRUD de lições aprendidas do LoopForge (lê a
+// tabela `lessons` do telemetry.sqlite via /api/v1/memory/lessons). Lista com
+// badge de stack, ideia, texto truncado e data; busca por query + filtro de
+// stack; formulário de criação colapsado por default (toggle "New lesson") e
+// botão de exclusão por lição. Conteúdo inline (T3 — sub-sidebar): sem wrapper
+// de Drawer; estados são locais a cada instância.
 
 // Lições vêm do SQLite com created_at em epoch SECONDS (REAL).
 function formatCreatedAt(epochSeconds: number): string {
@@ -51,17 +52,6 @@ function memoryErrorMessage(e: unknown): string {
   return e instanceof Error && e.message ? e.message : 'Failed to load lessons'
 }
 
-export function MemoryPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Drawer open={open} title="Memory" onClose={onClose}>
-      <MemoryPanelContent />
-    </Drawer>
-  )
-}
-
-// Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper. O drawer
-// (acima) e a sub-sidebar compartilham este componente; estados são locais a
-// cada instância (drawer e sidebar não coexistem na T3).
 export function MemoryPanelContent() {
   const queryClient = useQueryClient()
 
@@ -70,7 +60,9 @@ export function MemoryPanelContent() {
   const [stackInput, setStackInput] = useState('')
   const [queryInput, setQueryInput] = useState('')
 
-  // Formulário de criação.
+  // Formulário de criação colapsado por default (densidade da sub-sidebar);
+  // fecha ao criar (sucesso) ou cancelar.
+  const [formOpen, setFormOpen] = useState(false)
   const [runId, setRunId] = useState('')
   const [stack, setStack] = useState('')
   const [idea, setIdea] = useState('')
@@ -113,6 +105,7 @@ export function MemoryPanelContent() {
         lesson_text: lessonText.trim(),
       })
       setCreated(true)
+      setFormOpen(false)
       setRunId('')
       setStack('')
       setIdea('')
@@ -180,49 +173,61 @@ export function MemoryPanelContent() {
           </div>
         </section>
 
-        {/* Nova lição */}
+        {/* Nova lição (colapsada p/ densidade — abre no toggle, fecha ao
+            criar/cancelar) */}
         <section>
-          <SectionTitle className="mb-1">New lesson</SectionTitle>
-          <div className="space-y-2">
-            <label htmlFor="memory-run-id" className="mb-0.5 block text-xs text-[var(--text-dim)]">Run ID</label>
-            <Input
-              id="memory-run-id"
-              aria-label="Run ID"
-              placeholder="Run ID (default: manual)"
-              value={runId}
-              onChange={(e) => setRunId(e.target.value)}
-            />
-            <label htmlFor="memory-stack-new" className="mb-0.5 block text-xs text-[var(--text-dim)]">Stack</label>
-            <Input
-              id="memory-stack-new"
-              aria-label="Stack"
-              placeholder="Stack (ex.: python)"
-              value={stack}
-              onChange={(e) => setStack(e.target.value)}
-            />
-            <label htmlFor="memory-idea" className="mb-0.5 block text-xs text-[var(--text-dim)]">Idea</label>
-            <Input
-              id="memory-idea"
-              aria-label="Idea"
-              placeholder="Idea"
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-            />
-            <label htmlFor="memory-lesson-text" className="mb-0.5 block text-xs text-[var(--text-dim)]">Lesson text</label>
-            <Textarea
-              id="memory-lesson-text"
-              aria-label="Lesson text"
-              placeholder="Lesson learned"
-              className="h-24"
-              value={lessonText}
-              onChange={(e) => setLessonText(e.target.value)}
-            />
-            <div className="flex justify-end">
-              <Button size="sm" variant="primary" disabled={creating || !lessonText.trim()} onClick={submitCreate}>
-                {creating ? 'Adding…' : 'Add lesson'}
-              </Button>
-            </div>
-          </div>
+          {formOpen ? (
+            <>
+              <SectionTitle className="mb-1">New lesson</SectionTitle>
+              <div className="space-y-2">
+                <label htmlFor="memory-run-id" className="mb-0.5 block text-xs text-[var(--text-dim)]">Run ID</label>
+                <Input
+                  id="memory-run-id"
+                  aria-label="Run ID"
+                  placeholder="Run ID (default: manual)"
+                  value={runId}
+                  onChange={(e) => setRunId(e.target.value)}
+                />
+                <label htmlFor="memory-stack-new" className="mb-0.5 block text-xs text-[var(--text-dim)]">Stack</label>
+                <Input
+                  id="memory-stack-new"
+                  aria-label="Stack"
+                  placeholder="Stack (ex.: python)"
+                  value={stack}
+                  onChange={(e) => setStack(e.target.value)}
+                />
+                <label htmlFor="memory-idea" className="mb-0.5 block text-xs text-[var(--text-dim)]">Idea</label>
+                <Input
+                  id="memory-idea"
+                  aria-label="Idea"
+                  placeholder="Idea"
+                  value={idea}
+                  onChange={(e) => setIdea(e.target.value)}
+                />
+                <label htmlFor="memory-lesson-text" className="mb-0.5 block text-xs text-[var(--text-dim)]">Lesson text</label>
+                <Textarea
+                  id="memory-lesson-text"
+                  aria-label="Lesson text"
+                  placeholder="Lesson learned"
+                  className="h-24"
+                  value={lessonText}
+                  onChange={(e) => setLessonText(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setFormOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" variant="primary" disabled={creating || !lessonText.trim()} onClick={submitCreate}>
+                    {creating ? 'Adding…' : 'Add lesson'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <Button size="sm" variant="subtle" onClick={() => setFormOpen(true)}>
+              New lesson
+            </Button>
+          )}
         </section>
 
         {/* Lista de lições */}

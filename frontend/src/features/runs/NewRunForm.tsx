@@ -140,7 +140,7 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
   if (!can('runner')) {
     return (
       <p className="px-0.5 text-xs text-[var(--text-dim)]">
-        Read-only — role runner ou admin necessária para iniciar runs.
+        Read-only — runner or admin role required to start runs.
       </p>
     )
   }
@@ -184,21 +184,21 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="Model (optional)"
-            title="Modelo LLM para a run — vazio usa o default (env/config)"
+            title="LLM model for the run — empty uses the default (env/config)"
             className={narrow ? 'w-full' : 'w-36 shrink-0'}
           />
-          {/* Modo interativo (HITL): default ON — com interactive=true a run
+          {/* Interactive mode (HITL): default ON — with interactive=true the run
               pausa em gates para decisão humana (drawer HITL). Desligar roda
               a pipeline sem paradas. */}
           <label
             className={narrow ? 'flex items-center gap-1.5 px-0.5' : 'flex shrink-0 items-center gap-1.5 px-0.5'}
-            title="Modo interativo (HITL): a run pausa em pontos críticos para decisão humana"
+            title="Interactive mode (HITL): the run pauses at critical points for human decision"
           >
             <input
               type="checkbox"
               checked={interactive}
               onChange={(e) => setInteractive(e.target.checked)}
-              aria-label="Modo interativo (HITL)"
+              aria-label="Interactive mode (HITL)"
               className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-[var(--border)] accent-[var(--accent)]"
             />
             <span className="cursor-pointer text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">
@@ -258,33 +258,33 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
           run; edições posteriores NÃO afetam runs já criadas. */}
       {pipelineId !== '' && (
         <div className="rounded-md border border-[var(--border)] bg-[var(--bg-elev)]/50 px-2.5 py-1.5 ade-fade-in">
-          <p className="text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">Snapshot ao criar</p>
+          <p className="text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">Snapshot on create</p>
           <p className="mt-0.5 text-[11px] leading-4 text-[var(--text-dim)]">
-            Run abre um preview do pipeline antes de criar — a versão executada é
-            copiada no momento da criação; edições posteriores não afetam runs já criadas.
+            Run opens a preview of the pipeline before creating — the executed version is
+            copied at creation time; later edits do not affect already-created runs.
           </p>
         </div>
       )}
 
       {snapshotDraft && (
-        <Modal open title="Snapshot do pipeline" maxWidth={480} onClose={() => setSnapshotDraft(null)}>
+        <Modal open title="Pipeline Snapshot" maxWidth={480} onClose={() => setSnapshotDraft(null)}>
           <div className="flex flex-col gap-3 p-4">
-            <h2 className="text-lg font-semibold text-[var(--text)]">Snapshot do pipeline</h2>
+            <h2 className="text-lg font-semibold text-[var(--text)]">Pipeline Snapshot</h2>
             <p className="text-sm text-[var(--text-dim)]">
-              Este snapshot é copiado no momento da criação — a run executa SEMPRE esta
-              versão, mesmo que o template mude depois.
+              This snapshot is copied at creation time — the run ALWAYS executes this
+              version, even if the template changes later.
             </p>
             <div className="rounded-md border border-[var(--border)] bg-[var(--bg-elev)]/50 px-2.5 py-1.5">
               <p className="text-(--text-2xs) font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                {snapshotDraft.name} · {selectedPipeline?.nodes.length ?? 0} nós · {selectedPipeline?.edges.length ?? 0} arestas
+                {snapshotDraft.name} · {selectedPipeline?.nodes.length ?? 0} nodes · {selectedPipeline?.edges.length ?? 0} edges
               </p>
             </div>
             <label className="flex flex-col gap-0.5">
               <span className="text-(--text-2xs) font-medium uppercase tracking-wide text-[var(--text-dim)]">
-                Descrição do snapshot
+                Snapshot description
               </span>
               <Input
-                aria-label="Descrição do snapshot"
+                aria-label="Snapshot description"
                 value={snapshotDraft.description}
                 onChange={(e) => setSnapshotDraft((d) => (d ? { ...d, description: e.target.value } : d))}
                 className="w-full"
@@ -292,10 +292,10 @@ export function NewRunForm({ onCreated, narrow = false }: NewRunFormProps) {
             </label>
             <div className="mt-1 flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setSnapshotDraft(null)}>
-                Cancelar
+                Cancel
               </Button>
               <Button size="sm" variant="primary" onClick={() => { doCreate(snapshotDraft); setSnapshotDraft(null) }}>
-                Criar run
+                Create run
               </Button>
             </div>
           </div>

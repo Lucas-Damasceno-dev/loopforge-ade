@@ -106,4 +106,33 @@ describe('SettingsPanel (Fase D/E9)', () => {
     await screen.findByLabelText('Budget max USD')
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
   })
+
+  it('shows inline hint and blocks save when budget is invalid (no fake Saved)', async () => {
+    vi.mocked(patchConfig).mockResolvedValue(CONFIG)
+    renderPanel()
+    await screen.findByLabelText('Budget max USD')
+    // Muda outro campo p/ haver mudanças (senão Save já estaria disabled).
+    await userEvent.selectOptions(screen.getByLabelText('HITL on timeout'), 'pause')
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled()
+    await userEvent.clear(screen.getByLabelText('Budget max USD'))
+    await userEvent.type(screen.getByLabelText('Budget max USD'), 'abc')
+    expect(await screen.findByTestId('settings-budget-error')).toHaveTextContent(/must be a number/i)
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(patchConfig).not.toHaveBeenCalled()
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+  })
+
+  it('shows Alert instead of infinite skeleton when getConfig fails', async () => {
+    vi.mocked(getConfig).mockRejectedValue(
+      Object.assign(new Error('x'), { status: 500, detail: 'backend down' }),
+    )
+    render(
+      <QueryClientProvider client={makeClient()}>
+        <SettingsPanel open onClose={() => {}} />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/failed to load settings \(HTTP 500\)/i))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
 })

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getGitInfo, publishGitPr } from '../../shared/lib/api'
+import { getGitInfo, publishGitPr, ApiError } from '../../shared/lib/api'
 import type { GitInfo } from '../../shared/lib/types'
 import { Drawer } from '../../shared/ui/Drawer'
 import { Card } from '../../shared/ui/Card'
 import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { Alert } from '../../shared/ui/Alert'
+import { EmptyState } from '../../shared/ui/EmptyState'
 import { Button } from '../../shared/ui/Button'
 import { showToast } from '../../stores/toastStore'
 
@@ -28,6 +29,18 @@ function statusTone(status: string): string {
   if (code === 'M') return 'bg-[var(--warn)]/15 text-[var(--warn-text)]'
   if (code === 'D') return 'bg-[var(--err)]/15 text-[var(--err-text)]'
   return 'bg-[var(--ok)]/15 text-[var(--ok-text)]'
+}
+
+// Erro de load honesto: loga detail verbatim (PT do backend), mostra EN com o
+// status HTTP real — não afirma "no git repository" para 500/network.
+function gitErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (typeof e.detail === 'string' && e.detail.trim().length > 0) {
+      console.error('Git info request failed:', e.detail)
+    }
+    return `Failed to load git info (HTTP ${e.status})`
+  }
+  return e instanceof Error && e.message ? e.message : 'No git repository for this run'
 }
 
 export function GitPanel({ open, onClose, runId }: GitPanelProps) {
@@ -75,10 +88,15 @@ export function GitPanelContent({ runId, enabled = true }: { runId: string; enab
 
   return (
     <>
-      {gitQuery.isLoading ? (
+      {runId.length === 0 ? (
+        <EmptyState
+          title="No active run"
+          description="Select one from Runs to inspect its repository state."
+        />
+      ) : gitQuery.isLoading ? (
         <p className="text-sm text-[var(--text-dim)]">Loading git info…</p>
       ) : gitQuery.isError ? (
-        <Alert tone="err">No git repository for this run</Alert>
+        <Alert tone="err">{gitErrorMessage(gitQuery.error)}</Alert>
       ) : info ? (
         <div className="space-y-5">
           {prFeedback && (

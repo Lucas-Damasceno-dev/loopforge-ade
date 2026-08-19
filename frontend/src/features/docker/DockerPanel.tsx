@@ -193,12 +193,12 @@ export function DockerPanel({ open, onClose, runId }: DockerPanelProps) {
             description="Select a completed run or start a new pipeline to generate Docker & Devcontainer files."
           />
         ) : (
-          <div className="flex flex-1 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[#0d1117]">
-            <div className="flex items-center justify-between border-b border-[#30363d] bg-[#161b22] px-3 py-1.5 text-[11px] font-mono text-[#8b949e]">
+          <div className="flex flex-1 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)]">
+            <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elev)] px-3 py-1.5 text-[11px] font-mono text-[var(--text-dim)]">
               <span>{getFilename()}</span>
               <span>{getCurrentContent().split('\n').length} lines</span>
             </div>
-            <div className="flex-1 overflow-auto p-3 font-mono text-xs leading-relaxed text-[#c9d1d9]">
+            <div className="flex-1 overflow-auto p-3 font-mono text-xs leading-relaxed text-[var(--text)]">
               <pre className="whitespace-pre font-mono text-xs">
                 {getCurrentContent()}
               </pre>

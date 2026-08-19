@@ -119,8 +119,6 @@ export function ArtifactsPanel({ open, onClose, runId }: ArtifactsPanelProps) {
     }
   }
 
-  const [viewMode, setViewMode] = useState<'code' | 'diff'>('code')
-
   const handleExportBriefing = () => {
     const summaryFile =
       files.find((f) => f.path.includes('PROJECT_SUMMARY') || f.path.includes('README') || f.path.includes('ARCHITECTURE')) ||
@@ -192,7 +190,12 @@ export function ArtifactsPanel({ open, onClose, runId }: ArtifactsPanelProps) {
         </div>
 
         {/* Content Layout: 2 Columns */}
-        {files.length === 0 ? (
+        {!runId ? (
+          <EmptyState
+            title="Select a run first"
+            description="Pick a run from the Runs list to view its generated artifacts and files."
+          />
+        ) : files.length === 0 ? (
           <EmptyState
             title="No artifacts generated yet"
             description="Artifacts and files will appear here once the Developer node outputs code."
@@ -259,28 +262,6 @@ export function ArtifactsPanel({ open, onClose, runId }: ArtifactsPanelProps) {
                       {selectedFile.is_binary && <Badge tone="warn">Binary / Large</Badge>}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="flex items-center rounded border border-[var(--border)] bg-[var(--bg-elev)] p-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setViewMode('code')}
-                          className={[
-                            'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
-                            viewMode === 'code' ? 'bg-[var(--bg-elev-2)] text-[var(--text)]' : 'text-[var(--text-dim)] hover:text-[var(--text)]',
-                          ].join(' ')}
-                        >
-                          Code
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setViewMode('diff')}
-                          className={[
-                            'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
-                            viewMode === 'diff' ? 'bg-[var(--bg-elev-2)] text-[var(--text)]' : 'text-[var(--text-dim)] hover:text-[var(--text)]',
-                          ].join(' ')}
-                        >
-                          Diff
-                        </button>
-                      </div>
                       {selectedFile.content && (
                         <>
                           <Button size="sm" variant="subtle" onClick={handleDownloadSingleFile} title="Download this single file">
@@ -302,39 +283,24 @@ export function ArtifactsPanel({ open, onClose, runId }: ArtifactsPanelProps) {
                     ) : selectedFile.content ? (
                       <table className="w-full border-collapse font-mono text-xs">
                         <tbody>
-                          {selectedFile.content.split('\n').map((line, idx) => {
-                            const isAdded = viewMode === 'diff' && line.startsWith('+')
-                            const isRemoved = viewMode === 'diff' && line.startsWith('-')
-                            return (
-                              <tr
-                                key={idx}
-                                className={[
-                                  'hover:bg-[var(--bg-hover)] transition-colors',
-                                  isAdded ? 'bg-[var(--ok)]/10 text-[var(--ok-text)]' : '',
-                                  isRemoved ? 'bg-[var(--err)]/10 text-[var(--err-text)]' : '',
-                                ].join(' ')}
-                              >
-                                <td className="w-10 select-none pr-3 text-right font-mono text-[10px] text-[var(--text-dim)] opacity-50 align-top">
-                                  {idx + 1}
-                                </td>
-                                <td className="whitespace-pre break-all pl-2 font-mono align-top text-[var(--text)]">
-                                  {isAdded ? (
-                                    <span className="font-semibold text-[var(--ok-text)]">{line}</span>
-                                  ) : isRemoved ? (
-                                    <span className="font-semibold text-[var(--err-text)]">{line}</span>
-                                  ) : line.trim().startsWith('#') || line.trim().startsWith('//') ? (
-                                    <span className="text-[var(--text-dim)] italic">{line}</span>
-                                  ) : line.startsWith('import ') || line.startsWith('from ') || line.startsWith('use ') ? (
-                                    <span className="text-[var(--accent-text)]">{line}</span>
-                                  ) : line.includes('def ') || line.includes('fn ') || line.includes('class ') || line.includes('export ') ? (
-                                    <span className="font-semibold text-[var(--text)]">{line}</span>
-                                  ) : (
-                                    <span>{line}</span>
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          })}
+                          {selectedFile.content.split('\n').map((line, idx) => (
+                            <tr key={idx} className="hover:bg-[var(--bg-hover)] transition-colors">
+                              <td className="w-10 select-none pr-3 text-right font-mono text-[10px] text-[var(--text-dim)] opacity-50 align-top">
+                                {idx + 1}
+                              </td>
+                              <td className="whitespace-pre break-all pl-2 font-mono align-top text-[var(--text)]">
+                                {line.trim().startsWith('#') || line.trim().startsWith('//') ? (
+                                  <span className="text-[var(--text-dim)] italic">{line}</span>
+                                ) : line.startsWith('import ') || line.startsWith('from ') || line.startsWith('use ') ? (
+                                  <span className="text-[var(--accent-text)]">{line}</span>
+                                ) : line.includes('def ') || line.includes('fn ') || line.includes('class ') || line.includes('export ') ? (
+                                  <span className="font-semibold text-[var(--text)]">{line}</span>
+                                ) : (
+                                  <span>{line}</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     ) : (

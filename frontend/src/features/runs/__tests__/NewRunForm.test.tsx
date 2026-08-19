@@ -132,8 +132,8 @@ describe('NewRunForm', () => {
     fireEvent.change(screen.getByLabelText(/idea/i), { target: { value: 'build a cli' } })
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
     // S3: pipeline selecionado → Run abre o preview do snapshot (não cria direto)
-    expect(await screen.findByText(/Snapshot do pipeline/i)).toBeTruthy()
-    fireEvent.click(screen.getByText('Criar run'))
+    expect(await screen.findByText(/Pipeline Snapshot/i)).toBeTruthy()
+    fireEvent.click(screen.getByText('Create run'))
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
       expect(args?.[0]).toEqual({
@@ -166,11 +166,11 @@ describe('NewRunForm', () => {
     fireEvent.change(screen.getByLabelText('Pipeline (optional)'), { target: { value: 'p1' } })
     fireEvent.click(screen.getByRole('button', { name: /^run$/i }))
     // Modal de snapshot aparece
-    expect(await screen.findByText(/Snapshot do pipeline/i)).toBeTruthy()
+    expect(await screen.findByText(/Pipeline Snapshot/i)).toBeTruthy()
     // Edita a descrição e confirma
-    const desc = screen.getByLabelText('Descrição do snapshot')
+    const desc = screen.getByLabelText('Snapshot description')
     fireEvent.change(desc, { target: { value: 'desc editada' } })
-    fireEvent.click(screen.getByText('Criar run'))
+    fireEvent.click(screen.getByText('Create run'))
     await waitFor(() => {
       const args = vi.mocked(createRun).mock.calls[0]
       expect(args?.[0]).toEqual(

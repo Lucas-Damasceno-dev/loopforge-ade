@@ -38,10 +38,12 @@ export function HealthPanelContent({ enabled = true }: { enabled?: boolean }) {
     refetchInterval: enabled ? HEALTH_POLL_MS : false,
   })
   // Status do engine (runs/benchmarks) — telemetria nunca derruba com 500.
+  // Polling 10s igual ao /health (mesmo intervalo, HEALTH_POLL_MS).
   const evalsQuery = useQuery<EvalsSummary>({
     queryKey: ['evals-summary'],
     queryFn: getEvalsSummary,
     enabled,
+    refetchInterval: enabled ? HEALTH_POLL_MS : false,
   })
 
   const health = healthQuery.data

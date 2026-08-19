@@ -60,11 +60,6 @@ vi.mock('../../features/ast/AstPanel', () => ({ AstPanel: panelStub('drawer-ast'
 vi.mock('../../features/coverage/CoveragePanel', () => ({ CoveragePanel: panelStub('drawer-coverage') }))
 vi.mock('../../features/docker/DockerPanel', () => ({ DockerPanel: panelStub('drawer-docker') }))
 vi.mock('../../features/evals/EvalsPanel', () => ({ EvalsPanel: panelStub('drawer-evals') }))
-vi.mock('../../features/memory/MemoryPanel', () => ({ MemoryPanel: panelStub('drawer-memory') }))
-vi.mock('../../features/git/GitPanel', () => ({ GitPanel: panelStub('drawer-git') }))
-vi.mock('../../features/health/HealthPanel', () => ({ HealthPanel: panelStub('drawer-health') }))
-vi.mock('../../features/prompts/PromptPanel', () => ({ PromptPanel: panelStub('drawer-prompts') }))
-vi.mock('../../features/settings/SettingsPanel', () => ({ SettingsPanel: panelStub('drawer-settings') }))
 
 describe('App shell — fix round 1 (F3)', () => {
   beforeEach(() => {

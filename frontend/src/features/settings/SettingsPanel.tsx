@@ -102,6 +102,28 @@ function settingsErrorMessage(e: unknown): string {
   return e instanceof Error && e.message ? e.message : 'Failed to save settings'
 }
 
+// Erro de LOAD (getConfig) — mesmo padrão: loga detail, mostra EN honesto.
+function settingsLoadErrorMessage(e: unknown): string {
+  if (isApiError(e)) {
+    if (typeof e.detail === 'string' && e.detail.trim().length > 0) {
+      console.error('Settings load failed:', e.detail)
+    }
+    return `Failed to load settings (HTTP ${e.status})`
+  }
+  return e instanceof Error && e.message ? e.message : 'Failed to load settings'
+}
+
+// Validação inline do budget: vazio = manter atual (ok); não-numérico ou
+// negativo = inválido → hint no input + Save bloqueado (não "salva" mentindo).
+function budgetError(text: string): string | null {
+  const trimmed = text.trim()
+  if (trimmed === '') return null
+  const v = Number(trimmed)
+  if (!Number.isFinite(v)) return 'Must be a number'
+  if (v < 0) return 'Must be 0 or greater'
+  return null
+}
+
 const ON_TIMEOUT_OPTIONS = ['continue', 'abort', 'pause'] as const
 
 // Drawer de configuração (E9): budget, HITL, providers e toggles por server
@@ -119,11 +141,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 // Conteúdo inline (T3 — sub-sidebar): mesma UI do drawer, sem wrapper.
 export function SettingsPanelContent() {
   const queryClient = useQueryClient()
-  const { data: config } = useQuery({ queryKey: ['config'], queryFn: getConfig })
+  const { data: config, isError, error } = useQuery({ queryKey: ['config'], queryFn: getConfig })
   const [form, setForm] = useState<FormState | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Popula o form quando o config carrega.
   useEffect(() => {
@@ -133,18 +155,19 @@ export function SettingsPanelContent() {
   const patch = config && form ? buildPatch(config, form) : {}
   const hasChanges = Object.keys(patch).length > 0
   const loading = !config
+  const budgetInvalid = form ? budgetError(form.budgetMaxUsd) : null
 
   const save = async () => {
     if (!config || !hasChanges) return
     setSaving(true)
     setSaved(false)
-    setError(null)
+    setSaveError(null)
     try {
       await patchConfig(patch)
       setSaved(true)
       queryClient.invalidateQueries({ queryKey: ['config'] })
     } catch (e) {
-      setError(settingsErrorMessage(e))
+      setSaveError(settingsErrorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -153,12 +176,14 @@ export function SettingsPanelContent() {
   const setField = (partial: Partial<FormState>) => {
     setForm((f) => (f ? { ...f, ...partial } : f))
     setSaved(false)
-    setError(null)
+    setSaveError(null)
   }
 
   return (
     <>
-      {loading ? (
+      {isError ? (
+        <Alert tone="err">{settingsLoadErrorMessage(error)}</Alert>
+      ) : loading ? (
         <div role="status" aria-label="Loading settings" className="space-y-5">
           <div className="space-y-1.5">
             <div className="h-3 w-24 animate-pulse rounded bg-[var(--bg-elev-2)]" />
@@ -175,8 +200,8 @@ export function SettingsPanelContent() {
         </div>
       ) : form ? (
         <div className="space-y-5">
-          {error && (
-            <Alert tone="err">{error}</Alert>
+          {saveError && (
+            <Alert tone="err">{saveError}</Alert>
           )}
           {saved && (
             <Alert tone="ok">Saved</Alert>
@@ -191,9 +216,15 @@ export function SettingsPanelContent() {
               id="settings-budget"
               aria-label="Budget max USD"
               inputMode="decimal"
+              aria-invalid={budgetInvalid !== null}
               value={form.budgetMaxUsd}
               onChange={(e) => setField({ budgetMaxUsd: e.target.value })}
             />
+            {budgetInvalid && (
+              <p className="mt-1 text-xs text-[var(--err-text)]" data-testid="settings-budget-error">
+                {budgetInvalid}
+              </p>
+            )}
           </section>
 
           <section>
@@ -277,7 +308,7 @@ export function SettingsPanelContent() {
           </section>
 
           <div className="flex justify-end">
-            <Button size="sm" variant="primary" disabled={saving || !hasChanges} onClick={save}>
+            <Button size="sm" variant="primary" disabled={saving || !hasChanges || budgetInvalid !== null} onClick={save}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </div>

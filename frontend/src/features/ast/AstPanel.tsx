@@ -17,14 +17,14 @@ function getSymbolBadge(kind: string) {
   switch (kind) {
     case 'class':
     case 'struct':
-      return <span className="rounded bg-purple-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-purple-300">class</span>
+      return <span className="rounded bg-[var(--accent)]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--accent-text)]">class</span>
     case 'async_function':
-      return <span className="rounded bg-blue-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">async fn</span>
+      return <span className="rounded bg-[var(--info)]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--info-text)]">async fn</span>
     case 'interface':
     case 'trait':
-      return <span className="rounded bg-teal-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300">interface</span>
+      return <span className="rounded bg-[var(--ok)]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ok-text)]">interface</span>
     default:
-      return <span className="rounded bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">fn</span>
+      return <span className="rounded bg-[var(--warn)]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warn-text)]">fn</span>
   }
 }
 

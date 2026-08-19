@@ -56,7 +56,7 @@ export function CoveragePanel({ open, onClose, runId }: CoveragePanelProps) {
             </span>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="font-mono text-2xl font-extrabold text-[var(--text)]">
-                {data ? `${data.coverage_percentage}%` : '0%'}
+                {data ? `${data.coverage_percentage}%` : '—'}
               </span>
               {data && <Badge tone={overallTone}>{data.source === 'report' ? 'Report' : 'Heuristic'}</Badge>}
             </div>
@@ -67,7 +67,7 @@ export function CoveragePanel({ open, onClose, runId }: CoveragePanelProps) {
               Total Lines
             </span>
             <span className="mt-1 font-mono text-2xl font-extrabold text-[var(--text)]">
-              {data?.total_lines.toLocaleString() ?? 0}
+              {data ? data.total_lines.toLocaleString() : '—'}
             </span>
           </div>
 
@@ -76,7 +76,7 @@ export function CoveragePanel({ open, onClose, runId }: CoveragePanelProps) {
               Covered Lines
             </span>
             <span className="mt-1 font-mono text-2xl font-extrabold text-[var(--ok-text)]">
-              {data?.covered_lines.toLocaleString() ?? 0}
+              {data ? data.covered_lines.toLocaleString() : '—'}
             </span>
           </div>
 
@@ -85,7 +85,7 @@ export function CoveragePanel({ open, onClose, runId }: CoveragePanelProps) {
               Missed Lines
             </span>
             <span className="mt-1 font-mono text-2xl font-extrabold text-[var(--err-text)]">
-              {data ? (data.total_lines - data.covered_lines).toLocaleString() : 0}
+              {data ? (data.total_lines - data.covered_lines).toLocaleString() : '—'}
             </span>
           </div>
         </div>
@@ -123,6 +123,11 @@ export function CoveragePanel({ open, onClose, runId }: CoveragePanelProps) {
           <div className="flex flex-1 items-center justify-center text-xs text-[var(--text-dim)]">
             Loading coverage metrics…
           </div>
+        ) : !runId ? (
+          <EmptyState
+            title="Select a run first"
+            description="Pick a run from the Runs list to view its test coverage report."
+          />
         ) : !data || data.files.length === 0 ? (
           <EmptyState
             title="No coverage data available"

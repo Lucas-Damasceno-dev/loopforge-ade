@@ -37,7 +37,7 @@ export const VIEWS_META: Record<ViewKey, ViewMeta> = {
   pipelines: { label: 'Pipelines', icon: 'pipelines' },
   artifacts: { label: 'Artifacts', icon: 'artifacts' },
   terminal: { label: 'Terminal', icon: 'terminal' },
-  ast: { label: 'AST & Deps', icon: 'ast' },
+  ast: { label: 'AST Symbols', icon: 'ast' },
   coverage: { label: 'Coverage', icon: 'coverage' },
   docker: { label: 'Docker', icon: 'docker' },
   trajectories: { label: 'Trajectories', icon: 'trajectories' },
@@ -68,8 +68,9 @@ export const VIEW_ROLE: Partial<Record<ViewKey, string>> = {
   settings: 'admin',
 }
 
-/** Views com painel próprio (drawer/sidebar) — usadas pelo App p/ derivar
- *  `open` dos painéis a partir do activeView. */
+/** Views com painel próprio (drawer) — usadas pelo App p/ derivar `open` dos
+ *  painéis a partir do activeView. memory/git/health/prompts/settings são
+ *  inline-only (T3) — sem drawer, sem entry aqui. */
 export const PANEL_VIEWS: ViewKey[] = [
   'artifacts',
   'terminal',
@@ -78,20 +79,16 @@ export const PANEL_VIEWS: ViewKey[] = [
   'docker',
   'trajectories',
   'mcp',
-  'memory',
   'evals',
-  'git',
-  'health',
-  'prompts',
-  'settings',
 ]
 
 /** Views LEVES (T3): conteúdo direto na sub-sidebar (sem drawer). */
 export const INLINE_VIEWS: ViewKey[] = ['prompt', 'agents', 'pipelines', 'memory', 'health', 'prompts', 'settings', 'git']
 
-/** Views PESADAS (T3): resumo na sub-sidebar + "Open panel" → drawer. */
+/** Views PESADAS (T3): resumo na sub-sidebar + "Open panel" → drawer.
+ *  runs NÃO está aqui: tem branch próprio no SidebarHost (resumo interativo
+ *  do runsStore, sem drawer). */
 export const SUMMARY_VIEWS: ViewKey[] = [
-  'runs',
   'artifacts',
   'terminal',
   'ast',

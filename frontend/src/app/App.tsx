@@ -10,12 +10,7 @@ import { BudgetPill } from '../features/costs/BudgetPill'
 import { useBudgetOverrideStore } from '../features/costs/budgetOverrideStore'
 import { McpPlayground } from '../features/mcp/McpPlayground'
 import { TrajectoriesPanel } from '../features/trajectories/TrajectoriesPanel'
-import { MemoryPanel } from '../features/memory/MemoryPanel'
 import { EvalsPanel } from '../features/evals/EvalsPanel'
-import { GitPanel } from '../features/git/GitPanel'
-import { HealthPanel } from '../features/health/HealthPanel'
-import { PromptPanel } from '../features/prompts/PromptPanel'
-import { SettingsPanel } from '../features/settings/SettingsPanel'
 import { ArtifactsPanel } from '../features/artifacts/ArtifactsPanel'
 import { TerminalPanel } from '../features/terminal/TerminalPanel'
 import { AstPanel } from '../features/ast/AstPanel'
@@ -90,7 +85,8 @@ export function App() {
   const handleDrawerClose = () => {
     setExpandedView(null)
   }
-  // Run ativa (selecionada nas tabs) — alimenta o GitPanel (repo da run).
+  // Run ativa (selecionada nas tabs) — alimenta os painéis por run
+  // (artifacts/terminal/ast/coverage/docker).
   const activeRunId = useRunsStore((s) => s.activeRunId)
   const runs = useRunsStore((s) => s.runs)
   const activeRun = runs.find((r) => r.id === activeRunId) ?? null
@@ -452,19 +448,8 @@ export function App() {
         <Drawer open={drawerOpen('mcp')} title="MCP Playground" onClose={handleDrawerClose}>
           <McpPlayground />
         </Drawer>
-        {/* Memória (lessons engine): conteúdo migrado p/ sub-sidebar (T3);
-            drawer permanece disponível p/ uso direto (open sempre false aqui). */}
-        <MemoryPanel open={false} onClose={handleDrawerClose} />
         {/* Evals (5º pilar BLUEPRINT): resumo de runs/benchmarks + leaderboard. */}
         <EvalsPanel open={drawerOpen('evals')} onClose={handleDrawerClose} />
-        {/* Git (Tier2): branch/status/log da run ativa (query só com runId). */}
-        <GitPanel open={false} onClose={handleDrawerClose} runId={activeRunId ?? ''} />
-        {/* Health (Tier2): polling /health 10s + status telemetria. */}
-        <HealthPanel open={false} onClose={handleDrawerClose} />
-        {/* Prompts (Tier2): overrides de prompt por persona (get_effective_prompt). */}
-        <PromptPanel open={false} onClose={handleDrawerClose} />
-        {/* Settings (Fase D/E9): budget/HITL/providers/toggles MCP. */}
-        <SettingsPanel open={false} onClose={handleDrawerClose} />
         {/* Gate de API key (B2/M-20): overlay em 401/sem key; dispensável p/ demo. */}
         <ApiKeyGate />
         {/* Notificações flutuantes globais (toasts). */}

@@ -5,6 +5,7 @@ import { Drawer } from '../../shared/ui/Drawer'
 import { Card } from '../../shared/ui/Card'
 import { SectionTitle } from '../../shared/ui/SectionTitle'
 import { Alert } from '../../shared/ui/Alert'
+import { EmptyState } from '../../shared/ui/EmptyState'
 import { formatUsd } from '../costs/costModel'
 
 // Evals (pilar 5 do BLUEPRINT — EvalsPanel): telemetria de benchmarks/ELO da
@@ -72,6 +73,14 @@ export function EvalsPanel({ open, onClose }: EvalsPanelProps) {
       ) : summaryQuery.isError ? (
         <Alert tone="err">Failed to load evals telemetry</Alert>
       ) : summary ? (
+        summary.status === 'error' ? (
+          <Alert tone="err">{summary.message ?? 'Evals telemetry is currently unavailable'}</Alert>
+        ) : summary.status === 'empty' ? (
+          <EmptyState
+            title="No evals yet"
+            description="Benchmark telemetry will appear here once the engine finishes an eval run."
+          />
+        ) : (
         <div className="space-y-5">
           <section>
             <SectionTitle className="mb-2">Summary</SectionTitle>
@@ -108,7 +117,13 @@ export function EvalsPanel({ open, onClose }: EvalsPanelProps) {
               <p className="text-sm text-[var(--text-dim)]">Loading leaderboard…</p>
             ) : leaderboardQuery.isError ? (
               <Alert tone="err">Failed to load leaderboard</Alert>
-            ) : leaderboard && leaderboard.entries.length > 0 ? (
+            ) : !leaderboard ? null : leaderboard.status === 'error' ? (
+              <Alert tone="err">{leaderboard.message ?? 'Failed to load leaderboard data'}</Alert>
+            ) : leaderboard.status === 'empty' || leaderboard.entries.length === 0 ? (
+              <p data-testid="evals-leaderboard-empty" className="text-sm text-[var(--text-dim)]">
+                No benchmark runs yet
+              </p>
+            ) : (
               <ul className="space-y-1.5">
                 {leaderboard.entries.map((e) => (
                   <li
@@ -136,13 +151,10 @@ export function EvalsPanel({ open, onClose }: EvalsPanelProps) {
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p data-testid="evals-leaderboard-empty" className="text-sm text-[var(--text-dim)]">
-                No benchmark runs yet
-              </p>
             )}
           </section>
         </div>
+        )
       ) : null}
     </Drawer>
   )

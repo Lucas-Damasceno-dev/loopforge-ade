@@ -64,12 +64,19 @@ describe('GitPanel', () => {
     expect(screen.getByTestId('git-log-empty')).toHaveTextContent(/no commits/i)
   })
 
-  it('shows error alert when run has no git repository (404)', async () => {
+  it('shows honest error alert with HTTP status when git info fails (404)', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       jsonResponse({ detail: 'Diretório da run run-1 não é um repositório git' }, 404),
     )
     renderPanel('run-1')
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/no git repository/i))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/failed to load git info \(HTTP 404\)/i))
+  })
+
+  it('shows EmptyState when no run is active and does not fetch', () => {
+    renderPanel('')
+    expect(screen.getByText('No active run')).toBeInTheDocument()
+    expect(screen.getByText(/select one from runs/i)).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('does not fetch while the drawer is closed', async () => {

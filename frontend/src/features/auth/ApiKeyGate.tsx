@@ -63,6 +63,7 @@ export function ApiKeyGate() {
             autoFocus
             invalid={error !== null}
             className="w-full"
+            maxLength={256}
           />
           {error ? (
             <p role="alert" className="mt-1 text-xs text-[var(--err-text)]">{error}</p>

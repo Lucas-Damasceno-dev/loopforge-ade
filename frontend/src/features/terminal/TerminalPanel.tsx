@@ -170,7 +170,7 @@ export function TerminalPanel({ open, onClose, runId }: TerminalPanelProps) {
         {/* Terminal Output Area */}
         <div
           ref={outputRef}
-          className="flex-1 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[#0d1117] p-3 font-mono text-xs leading-relaxed text-[#c9d1d9] shadow-inner"
+          className="flex-1 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-xs leading-relaxed text-[var(--text)] shadow-inner"
         >
           {history.length === 0 && !execMutation.isPending ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-[var(--text-dim)]">
@@ -184,8 +184,8 @@ export function TerminalPanel({ open, onClose, runId }: TerminalPanelProps) {
             <div className="space-y-4">
               {history.map((item) => (
                 <div key={item.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-[#8b949e] border-b border-[#30363d] pb-1">
-                    <span className="flex items-center gap-1.5 font-semibold text-[#58a6ff]">
+                  <div className="flex items-center justify-between text-[var(--text-dim)] border-b border-[var(--border)] pb-1">
+                    <span className="flex items-center gap-1.5 font-semibold text-[var(--accent-text)]">
                       <span>$</span>
                       <span>{item.command}</span>
                     </span>
@@ -193,7 +193,7 @@ export function TerminalPanel({ open, onClose, runId }: TerminalPanelProps) {
                       <span>{item.durationSeconds}s</span>
                       <span
                         className={`rounded px-1 font-bold ${
-                          item.exitCode === 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'
+                          item.exitCode === 0 ? 'bg-[var(--ok)]/20 text-[var(--ok-text)]' : 'bg-[var(--err)]/20 text-[var(--err-text)]'
                         }`}
                       >
                         exit: {item.exitCode}
@@ -201,12 +201,12 @@ export function TerminalPanel({ open, onClose, runId }: TerminalPanelProps) {
                     </div>
                   </div>
                   {item.stdout && (
-                    <pre className="whitespace-pre-wrap break-all text-[#c9d1d9] font-mono text-xs">
+                    <pre className="whitespace-pre-wrap break-all text-[var(--text)] font-mono text-xs">
                       {item.stdout}
                     </pre>
                   )}
                   {item.stderr && (
-                    <pre className="whitespace-pre-wrap break-all text-[#f85149] font-mono text-xs bg-red-950/20 p-1.5 rounded border border-red-900/30">
+                    <pre className="whitespace-pre-wrap break-all text-[var(--err-text)] font-mono text-xs bg-[var(--err)]/15 p-1.5 rounded border border-[var(--err)]/30">
                       {item.stderr}
                     </pre>
                   )}
@@ -214,7 +214,7 @@ export function TerminalPanel({ open, onClose, runId }: TerminalPanelProps) {
               ))}
 
               {execMutation.isPending && (
-                <div className="flex items-center gap-2 text-[#58a6ff]">
+                <div className="flex items-center gap-2 text-[var(--accent-text)]">
                   <span aria-hidden="true" className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   <span>Executing command: {command}…</span>
                 </div>

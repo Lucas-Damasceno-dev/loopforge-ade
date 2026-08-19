@@ -21,6 +21,9 @@ WEB_PORT ?= 5173
 # volta a tomar 401 após restart (docs/08-operacao.md §1).
 API_KEY ?= dev-local-key
 
+# Target da API p/ o proxy do Vite: nativo (make dev) = 8787; docker = 8000.
+API_TARGET ?= http://127.0.0.1:8787
+
 # LLM: modelo default via OPENROUTER_MODEL/OPENCODE_MODEL/.loopforge.json.
 # OPENCODE_MOCK=1 força respostas mock (sem LLM real, sem custo).
 MODEL ?=
@@ -30,6 +33,7 @@ help:
 	@echo "LoopForge ADE targets:"
 	@echo "  make setup        Instala deps (frontend npm + engine venv lf)"
 	@echo "  make dev          Sobe backend (8787) + SPA dev (5173, hot reload)"
+	@echo "  make dev-docker   Engine via docker (:8000) + SPA dev (1 comando)"
 	@echo "  make dev-backend  Sobe só o backend na 8787"
 	@echo "  make dev-web      Sobe só a SPA dev na 5173"
 	@echo "  make build        Compila a SPA (dist/)"
@@ -51,6 +55,11 @@ install:
 dev: dev-backend dev-web
 	@echo "Backend: http://127.0.0.1:$(API_PORT)  SPA: http://127.0.0.1:$(WEB_PORT)"
 
+# Docker: engine em container (:8000) + SPA dev apontando pra ele. 1 comando.
+dev-docker:
+	cd "$(ENGINE_DIR)" && docker compose up -d
+	$(MAKE) dev-web API_TARGET=http://127.0.0.1:8000
+
 # PATH com o venv do engine à frente: o harness de QA (pytest) e o subprocess
 # opencode precisam das ferramentas do venv no PATH — sem isso o QA reporta
 # "comando de teste não encontrado" e toda run real falha na coleta.
@@ -59,7 +68,7 @@ dev-backend:
 	cd "$(ENGINE_DIR)" && LF_API_API_KEY=$(API_KEY) PATH="$(ENGINE_DIR)/.venv/bin:$$PATH" "$(VENV_LF)" serve --host 127.0.0.1 --port $(API_PORT)
 
 dev-web:
-	cd "$(FRONTEND_DIR)" && echo "VITE_API_KEY=$(API_KEY)" > .env && VITE_API_KEY=$(API_KEY) npm run dev -- --port $(WEB_PORT)
+	cd "$(FRONTEND_DIR)" && printf 'VITE_API_KEY=%s\nVITE_API_TARGET=%s\n' "$(API_KEY)" "$(API_TARGET)" > .env && VITE_API_KEY=$(API_KEY) VITE_API_TARGET=$(API_TARGET) npm run dev -- --port $(WEB_PORT)
 
 # ─── Build / distribuição ──────────────────────────────────────────────────
 build:

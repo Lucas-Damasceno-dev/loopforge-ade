@@ -48,16 +48,29 @@ const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api/v1'
 // fallback para VITE_API_KEY (env de build). Sem chave, envia sem header.
 const KEY_STORAGE = 'lf_api_key'
 
+// Sanitização (431 fix): key poluída (ex.: texto colado no campo de login)
+// vira header X-API-Key gigante → servidor responde 431 Request Header Fields
+// Too Large → ERR_TOO_MANY_RETRIES no browser. Qualquer valor acima do limite
+// é ignorado (e removido do storage) — o gate reabre e o usuário digita a key
+// real. Keys reais (hex/token) têm < 100 chars.
+const MAX_KEY_LENGTH = 256
+
 export function getApiKey(): string | undefined {
   try {
-    return localStorage.getItem(KEY_STORAGE) ?? (import.meta.env.VITE_API_KEY as string | undefined)
+    const stored = localStorage.getItem(KEY_STORAGE)
+    if (stored && stored.length <= MAX_KEY_LENGTH) return stored
+    if (stored && stored.length > MAX_KEY_LENGTH) localStorage.removeItem(KEY_STORAGE)
   } catch {
-    return import.meta.env.VITE_API_KEY as string | undefined
+    /* storage indisponível (teste/privacy) */
   }
+  const env = import.meta.env.VITE_API_KEY as string | undefined
+  return env && env.length <= MAX_KEY_LENGTH ? env : undefined
 }
 
 export function setApiKey(key: string): void {
-  try { localStorage.setItem(KEY_STORAGE, key) } catch { /* storage indisponível (teste/privacy) */ }
+  const clean = key.trim().slice(0, MAX_KEY_LENGTH)
+  if (!clean) return
+  try { localStorage.setItem(KEY_STORAGE, clean) } catch { /* storage indisponível (teste/privacy) */ }
 }
 
 export class ApiError extends Error {

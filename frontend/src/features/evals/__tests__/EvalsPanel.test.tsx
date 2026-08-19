@@ -98,4 +98,31 @@ describe('EvalsPanel', () => {
     renderPanel()
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/failed to load evals/i))
   })
+
+  it('shows payload error message when summary status is error', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ status: 'error', message: 'engine offline' } satisfies Partial<EvalsSummary>))
+      .mockResolvedValueOnce(jsonResponse(leaderboardFixture))
+    renderPanel()
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/engine offline/i))
+    expect(screen.queryByTestId('evals-pass-rate')).not.toBeInTheDocument()
+  })
+
+  it('shows EmptyState when summary status is empty', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ ...summaryFixture, status: 'empty' } satisfies EvalsSummary))
+      .mockResolvedValueOnce(jsonResponse(leaderboardFixture))
+    renderPanel()
+    await waitFor(() => expect(screen.getByText('No evals yet')).toBeInTheDocument())
+    expect(screen.queryByTestId('evals-pass-rate')).not.toBeInTheDocument()
+  })
+
+  it('shows payload error alert when leaderboard status is error', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(summaryFixture))
+      .mockResolvedValueOnce(jsonResponse({ status: 'error', message: 'ledger unavailable', entries: [] } satisfies EvalsLeaderboard))
+    renderPanel()
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/ledger unavailable/i))
+    expect(screen.queryByTestId('evals-entry-fast-ok')).not.toBeInTheDocument()
+  })
 })
