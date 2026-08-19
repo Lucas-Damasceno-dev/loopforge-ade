@@ -9,9 +9,6 @@ import { useAuthStore } from '../../stores/authStore'
 // executar uma ação (palette clássica); "Close palette" é tratado pela UI
 // (run no-op — o fechamento acontece aqui, não no ctx).
 
-const kbdCls =
-  'rounded border border-[var(--border)] bg-[var(--bg-elev-2)] px-1.5 py-0.5 font-mono text-(--text-2xs) text-[var(--text-dim)]'
-
 export function CommandPalette({ open, onClose, ctx }: { open: boolean; onClose: () => void; ctx: PaletteCtx }) {
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
