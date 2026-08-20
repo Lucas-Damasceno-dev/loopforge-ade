@@ -13,6 +13,7 @@ import { useBudgetOverrideStore } from '../costs/budgetOverrideStore'
 import { useHitlGateStore } from '../../stores/hitlGateStore'
 import { useAuthStore } from '../../stores/authStore'
 import { Alert } from '../../shared/ui/Alert'
+import { Icon } from '../../shared/ui/icons'
 import type { Run } from '../../shared/lib/types'
 
 // Workspace de runs: barra de abas (UX11) + toolbar (demo/form) + painel
@@ -235,16 +236,37 @@ export function RunsWorkspace({ hideChrome = false }: { hideChrome?: boolean }) 
              em vez de tela parada — demo dispara pipeline de exemplo; o outro
              foca o campo de ideia do NewRunForm (id fixo definido lá). */
           <EmptyState
+            icon={
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-elev-2)] text-[var(--accent-text)] shadow-[var(--shadow-sm)]">
+                <Icon name="runs" className="h-6 w-6" />
+              </div>
+            }
             title="No active run"
             description="Start a run to see the pipeline in action"
             action={
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <Button variant="ghost" size="md" onClick={() => runDemo()}>
-                  Run example pipeline
-                </Button>
-                <Button variant="subtle" size="md" onClick={() => document.getElementById('new-run-idea')?.focus()}>
-                  Create new run
-                </Button>
+              <div className="mt-2 flex flex-col items-center gap-4">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button variant="ghost" size="md" onClick={() => runDemo()}>
+                    Run example pipeline
+                  </Button>
+                  <Button variant="subtle" size="md" onClick={() => document.getElementById('new-run-idea')?.focus()}>
+                    Create new run
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-3 text-left max-w-lg">
+                  <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--bg-elev)]/50 p-2.5">
+                    <span className="text-xs font-semibold text-[var(--text)]">Live DAG View</span>
+                    <p className="mt-0.5 text-(--text-2xs) text-[var(--text-dim)]">Real-time node execution & state streaming.</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--bg-elev)]/50 p-2.5">
+                    <span className="text-xs font-semibold text-[var(--text)]">HITL Controls</span>
+                    <p className="mt-0.5 text-(--text-2xs) text-[var(--text-dim)]">Interactive human gates, feedback & state patch.</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--bg-elev)]/50 p-2.5">
+                    <span className="text-xs font-semibold text-[var(--text)]">Cost & Telemetry</span>
+                    <p className="mt-0.5 text-(--text-2xs) text-[var(--text-dim)]">Track token usage, cost per node & hard stops.</p>
+                  </div>
+                </div>
               </div>
             }
           />

@@ -66,7 +66,7 @@ describe('App shell — fix round 1 (F3)', () => {
     useViewStore.setState({ activeView: null })
   })
 
-  it('fechar drawer expandido mantém a sub-sidebar aberta (não mata a view)', () => {
+  it('fechar drawer expandido mantém a sub-sidebar aberta (não mata a view)', async () => {
     // Abre a view artifacts na sidebar (como o usuário faria no rail).
     act(() => {
       useViewStore.getState().openView('artifacts')
@@ -77,7 +77,7 @@ describe('App shell — fix round 1 (F3)', () => {
     expect(screen.getByRole('heading', { name: 'Artifacts' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Open Artifacts panel' }))
     // Drawer expandido abre (painel stub renderiza).
-    expect(screen.getByTestId('drawer-artifacts')).toBeInTheDocument()
+    expect(await screen.findByTestId('drawer-artifacts')).toBeInTheDocument()
 
     // Fecha o drawer (X do painel → handleDrawerClose).
     fireEvent.click(screen.getByRole('button', { name: 'close drawer' }))
@@ -92,14 +92,14 @@ describe('App shell — T6 round 1 (F1: tab Terminal → drawer direto)', () => 
     useViewStore.setState({ activeView: null })
   })
 
-  it('abre o drawer do terminal sem ativar a sidebar; fechar volta ao estado anterior', () => {
+  it('abre o drawer do terminal sem ativar a sidebar; fechar volta ao estado anterior', async () => {
     render(<App />)
     // Sem view ativa → sem sidebar; drawer fechado.
     expect(screen.queryByTestId('drawer-terminal')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'open terminal' }))
     // Drawer do TerminalPanel abre imediatamente (expandedView='terminal').
-    expect(screen.getByTestId('drawer-terminal')).toBeInTheDocument()
+    expect(await screen.findByTestId('drawer-terminal')).toBeInTheDocument()
     // Sidebar NÃO mudou: activeView segue null → sem heading de sidebar.
     expect(screen.queryByRole('heading', { name: 'Terminal' })).not.toBeInTheDocument()
 

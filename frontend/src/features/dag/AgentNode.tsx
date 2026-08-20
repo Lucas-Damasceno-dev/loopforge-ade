@@ -3,26 +3,27 @@ import { Handle, Position, type Node as FlowNode, type NodeProps } from '@xyflow
 import { useCanvasStore } from '../../stores/canvasStore'
 import { useConsoleStore } from '../../stores/consoleStore'
 import { Badge } from '../../shared/ui/Badge'
+import { Icon, type IconName } from '../../shared/ui/icons'
 import { formatUsd } from '../costs/costModel'
 import { NODE_LABELS, DISPLAY_PARENT, type DagNodeData } from './dagModel'
 import { nodeAccentTextVar, nodeAccentVar } from './nodeAccent'
 import { NODE_STATUS_LABEL, NODE_STATUS_TONE } from './nodeStatusMeta'
 
-const PERSONA_ICONS: Record<string, string> = {
-  cpo: '👑',
-  pm: '📋',
-  tech_lead: '⚡',
-  test_writer: '🧪',
-  developer: '💻',
-  dev: '💻',
-  qa: '🛡️',
-  appsec: '🔒',
-  devops: '🚀',
-  parallel_audit: '🔍',
-  retry: '🔄',
-  input: '📥',
-  output: '📤',
-  gate: '🚪',
+const PERSONA_ICON_NAMES: Record<string, IconName> = {
+  cpo: 'node_cpo',
+  pm: 'node_pm',
+  tech_lead: 'node_tech_lead',
+  test_writer: 'node_test_writer',
+  developer: 'node_developer',
+  dev: 'node_developer',
+  qa: 'node_qa',
+  appsec: 'node_appsec',
+  devops: 'node_devops',
+  parallel_audit: 'node_parallel_audit',
+  retry: 'node_retry',
+  input: 'node_input',
+  output: 'node_output',
+  gate: 'node_gate',
 }
 
 function useRunningTimer(isRunning: boolean): number {
@@ -71,7 +72,7 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
   const isStreaming = useConsoleStore((s) => Boolean(s.streams[node]))
   const glow = (status === 'running' || isStreaming) && !ghosted
 
-  const icon = PERSONA_ICONS[node] ?? '🤖'
+  const iconName: IconName = PERSONA_ICON_NAMES[node] ?? 'agents'
 
   return (
     <button
@@ -81,7 +82,7 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
       aria-label={`${label} (${isStreaming ? 'streaming' : NODE_STATUS_LABEL[status]})`}
       onClick={select}
       className={[
-        'w-44 cursor-pointer rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
+        'relative w-44 cursor-pointer overflow-hidden rounded-[var(--radius-md)] border border-t-[3px] bg-[var(--bg-elev)] px-3 py-2 outline-none',
         glow ? 'shadow-[var(--glow-accent)] ade-node-running' : 'ade-fade-in shadow-[var(--shadow-node)] hover:shadow-md hover:-translate-y-0.5',
         'transition-all duration-[var(--dur-base)] ease-out',
         'hover:border-[var(--border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
@@ -93,7 +94,9 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
       <Handle type="target" position={Position.Left} style={{ background: 'var(--border)' }} />
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-xs select-none" aria-hidden="true">{icon}</span>
+          <span className="shrink-0" style={{ color: accentText }}>
+            <Icon name={iconName} className="h-3.5 w-3.5" />
+          </span>
           <span className="truncate text-sm font-semibold" style={{ color: accentText }}>{label}</span>
         </div>
         <div className="flex items-center gap-1">
@@ -135,6 +138,11 @@ function AgentNodeInner({ data, selected }: NodeProps<FlowNode<DagNodeData, 'age
           )}
         </span>
       </div>
+      {glow && (
+        <div className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-[var(--bg-elev-2)]">
+          <div className="ade-shimmer-bar h-full" style={{ backgroundColor: accent }} />
+        </div>
+      )}
       <Handle type="source" position={Position.Right} style={{ background: 'var(--border)' }} />
     </button>
   )

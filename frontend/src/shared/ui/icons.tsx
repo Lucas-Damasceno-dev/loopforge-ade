@@ -127,6 +127,91 @@ const ICONS = {
       <path d="M12 15v6" />
     </>
   ),
+  // Personas dos nós DAG (Lucide-style SVGs consistentes)
+  node_cpo: (
+    <>
+      <path d="M3 6l3 11h12l3-11-5 5-4-6-4 6z" />
+      <path d="M4 19h16" />
+    </>
+  ),
+  node_pm: (
+    <>
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="m9 14 2 2 4-4" />
+    </>
+  ),
+  node_tech_lead: (
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  ),
+  node_test_writer: (
+    <>
+      <path d="M10 2v7.31L4.75 18.1a2 2 0 0 0 1.66 2.9h11.18a2 2 0 0 0 1.66-2.9L14 9.31V2" />
+      <line x1="8.5" x2="15.5" y1="2" y2="2" />
+      <line x1="8.5" x2="15.5" y1="14" y2="14" />
+    </>
+  ),
+  node_developer: (
+    <>
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+    </>
+  ),
+  node_qa: (
+    <>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  node_appsec: (
+    <>
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
+  node_devops: (
+    <>
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+    </>
+  ),
+  node_parallel_audit: (
+    <>
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </>
+  ),
+  node_retry: (
+    <>
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 16h5v5" />
+    </>
+  ),
+  node_input: (
+    <>
+      <polyline points="4 14 10 14 10 20" />
+      <polyline points="20 10 14 10 14 4" />
+      <line x1="14" x2="21" y1="10" y2="3" />
+      <line x1="3" x2="10" y1="21" y2="14" />
+    </>
+  ),
+  node_output: (
+    <>
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" x2="14" y1="3" y2="10" />
+      <line x1="3" x2="10" y1="21" y2="14" />
+    </>
+  ),
+  node_gate: (
+    <>
+      <path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
+      <path d="M2 20h20" />
+      <path d="M14 12v.01" />
+    </>
+  ),
 } as const
 
 export type IconName = keyof typeof ICONS

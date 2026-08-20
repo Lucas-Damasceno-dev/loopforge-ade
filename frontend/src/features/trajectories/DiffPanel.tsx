@@ -24,16 +24,39 @@ function checkpointLabel(cp: TrajectoryCheckpoint): string {
   return `${shortId(cp.checkpoint_id)}${step}${node}${ts}`
 }
 
-function DiffSection({ title, items }: { title: string; items: Array<[string, string]> }) {
+function DiffSection({
+  title,
+  items,
+  type = 'default',
+}: {
+  title: string
+  items: Array<[string, string]>
+  type?: 'added' | 'removed' | 'changed' | 'default'
+}) {
   if (items.length === 0) return null
+
+  const toneClass =
+    type === 'added'
+      ? 'border-[var(--ok)]/20 bg-[var(--ok)]/5 text-[var(--ok-text)]'
+      : type === 'removed'
+        ? 'border-[var(--err)]/20 bg-[var(--err)]/5 text-[var(--err-text)]'
+        : type === 'changed'
+          ? 'border-[var(--warn)]/20 bg-[var(--warn)]/5 text-[var(--warn-text)]'
+          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-dim)]'
+
   return (
     <section className="mt-3" data-testid={`diff-section-${title.toLowerCase()}`}>
       <SectionTitle count={items.length}>{title}</SectionTitle>
-      <ul className="mt-1 divide-y divide-[var(--border)]">
+      <ul className="mt-1.5 space-y-2">
         {items.map(([key, value]) => (
-          <li key={key} className="py-1.5">
-            <span className="font-mono text-xs font-medium text-[var(--text)]">{key}</span>
-            <pre className="mt-0.5 max-h-24 overflow-auto rounded border border-[var(--border)] bg-[var(--bg)] p-1.5 font-mono text-[10px] leading-4 text-[var(--text-dim)]">
+          <li key={key} className="rounded-md border border-[var(--border)] bg-[var(--bg-elev-2)] p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs font-semibold text-[var(--text)]">{key}</span>
+              <span className={`rounded px-1.5 py-0.2 text-[10px] font-mono font-medium ${toneClass}`}>
+                {type === 'added' ? '+ added' : type === 'removed' ? '- removed' : type === 'changed' ? 'Δ modified' : ''}
+              </span>
+            </div>
+            <pre className={`mt-1.5 max-h-32 overflow-auto rounded border p-2 font-mono text-[11px] leading-relaxed [scrollbar-gutter:stable] ${toneClass}`}>
               {value}
             </pre>
           </li>
@@ -171,9 +194,9 @@ export function DiffPanel({ run, onClose }: DiffPanelProps) {
 
             {diff && (
               <div className="mt-2 min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]" data-testid="diff-results">
-                <DiffSection title="Added" items={added} />
-                <DiffSection title="Removed" items={removed} />
-                <DiffSection title="Changed" items={changed} />
+                <DiffSection title="Added" items={added} type="added" />
+                <DiffSection title="Removed" items={removed} type="removed" />
+                <DiffSection title="Changed" items={changed} type="changed" />
                 {added.length === 0 && removed.length === 0 && changed.length === 0 && (
                   <p className="mt-4 text-center text-sm text-[var(--text-dim)]">No state changes between these checkpoints.</p>
                 )}

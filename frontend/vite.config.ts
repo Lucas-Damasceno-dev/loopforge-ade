@@ -32,5 +32,16 @@ export default defineConfig({
       '/health': { target: process.env.VITE_API_TARGET ?? 'http://127.0.0.1:8787', changeOrigin: false },
     },
   },
-  build: { outDir: 'dist' },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('@xyflow')) return 'xyflow'
+          if (id.includes('@tanstack')) return 'query'
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/zustand/')) return 'vendor-core'
+        },
+      },
+    },
+  },
 })

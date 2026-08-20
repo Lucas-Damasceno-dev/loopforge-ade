@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RunsWorkspace } from '../features/runs/RunsWorkspace'
 import { ConsolePanel } from '../features/console/ConsolePanel'
@@ -8,14 +8,6 @@ import { HitlGateBanner } from '../features/hitl/HitlGateBanner'
 import { TimelineBar } from '../features/timeline/TimelineBar'
 import { BudgetPill } from '../features/costs/BudgetPill'
 import { useBudgetOverrideStore } from '../features/costs/budgetOverrideStore'
-import { McpPlayground } from '../features/mcp/McpPlayground'
-import { TrajectoriesPanel } from '../features/trajectories/TrajectoriesPanel'
-import { EvalsPanel } from '../features/evals/EvalsPanel'
-import { ArtifactsPanel } from '../features/artifacts/ArtifactsPanel'
-import { TerminalPanel } from '../features/terminal/TerminalPanel'
-import { AstPanel } from '../features/ast/AstPanel'
-import { CoveragePanel } from '../features/coverage/CoveragePanel'
-import { DockerPanel } from '../features/docker/DockerPanel'
 import { ApiKeyGate } from '../features/auth/ApiKeyGate'
 import { ToastContainer } from '../shared/ui/ToastContainer'
 import { Drawer } from '../shared/ui/Drawer'
@@ -32,14 +24,24 @@ import type { ViewKey } from '../shared/lib/views'
 import { useWsStore } from '../stores/wsStore'
 import { useAuthStore } from '../stores/authStore'
 import { useRunsStore } from '../stores/runsStore'
-import { dispatchWsEvent } from '../stores/wsBridge'
 import { useCanvasStore } from '../stores/canvasStore'
 import { useConsoleStore } from '../stores/consoleStore'
-import { useViewStore } from '../stores/viewStore'
+import { dispatchWsEvent } from '../stores/wsBridge'
 import { usePipelinesStore } from '../stores/pipelinesStore'
 import { useEditorStore } from '../features/pipelines/editorStore'
+import { useViewStore } from '../stores/viewStore'
 import type { Pipeline, ValidateResult } from '../shared/lib/types'
 import { shortId } from '../features/trajectories/shortId'
+
+// Code-splitting de painéis secundários (Fase 1: Lazy loading)
+const McpPlayground = lazy(() => import('../features/mcp/McpPlayground').then((m) => ({ default: m.McpPlayground })))
+const TrajectoriesPanel = lazy(() => import('../features/trajectories/TrajectoriesPanel').then((m) => ({ default: m.TrajectoriesPanel })))
+const EvalsPanel = lazy(() => import('../features/evals/EvalsPanel').then((m) => ({ default: m.EvalsPanel })))
+const ArtifactsPanel = lazy(() => import('../features/artifacts/ArtifactsPanel').then((m) => ({ default: m.ArtifactsPanel })))
+const TerminalPanel = lazy(() => import('../features/terminal/TerminalPanel').then((m) => ({ default: m.TerminalPanel })))
+const AstPanel = lazy(() => import('../features/ast/AstPanel').then((m) => ({ default: m.AstPanel })))
+const CoveragePanel = lazy(() => import('../features/coverage/CoveragePanel').then((m) => ({ default: m.CoveragePanel })))
+const DockerPanel = lazy(() => import('../features/docker/DockerPanel').then((m) => ({ default: m.DockerPanel })))
 
 const queryClient = new QueryClient()
 
@@ -372,6 +374,44 @@ export function App() {
                     </button>
                   </span>
                 )}
+                {/* Workspace presets (<1440px): troca rápida entre layouts */}
+                <div
+                  className="hidden md:flex items-center rounded-lg border border-[var(--border)] bg-[var(--bg-elev)]/80 p-0.5 backdrop-blur-xs"
+                  role="group"
+                  aria-label="Workspace layout presets"
+                >
+                  <button
+                    type="button"
+                    title="Default view — balanced layout"
+                    onClick={() => {
+                      if (fullscreen) toggleFullscreen()
+                      setInspectorOpen(false)
+                    }}
+                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                      !fullscreen && !inspectorOpen
+                        ? 'bg-[var(--bg-elev-2)] text-[var(--text)] shadow-[var(--shadow-xs)]'
+                        : 'text-[var(--text-dim)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    Standard
+                  </button>
+                  <button
+                    type="button"
+                    title="Debug view — with Inspector"
+                    onClick={() => {
+                      if (fullscreen) toggleFullscreen()
+                      setInspectorOpen(true)
+                    }}
+                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                      !fullscreen && inspectorOpen
+                        ? 'bg-[var(--bg-elev-2)] text-[var(--text)] shadow-[var(--shadow-xs)]'
+                        : 'text-[var(--text-dim)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    Debug
+                  </button>
+                </div>
+
                 {/* Inspetor de run (T5): painel direito colapsável com detalhes
                     + custo da run ativa. Toggle; some junto no Focus mode. */}
                 <Button
@@ -432,24 +472,27 @@ export function App() {
         <InspectDrawer />
         {/* Drawer HITL (portal p/ body) — complementar: abre com nó paused. */}
         <HitlDrawer />
-        {/* Trajetórias (Fase C): fork/export/import/timeline por run. */}
-        <TrajectoriesPanel open={drawerOpen('trajectories')} onClose={handleDrawerClose} />
-        {/* Artefatos e arquivos gerados pela IA no workspace da run ativa. */}
-        <ArtifactsPanel open={drawerOpen('artifacts')} onClose={handleDrawerClose} runId={activeRunId} />
-        {/* Terminal interativo web para execução de comandos no workspace da run. */}
-        <TerminalPanel open={drawerOpen('terminal')} onClose={handleDrawerClose} runId={activeRunId} />
-        {/* Visualizador de AST e mapa de dependências de código. */}
-        <AstPanel open={drawerOpen('ast')} onClose={handleDrawerClose} runId={activeRunId} />
-        {/* Relatório e métricas de cobertura de código de testes. */}
-        <CoveragePanel open={drawerOpen('coverage')} onClose={handleDrawerClose} runId={activeRunId} />
-        {/* Exportador e gerador de ambientes Docker e devcontainer. */}
-        <DockerPanel open={drawerOpen('docker')} onClose={handleDrawerClose} runId={activeRunId} />
-        {/* Playground MCP (feature #5, V1 parcial) — drawer aberto pelo rail. */}
-        <Drawer open={drawerOpen('mcp')} title="MCP Playground" onClose={handleDrawerClose}>
-          <McpPlayground />
-        </Drawer>
-        {/* Evals (5º pilar BLUEPRINT): resumo de runs/benchmarks + leaderboard. */}
-        <EvalsPanel open={drawerOpen('evals')} onClose={handleDrawerClose} />
+        {/* Drawers secundários carregados sob demanda via React.lazy */}
+        <Suspense fallback={null}>
+          {/* Trajetórias (Fase C): fork/export/import/timeline por run. */}
+          <TrajectoriesPanel open={drawerOpen('trajectories')} onClose={handleDrawerClose} />
+          {/* Artefatos e arquivos gerados pela IA no workspace da run ativa. */}
+          <ArtifactsPanel open={drawerOpen('artifacts')} onClose={handleDrawerClose} runId={activeRunId} />
+          {/* Terminal interativo web para execução de comandos no workspace da run. */}
+          <TerminalPanel open={drawerOpen('terminal')} onClose={handleDrawerClose} runId={activeRunId} />
+          {/* Visualizador de AST e mapa de dependências de código. */}
+          <AstPanel open={drawerOpen('ast')} onClose={handleDrawerClose} runId={activeRunId} />
+          {/* Relatório e métricas de cobertura de código de testes. */}
+          <CoveragePanel open={drawerOpen('coverage')} onClose={handleDrawerClose} runId={activeRunId} />
+          {/* Exportador e gerador de ambientes Docker e devcontainer. */}
+          <DockerPanel open={drawerOpen('docker')} onClose={handleDrawerClose} runId={activeRunId} />
+          {/* Playground MCP (feature #5, V1 parcial) — drawer aberto pelo rail. */}
+          <Drawer open={drawerOpen('mcp')} title="MCP Playground" onClose={handleDrawerClose}>
+            <McpPlayground />
+          </Drawer>
+          {/* Evals (5º pilar BLUEPRINT): resumo de runs/benchmarks + leaderboard. */}
+          <EvalsPanel open={drawerOpen('evals')} onClose={handleDrawerClose} />
+        </Suspense>
         {/* Gate de API key (B2/M-20): overlay em 401/sem key; dispensável p/ demo. */}
         <ApiKeyGate />
         {/* Notificações flutuantes globais (toasts). */}

@@ -76,13 +76,44 @@ export function TimelineBar({ runId }: { runId?: string }) {
 
   return (
     <div data-testid="timeline-bar" className="relative h-0">
-      <div className="absolute bottom-2 left-1/2 z-20 flex w-[28rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elev)]/95 px-3.5 py-1.5 shadow-lg backdrop-blur-md">
+      <div className="absolute bottom-2 left-1/2 z-20 flex w-[32rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elev)]/95 px-3 py-1.5 shadow-lg backdrop-blur-md">
         {/* Emoji → dot de estado (auditoria de design): sem ícone equivalente
             em icons.tsx; cor de estado comunica o modo — err = live, accent = inspeção. */}
         <span className="flex items-center gap-1.5 whitespace-nowrap font-mono text-xs text-[var(--text-dim)]">
           <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${inspecting ? 'bg-[var(--accent)]' : 'bg-[var(--err)]'}`} />
           {inspecting ? 'Inspection — ' : 'Live — '}step {current}/{stepCount}
         </span>
+
+        {/* Step replay controls */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Previous step"
+            title="Step backward (time-travel)"
+            disabled={current <= 0}
+            onClick={() => {
+              const prev = Math.max(0, current - 1)
+              setGhostToStep(prev === stepCount ? null : prev)
+            }}
+            className="flex h-6 w-6 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-elev-2)] text-xs font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg-elev)] hover:text-white disabled:pointer-events-none disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            aria-label="Next step"
+            title="Step forward (time-travel)"
+            disabled={current >= stepCount}
+            onClick={() => {
+              const next = current + 1
+              setGhostToStep(next >= stepCount ? null : next)
+            }}
+            className="flex h-6 w-6 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-elev-2)] text-xs font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg-elev)] hover:text-white disabled:pointer-events-none disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
+
         <input
           type="range"
           min={0}
